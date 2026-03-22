@@ -1,0 +1,20 @@
+# LLM配置
+provider: "openai"  # anthropic, openai, mock
+
+# API配置
+api_key: ""  # 从环境变量读取，或在此设置
+base_url: ""  # 可选，自定义API地址
+
+# 模型配置
+# OpenAI模型示例: "gpt-4", "gpt-3.5-turbo", "gpt-4-turbo-preview"
+# Anthropic模型示例: "claude-sonnet-4-20250514", "claude-3-opus-20240229"
+model_name: "qwen3-max"
+temperature: 0.7
+top_p: 0.9
+max_tokens: 2000
+
+# 重试配置
+timeout: 60
+max_retries: 3
+retry_delay: 1.0
+

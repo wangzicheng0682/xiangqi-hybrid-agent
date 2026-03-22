@@ -1,0 +1,121 @@
+.chess-board-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.chess-board {
+  position: relative;
+  background: #f0d9b5;
+  border: 3px solid #8b4513;
+  border-radius: 4px;
+  padding: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.board-grid {
+  display: grid;
+  grid-template-columns: auto repeat(9, 1fr) auto;
+  grid-template-rows: auto repeat(10, 1fr) auto;
+  gap: 0;
+  width: 540px;
+  height: 600px;
+}
+
+.square {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  border: 1px solid #8b4513;
+  background: #f0d9b5;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.square:hover {
+  background: #e8d5b7;
+}
+
+.square.selected {
+  background: #ffeb3b;
+  box-shadow: inset 0 0 10px rgba(255, 235, 59, 0.5);
+}
+
+.square.legal-target {
+  background: #c8e6c9;
+  cursor: pointer;
+}
+
+.square.legal-target::before {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(76, 175, 80, 0.5);
+}
+
+.piece {
+  font-size: 36px;
+  font-weight: bold;
+  user-select: none;
+  z-index: 10;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.piece.red {
+  color: #d32f2f;
+}
+
+.piece.black {
+  color: #212121;
+}
+
+.file-label,
+.rank-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: bold;
+  color: #5d4037;
+  user-select: none;
+}
+
+.file-labels {
+  display: grid;
+  grid-template-columns: auto repeat(9, 1fr) auto;
+  gap: 0;
+  height: 25px;
+}
+
+.river-mark {
+  position: absolute;
+  font-size: 12px;
+  color: #5d4037;
+  font-weight: bold;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .board-grid {
+    width: 360px;
+    height: 400px;
+  }
+
+  .square {
+    width: 40px;
+    height: 40px;
+  }
+
+  .piece {
+    font-size: 24px;
+  }
+}
+

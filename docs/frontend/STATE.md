@@ -1,0 +1,109 @@
+# 前端开发状态
+
+> 记录前端开发的当前进度、最近更新、待办事项。
+
+---
+
+## 📊 模块进度
+
+| 模块 | 进度 | 状态 | 说明 |
+|------|------|------|------|
+| 棋盘组件 | 100% | ✅ 完成 | ChessBoard.tsx |
+| 引擎评分图 | 100% | ✅ 完成 | EngineChart.tsx |
+| 深度分析面板 | 100% | ✅ 完成 | DeepAnalysisPanel.tsx |
+| 局面分析面板 | 100% | ✅ 完成 | PositionAnalysisPanel.tsx |
+| 战术标签面板 | 100% | ✅ 完成 | TacticalTagsPanel.tsx |
+| 复盘功能 | 100% | ✅ 完成 | ReplayPanel.tsx |
+| 状态管理 | 100% | ✅ 完成 | useGameStore.ts |
+| 布局动画 | 100% | ✅ 完成 | CSS Grid + Apple Spring |
+| 新组件 | 100% | ✅ 完成 | SynthesisPanel, ExpertCard, AgentDebutPanel, BottomTerminalPanel |
+
+---
+
+## 最近更新
+
+### 2026-03-22 - 布局重构：声明式响应式 Grid + 引擎窗口填充
+
+**核心变更**：
+- 外层 Flex → CSS Grid，`gridTemplateColumns: 240px 1fr 20vw→35vw`
+- 棋盘动画：`scale(0.75) + x(-120) + y(-80)`，统一 Apple Spring (`stiffness: 260, damping: 26`)
+- 引擎窗口：`position: absolute`，`left: 16, right: 16, bottom: 16`，`top` 动态跟随棋盘底部
+- 移除 ResizeObserver/getBoundingClientRect/boardRef 等手动坐标计算
+- 移除 `ChessBoard.onWidthChange` prop
+- 新增文档：`ENGINE_CHART_DEBUG.md`、`FRONTEND_COMPLETE.md`
+
+### 2026-03-21 - 组件扩充
+
+- 新增 EngineChart.tsx（引擎评分折线图）
+- 新增 SynthesisPanel.tsx（综合面板）
+- 新增 ExpertCard.tsx（专家卡片）
+- 新增 AgentDebutPanel.tsx（Agent登场动画）
+- 新增 BottomTerminalPanel.tsx（底部终端面板）
+
+### 2026-03-19 - 前端文档体系建立
+
+- 新建 `docs/frontend/` 目录
+- 建立前端宪法 `FRONTEND_DNA.md`
+- 建立接口契约 `API_CONTRACT.md`
+- 建立组件规范 `COMPONENT_GUIDE.md`
+- 建立状态管理规范 `STATE_MANAGEMENT.md`
+- 建立 AI Coding 指南 `AI_CODING_GUIDE.md`
+
+---
+
+## 布局架构
+
+```
+初始状态：                                    分析模式：
+┌─────────┬──────────────────────────┬────────┐  ┌─────────┬──────────────────────┬──────────┐
+│ 左侧栏   │      棋盘居中              │ 右侧栏  │  │ 左侧栏   │ 棋盘←──────────      │ 右侧栏    │
+│ 16.6vw  │                          │ 16.6vw │  │         │  ↑缩小靠左上         │ 扩张到    │
+│         │                          │        │  │         │ 引擎窗口填满剩余空间   │ 25vw     │
+└─────────┴──────────────────────────┴────────┘  └─────────┴──────────────────────┴──────────┘
+```
+
+- Grid 第1列：左侧栏固定 240px
+- Grid 第2列：中央区域（棋盘 + 引擎图）
+- Grid 第3列：右侧栏 `20vw → 35vw`，CSS transition 平滑动画
+- 棋盘收缩动画：`scale(0.75) + x(-120) + y(-80)`
+- 引擎窗口：`position: absolute`，跟随棋盘底部位置
+
+---
+
+## 待办事项
+
+### 高优先级
+
+- [ ] 演示界面优化
+- [ ] 移动端适配
+
+### 中优先级
+
+- [ ] 动画效果增强
+- [ ] 走法提示优化
+
+### 低优先级
+
+- [ ] 主题切换功能
+- [ ] 历史对局收藏
+
+---
+
+## 已知问题
+
+- 无
+
+---
+
+## 对接后端注意事项
+
+### 当前后端端口
+- API 服务: `http://127.0.0.1:8002`
+
+### 前端 API 调用层
+- 所有后端调用通过 `src/services/api.ts`
+- 不要直接在后端代码中调用 API
+
+---
+
+**最后更新**: 2026-03-22

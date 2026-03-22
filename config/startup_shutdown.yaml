@@ -1,0 +1,483 @@
+# AI 全栈开发开机/关机流程配置
+
+## 版本: v1.0
+## 创建日期: 2026-03-08
+## 适用项目: 象棋AI混合代理教学与对弈系统
+
+---
+
+## 一、开机流程配置
+
+### 1.1 开机流程概述
+
+开机流程定义了每次AI开发会话开始时必须执行的标准化步骤，确保AI代理能够：
+- 正确理解项目当前状态
+- 获取必要的上下文信息
+- 确认开发环境和工具可用
+- 明确当前任务和目标
+
+### 1.2 开机流程步骤
+
+```yaml
+startup_sequence:
+  name: "AI全栈开发开机流程"
+  version: "1.0"
+  
+  steps:
+    # Step 1: 环境检查
+    - id: "env_check"
+      name: "环境检查"
+      description: "验证开发环境和依赖是否就绪"
+      required: true
+      actions:
+        - type: "command"
+          command: "python --version"
+          expected_output_contains: "3.10"
+          on_failure: "提示用户安装Python 3.10+"
+        - type: "command"
+          command: "pip list | findstr gradio"
+          expected_output_contains: "gradio"
+          on_failure: "提示用户运行 pip install -r requirements.txt"
+        - type: "file_check"
+          path: "data/engine/pikafish-avx2.exe"
+          on_failure: "提示用户下载Pikafish引擎"
+      success_criteria:
+        - Python版本 >= 3.10
+        - 核心依赖已安装
+        - 引擎文件存在
+
+    # Step 2: 读取状态文件
+    - id: "read_status"
+      name: "读取状态文件"
+      description: "读取项目当前状态和进度"
+      required: true
+      actions:
+        - type: "read_file"
+          path: "docs/ITERATION_LOG.md"
+          purpose: "了解当前Sprint进度"
+          extract_info:
+            - "当前Sprint编号"
+            - "当前任务状态"
+            - "已完成交付物"
+        - type: "read_file"
+          path: "docs/TRACEABILITY.md"
+          purpose: "了解功能追溯关系"
+          extract_info:
+            - "已完成功能列表"
+            - "待完成功能"
+        - type: "read_file"
+          path: "docs/COMPETITION_PLAN.md"
+          purpose: "了解参赛规划"
+          extract_info:
+            - "当前阶段"
+            - "截止日期"
+            - "优先级任务"
+        - type: "read_file"
+          path: "CLAUDE.md"
+          purpose: "了解开发规范"
+          extract_info:
+            - "门禁要求"
+            - "当前Sprint任务"
+            - "验收标准"
+      success_criteria:
+        - 所有状态文件存在且可读
+        - 当前Sprint已确定
+        - 任务优先级已明确
+
+    # Step 3: 确认当前任务
+    - id: "confirm_task"
+      name: "确认当前任务"
+      description: "根据状态文件确定当前应执行的任务"
+      required: true
+      actions:
+        - type: "determine"
+          logic: |
+            1. 从ITERATION_LOG获取当前Sprint
+            2. 从CLAUDE.md获取Sprint任务列表
+            3. 对比TRACEABILITY确认已完成项
+            4. 确定下一个待完成任务
+        - type: "display"
+          content: |
+            ## 当前状态
+            - **Sprint**: {current_sprint}
+            - **阶段**: {current_phase}
+            - **当前任务**: {current_task}
+            - **优先级**: {priority}
+      success_criteria:
+        - 当前任务已明确
+        - 任务依赖已确认
+
+    # Step 4: 运行测试验证
+    - id: "run_tests"
+      name: "运行测试验证"
+      description: "验证当前代码状态"
+      required: true
+      actions:
+        - type: "command"
+          command: "pytest -q"
+          expected_output_contains: "passed"
+          on_failure: "显示失败测试，询问是否修复"
+        - type: "command"
+          command: "python -c \"import core; print('Core modules OK')\""
+          expected_output_contains: "OK"
+          on_failure: "提示检查模块导入"
+      success_criteria:
+        - pytest全部通过
+        - 核心模块可导入
+
+    # Step 5: 启动服务验证
+    - id: "start_services"
+      name: "启动服务验证"
+      description: "验证核心服务是否可启动"
+      required: false
+      actions:
+        - type: "command"
+          command: "python apps/web-gradio/app.py"
+          mode: "background"
+          wait_seconds: 5
+          expected_output_contains: "Running on local URL"
+          on_failure: "显示错误日志"
+        - type: "check_port"
+          port: 7861
+          on_failure: "提示端口被占用，执行清理"
+      success_criteria:
+        - Gradio服务启动成功
+        - 端口可访问
+
+    # Step 6: 生成开机报告
+    - id: "generate_report"
+      name: "生成开机报告"
+      description: "汇总开机状态并展示给用户"
+      required: true
+      actions:
+        - type: "display"
+          content: |
+            ## ✅ AI全栈开发环境开机完成
+            
+            ### 环境状态
+            | 项目 | 状态 |
+            |------|------|
+            | Python版本 | ✅ {python_version} |
+            | 依赖包 | ✅ 已安装 |
+            | 引擎文件 | ✅ 已就绪 |
+            | 测试状态 | ✅ {test_count} passed |
+            
+            ### 当前任务
+            - **Sprint**: {current_sprint}
+            - **任务**: {current_task}
+            - **优先级**: {priority}
+            
+            ### 快速命令
+            ```bash
+            # 启动前端
+            python apps/web-gradio/app.py
+            
+            # 运行测试
+            pytest -q
+            
+            # 查看当前Sprint文档
+            # 参考: docs/ITERATION_LOG.md
+            ```
+            
+            ### 下一步
+            请告诉我您要执行的任务，我将开始开发。
+      success_criteria:
+        - 报告已生成
+        - 用户已确认
+
+  rollback:
+    on_step_failure:
+      env_check: "提示用户检查环境配置"
+      read_status: "提示用户检查文档完整性"
+      confirm_task: "提示用户确认任务"
+      run_tests: "询问是否先修复测试"
+      start_services: "询问是否继续（服务非必须）"
+```
+
+---
+
+## 二、关机流程配置
+
+### 2.1 关机流程概述
+
+关机流程定义了每次AI开发会话结束时必须执行的标准化步骤，确保：
+- 所有变更已保存
+- 文档已更新
+- 状态已记录
+- 下次会话可无缝继续
+
+### 2.2 关机流程步骤
+
+```yaml
+shutdown_sequence:
+  name: "AI全栈开发关机流程"
+  version: "1.0"
+  
+  steps:
+    # Step 1: 检查未保存变更
+    - id: "check_changes"
+      name: "检查未保存变更"
+      description: "确认所有代码变更已保存"
+      required: true
+      actions:
+        - type: "command"
+          command: "git status --porcelain"
+          expected_output_pattern: ".*"
+          on_non_empty: "列出未保存文件，询问是否保存"
+        - type: "display"
+          content: |
+            ## 未保存变更
+            {changed_files}
+            
+            是否保存这些变更？
+      success_criteria:
+        - 用户已确认变更处理方式
+
+    # Step 2: 运行测试验证
+    - id: "run_final_tests"
+      name: "运行最终测试"
+      description: "确保所有测试通过后再关机"
+      required: true
+      actions:
+        - type: "command"
+          command: "pytest -q"
+          expected_output_contains: "passed"
+          on_failure: "显示失败测试，阻止关机"
+      success_criteria:
+        - pytest全部通过
+        - 无测试失败
+
+    # Step 3: 更新迭代日志
+    - id: "update_iteration_log"
+      name: "更新迭代日志"
+      description: "记录本次会话完成的工作"
+      required: true
+      actions:
+        - type: "update_file"
+          path: "docs/ITERATION_LOG.md"
+          template: |
+            ## 会话记录 {session_id}
+            **Date**: {current_date}
+            **Duration**: {session_duration}
+            
+            ### 完成任务
+            1. {task_1}
+            2. {task_2}
+            
+            ### 代码变更
+            - {file_1}: {change_description_1}
+            - {file_2}: {change_description_2}
+            
+            ### 测试状态
+            - pytest: ✅ {test_count} passed
+            
+            ### 下次继续
+            - 待完成任务: {next_task}
+            - 注意事项: {notes}
+            
+            ---
+        - type: "confirm"
+          message: "已更新ITERATION_LOG.md，请确认内容正确"
+      success_criteria:
+        - ITERATION_LOG已更新
+        - 用户已确认
+
+    # Step 4: 更新追溯矩阵
+    - id: "update_traceability"
+      name: "更新追溯矩阵"
+      description: "记录功能与代码的追溯关系"
+      required: true
+      actions:
+        - type: "update_file"
+          path: "docs/TRACEABILITY.md"
+          template: |
+            | Feature | PRD Ref | TECH Ref | Code | Tests | Evidence | Status |
+            |---------|---------|----------|------|-------|----------|--------|
+            | {feature_name} | {prd_ref} | {tech_ref} | {code_path} | {test_command} | {evidence} | {status} |
+        - type: "confirm"
+          message: "已更新TRACEABILITY.md，请确认追溯记录正确"
+      success_criteria:
+        - TRACEABILITY已更新
+        - 用户已确认
+
+    # Step 5: 生成关机报告
+    - id: "generate_shutdown_report"
+      name: "生成关机报告"
+      description: "汇总本次会话成果"
+      required: true
+      actions:
+        - type: "display"
+          content: |
+            ## ✅ AI全栈开发会话结束
+            
+            ### 会话摘要
+            | 项目 | 内容 |
+            |------|------|
+            | 会话时长 | {session_duration} |
+            | 完成任务 | {completed_tasks} |
+            | 代码变更 | {changed_files_count} 文件 |
+            | 测试状态 | ✅ {test_count} passed |
+            
+            ### 已更新文档
+            - ✅ docs/ITERATION_LOG.md
+            - ✅ docs/TRACEABILITY.md
+            
+            ### 下次会话提示
+            下次开机时，AI将自动读取以下文件恢复状态：
+            - `docs/ITERATION_LOG.md` - 当前进度
+            - `docs/TRACEABILITY.md` - 功能追溯
+            - `CLAUDE.md` - 开发规范
+            
+            ### 待完成任务
+            1. {next_task_1}
+            2. {next_task_2}
+            
+            ---
+            **会话已安全结束，感谢使用！**
+      success_criteria:
+        - 报告已生成
+        - 用户已确认
+
+    # Step 6: 清理临时资源
+    - id: "cleanup"
+      name: "清理临时资源"
+      description: "释放临时文件和进程"
+      required: false
+      actions:
+        - type: "command"
+          command: "taskkill /IM python.exe /F 2>nul || echo 'No Python processes to kill'"
+          on_failure: "忽略"
+        - type: "command"
+          command: "del /Q %TEMP%\\*.tmp 2>nul || echo 'Temp files cleaned'"
+          on_failure: "忽略"
+      success_criteria:
+        - 临时资源已清理
+
+  rollback:
+    on_step_failure:
+      check_changes: "强制保存或放弃变更"
+      run_final_tests: "阻止关机，要求修复测试"
+      update_iteration_log: "阻止关机，要求手动更新"
+      update_traceability: "阻止关机，要求手动更新"
+```
+
+---
+
+## 三、门禁检查配置
+
+### 3.1 门禁规则
+
+```yaml
+gates:
+  pre_commit:
+    name: "提交前门禁"
+    checks:
+      - id: "pytest_pass"
+        name: "测试通过"
+        command: "pytest -q"
+        required: true
+        failure_action: "block"
+        
+      - id: "docs_updated"
+        name: "文档已更新"
+        files:
+          - "docs/ITERATION_LOG.md"
+          - "docs/TRACEABILITY.md"
+        required: true
+        failure_action: "block"
+        
+      - id: "no_debug_code"
+        name: "无调试代码"
+        patterns:
+          - "print\\("
+          - "console\\.log"
+          - "TODO:"
+          - "FIXME:"
+        required: false
+        failure_action: "warn"
+
+  pre_shutdown:
+    name: "关机前门禁"
+    checks:
+      - id: "all_tests_pass"
+        name: "所有测试通过"
+        command: "pytest -q"
+        required: true
+        failure_action: "block"
+        
+      - id: "iteration_log_updated"
+        name: "迭代日志已更新"
+        file: "docs/ITERATION_LOG.md"
+        check_modified: true
+        required: true
+        failure_action: "block"
+        
+      - id: "traceability_updated"
+        name: "追溯矩阵已更新"
+        file: "docs/TRACEABILITY.md"
+        check_modified: true
+        required: true
+        failure_action: "block"
+```
+
+---
+
+## 四、异常处理配置
+
+### 4.1 异常类型与处理
+
+```yaml
+exceptions:
+  - type: "environment_error"
+    description: "环境配置错误"
+    handling:
+      - "显示详细错误信息"
+      - "提供修复建议"
+      - "生成Human Task Card"
+    recovery:
+      - "用户修复后重试"
+      - "跳过非必要步骤"
+
+  - type: "test_failure"
+    description: "测试失败"
+    handling:
+      - "显示失败测试详情"
+      - "询问是否修复"
+    recovery:
+      - "修复后重新运行测试"
+      - "标记为待修复"
+
+  - type: "document_missing"
+    description: "文档缺失"
+    handling:
+      - "显示缺失文档列表"
+      - "提供模板"
+    recovery:
+      - "用户创建文档"
+      - "AI生成文档模板"
+
+  - type: "service_unavailable"
+    description: "服务不可用"
+    handling:
+      - "显示服务状态"
+      - "提供降级方案"
+    recovery:
+      - "使用Mock替代"
+      - "跳过服务检查"
+```
+
+---
+
+## 五、配置文件位置
+
+| 文件 | 路径 | 用途 |
+|------|------|------|
+| 开关机配置 | `config/startup_shutdown.yaml` | 本文件 |
+| 开机脚本 | `scripts/startup.py` | 开机自动化脚本 |
+| 关机脚本 | `scripts/shutdown.py` | 关机自动化脚本 |
+| 状态检查 | `scripts/check_status.py` | 状态检查脚本 |
+
+---
+
+**文档版本**: v1.0  
+**最后更新**: 2026-03-08

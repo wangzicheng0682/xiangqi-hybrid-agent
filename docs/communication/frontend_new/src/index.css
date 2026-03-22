@@ -1,0 +1,456 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局样式 - 明亮温暖米色主题 v4 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #F5EDE4;
+  color: #4A4A4A;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* 标题使用中文字体 */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Noto Serif SC', 'STZhongsong', 'SimSun', serif;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #D4AF37 0%, #B8860B 100%);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #E5C158 0%, #D4AF37 100%);
+}
+
+/* 动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(212, 175, 55, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.8);
+  }
+}
+
+/* 棋子悬停效果 */
+.chess-piece:hover {
+  transform: scale(1.08) translateY(-2px);
+}
+
+.chess-piece:active {
+  transform: scale(0.95);
+}
+
+/* 合法走法提示动画 */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(34, 197, 94, 0.9);
+    transform: scale(1.15);
+  }
+}
+
+.legal-move-indicator {
+  animation: pulse-glow 1.2s ease-in-out infinite;
+}
+
+/* 棋子落子动画 */
+@keyframes piece-land {
+  0% {
+    transform: scale(1.2);
+  }
+  50% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.piece-land-animation {
+  animation: piece-land 0.2s ease-out;
+}
+
+/* 按钮通用样式 */
+button {
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  filter: brightness(1.1);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* 链接样式 */
+a {
+  color: #D4AF37;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #E5C158;
+}
+
+/* 选中文本样式 */
+::selection {
+  background: rgba(212, 175, 55, 0.3);
+  color: #fff;
+}
+
+/* 代码字体 */
+code, pre {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+/* 工具提示 */
+[title] {
+  position: relative;
+}
+
+/* 卡片阴影效果 */
+.card-shadow {
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* 玻璃态效果 */
+.glass-effect {
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 渐变文字 */
+.gradient-text {
+  background: linear-gradient(135deg, #D4AF37, #F5DEB3);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+  body {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 13px;
+  }
+}
+
+/* ========================================
+   Deep Analysis Timeline Styles
+   ======================================== */
+
+/* Timeline Container */
+.analysis-timeline {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Timeline Node */
+.timeline-node {
+  display: flex;
+  align-items: flex-start;
+  animation: fadeInUp 0.3s ease;
+}
+
+/* Vertical Line */
+.timeline-line {
+  width: 2px;
+  min-height: 16px;
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.3), rgba(212, 175, 55, 0.5));
+  margin-left: 5px;
+  flex-shrink: 0;
+}
+
+/* Timeline Dot */
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  border-radius: 50%;
+  margin-right: 10px;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.dot-thinking { background: #D4AF37; box-shadow: 0 0 6px #D4AF37; }
+.dot-tension { background: #fbbf24; box-shadow: 0 0 6px #fbbf24; }
+.dot-primary_contradiction { background: #D4AF37; box-shadow: 0 0 12px #D4AF37; }
+.dot-tool_call { background: #60a5fa; box-shadow: 0 0 6px #60a5fa; }
+.dot-tool_result { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+.dot-result { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+
+/* Timeline Content */
+.timeline-content {
+  flex: 1;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.timeline-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1a202c;
+}
+
+.timeline-text {
+  font-size: 11px;
+  color: #4a5568;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+/* Primary Contradiction Card - Full Width Golden */
+.primary-contradiction-card {
+  width: calc(100% + 20px);
+  margin-left: -10px;
+  padding: 12px 14px;
+  margin-top: 8px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.12));
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  animation: slideInFromTop 0.4s ease;
+}
+
+.contradiction-first-line {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fbbf24;
+  margin-bottom: 6px;
+}
+
+.contradiction-line {
+  font-size: 12px;
+  color: #2d3748;
+  line-height: 1.6;
+  margin: 3px 0;
+}
+
+/* Tool Result Content */
+.tool-result-content {
+  width: 100%;
+}
+
+.result-summary {
+  font-size: 11px;
+  color: #166534;
+  line-height: 1.4;
+}
+
+.expand-btn {
+  font-size: 10px;
+  color: #60a5fa;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  margin-top: 3px;
+}
+
+.expand-btn:hover {
+  text-decoration: underline;
+}
+
+.result-data {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  color: #4a5568;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  padding: 8px 0 8px 22px;
+  color: #4a5568;
+  font-size: 12px;
+}
+
+.typing-dots {
+  animation: pulse 1.5s infinite;
+}
+
+/* New Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   中国风装饰样式 v4
+   ======================================== */
+
+/* 全局背景装饰层 - 金色星光 */
+.global-decorations {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+/* 星光点 */
+.star-particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  background: radial-gradient(circle, rgba(212,175,55,0.8) 0%, transparent 70%);
+  border-radius: 50%;
+  animation: twinkle 3s ease-in-out infinite;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.2); }
+}
+
+/* 祥云线条 - 棋盘上方 */
+.cloud-decor-top {
+  position: absolute;
+  top: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 80px;
+  background: radial-gradient(ellipse at center, rgba(212,175,55,0.12) 0%, transparent 70%);
+  filter: blur(8px);
+  animation: floatCloud 8s ease-in-out infinite;
+}
+
+/* 祥云线条 - 棋盘下方 */
+.cloud-decor-bottom {
+  position: absolute;
+  bottom: 5%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60%;
+  height: 80px;
+  background: radial-gradient(ellipse at center, rgba(212,175,55,0.1) 0%, transparent 70%);
+  filter: blur(8px);
+  animation: floatCloud 8s ease-in-out infinite reverse;
+}
+
+@keyframes floatCloud {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(-10px); }
+}
+
+/* 水墨晕染效果 - 左侧 */
+.ink-spread-left {
+  position: absolute;
+  left: -50px;
+  top: 20%;
+  width: 150px;
+  height: 60%;
+  background: radial-gradient(ellipse at right, rgba(139,105,20,0.06) 0%, transparent 70%);
+  filter: blur(15px);
+}
+
+/* 水墨晕染效果 - 右侧 */
+.ink-spread-right {
+  position: absolute;
+  right: -50px;
+  top: 20%;
+  width: 150px;
+  height: 60%;
+  background: radial-gradient(ellipse at left, rgba(139,105,20,0.06) 0%, transparent 70%);
+  filter: blur(15px);
+}

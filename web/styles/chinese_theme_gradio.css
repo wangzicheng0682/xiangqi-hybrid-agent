@@ -1,0 +1,290 @@
+"""
+中国风CSS样式 - 直接注入到Gradio中
+
+用途：快速添加天天象棋级别的中国风UI
+"""
+
+CHINESE_THEME_CSS = """
+<style>
+/* ========================================
+   天天象棋级别 - 中国风主题
+   ======================================== */
+
+/* 1. 全局样式 - 专业中国风 */
+.gradio-container {
+    font-family: "楷体", "STKaiti", "KaiTi", serif !important;
+    background: #F5F5DC !important;
+}
+
+/* 标题样式 */
+.gradio-container h1 {
+    color: #C41E3A !important;
+    font-family: "楷体", "STKaiti", serif !important;
+    font-size: 32px;
+    text-align: center;
+    padding: 20px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    background: linear-gradient(135deg, #F5E6D3 0%, #E8E4D9 100%);
+    margin-bottom: 10px;
+    border-bottom: 3px solid #D4AF37;
+}
+
+/* 2. Tab标签 - 中国风标签 */
+.tab-nav {
+    background: linear-gradient(135deg, #C41E3A 0%, #E85A6C 100%);
+    border-radius: 8px 8px 0 0 !important;
+    overflow: hidden;
+}
+
+.tab-nav button {
+    background: transparent !important;
+    color: #FFFFFF !important;
+    font-size: 16px;
+    font-weight: bold;
+    border: 2px solid rgba(255,255,255,0.1);
+    padding: 12px 24px !important;
+    transition: all 0.3s ease;
+}
+
+.tab-nav button:hover {
+    background: rgba(255,255,255,0.1) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.tab-nav button.selected {
+    background: rgba(212,175,55,0.2) !important;
+    border-color: #FFFFFF !important;
+    transform: translateY(0);
+    box-shadow: 0 0 12px rgba(212,175,55,0.3);
+}
+
+/* 3. 棋盘容器 - 宣纸纹理 */
+.board-container {
+    background: radial-gradient(circle at 30% 20%, #F5F5DC 0%, #E8E4D9 100%);
+    border: 4px solid #B8860B !important;
+    border-radius: 8px;
+    box-shadow:
+        0 8px 32px rgba(0,0,0,0.2),
+        inset 0 1px 0 rgba(0,0,0,0.1);
+    padding: 20px;
+    position: relative;
+}
+
+/* 4. 控制面板 - 专业布局 */
+.control-panel {
+    background: linear-gradient(180deg, #F5F5DC 0%, #E8E4D9 100%);
+    border: 2px solid #B8860B !important;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+/* 5. 按钮样式 - 中国风按钮 */
+.primary-btn {
+    background: linear-gradient(135deg, #C41E3A 0%, #E85A6C 100%) !important;
+    color: #FFFFFF !important;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 16px;
+    font-family: "楷体", "STKaiti", serif !important;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 8px rgba(196, 30, 58, 0.3);
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(196, 30, 58, 0.4);
+}
+
+.primary-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 2px 4px rgba(196, 30, 58, 0.2);
+}
+
+.secondary-btn {
+    background: linear-gradient(135deg, #D4AF37 0%, #F4D03F 100%) !important;
+    color: #FFFFFF !important;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    font-size: 16px;
+    font-family: "楷体", "STKaiti", serif !important;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 8px rgba(212, 175, 55, 0.3);
+}
+
+.secondary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(212, 175, 55, 0.4);
+}
+
+/* 6. 分析面板 - 专业信息展示 */
+.analysis-panel {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #D4AF37;
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+}
+
+/* 评估显示 */
+.eval-display {
+    background: linear-gradient(90deg, #F5F5DC 0%, #E8E4D9 100%);
+    border: 2px solid #B8860B;
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 18px;
+    font-weight: bold;
+    color: #2C3E50;
+}
+
+/* 7. 输入框样式 - 中国风边框 */
+input[type="text"], textarea {
+    background: #FFFFFF;
+    border: 2px solid #B8860B;
+    border-radius: 6px;
+    padding: 10px 16px;
+    font-family: "楷体", "STKaiti", serif;
+    font-size: 16px;
+    transition: all 0.3s;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+}
+
+input[type="text"]:focus, textarea:focus {
+    border-color: #C41E3A !important;
+    box-shadow: 0 0 8px rgba(196, 64, 58, 0.1),
+                inset 0 1px 3px rgba(196, 64, 58, 0.2);
+}
+
+/* 8. 走棋记录样式 */
+.move-history {
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #D4AF37;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: "楷体", "STKaiti", serif;
+    font-size: 14px;
+    line-height: 1.8;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* 9. 评分条样式 */
+.score-bar {
+    height: 30px;
+    background: #E8E4D9;
+    border-radius: 15px;
+    overflow: hidden;
+    position: relative;
+}
+
+.score-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg,
+        #4CAF50 0%,
+        #FFC107 50%,
+        #4CAF50 50%,
+        #FFC107 100%
+    );
+    border-radius: 15px;
+    transition: width 0.5s ease-out;
+}
+
+/* 10. Toast通知 - 专业提示 */
+.toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+}
+
+.toast {
+    background: rgba(0, 0, 0, 0.9);
+    color: #FFFFFF;
+    padding: 16px 24px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: "楷体", "STKaiti", serif;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    animation: slide-in 0.3s ease-out;
+}
+
+@keyframes slide-in {
+    from {
+        transform: translateX(400px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast.success {
+    background: linear-gradient(135deg, #4CAF50, #45A049) !important;
+}
+
+.toast.error {
+    background: linear-gradient(135deg, #F44336, #D32F2F) !important;
+}
+
+.toast.warning {
+    background: linear-gradient(135deg, #FF9800, #FF5722) !important;
+}
+
+.toast.info {
+    background: linear-gradient(135deg, #2196F3, #0D47A1) !important;
+}
+
+/* 11. 加载动画 */
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #D4AF37;
+    border-top: 4px solid #C41E3A;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 12. 响应式设计 */
+@media (max-width: 768px) {
+    .control-panel {
+        width: 100%;
+        max-width: none !important;
+        padding: 12px;
+    }
+
+    .primary-btn, .secondary-btn {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 14px;
+    }
+
+    .eval-display {
+        font-size: 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    .primary-btn, .secondary-btn {
+        width: 100%;
+        padding: 10px 12px;
+        font-size: 12px;
+    }
+
+    .control-panel {
+        padding: 12px;
+    }
+}
+</style>
+"""

@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd:*)",
+      "Bash(netstat:*)",
+      "Bash(powershell:*)",
+      "Bash(curl:*)",
+      "Bash(find docs:*)",
+      "Bash(wc:*)",
+      "Bash(wmic process:*)",
+      "Bash(start:*)",
+      "Bash(timeout /t 2:*)",
+      "Bash(git checkout:*)",
+      "Bash(timeout //t 3:*)",
+      "Bash(tasklist:*)",
+      "Bash(pip install:*)",
+      "Bash(npm run:*)",
+      "Read(//c/Users/王子程/.claude/plans/**)"
+    ]
+  }
+}

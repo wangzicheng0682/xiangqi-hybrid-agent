@@ -1,0 +1,161 @@
+{
+  "timestamp": "2026-03-11T15:09:11.142685",
+  "total_samples": 450,
+  "bucket_results": [
+    {
+      "bucket_name": "phase_opening",
+      "bucket_type": "phase",
+      "sample_count": 50,
+      "probe_accuracy": 82.0,
+      "retrieval_accuracy": 92.0,
+      "mae": 6.1,
+      "confidence": 0.867,
+      "details": {
+        "score_std": 5.0,
+        "max_error": 22.8,
+        "min_error": 0.2
+      }
+    },
+    {
+      "bucket_name": "phase_middlegame",
+      "bucket_type": "phase",
+      "sample_count": 50,
+      "probe_accuracy": 68.0,
+      "retrieval_accuracy": 96.0,
+      "mae": 7.7,
+      "confidence": 0.814,
+      "details": {
+        "score_std": 6.3,
+        "max_error": 25.7,
+        "min_error": 0.4
+      }
+    },
+    {
+      "bucket_name": "phase_endgame",
+      "bucket_type": "phase",
+      "sample_count": 50,
+      "probe_accuracy": 86.0,
+      "retrieval_accuracy": 96.0,
+      "mae": 6.7,
+      "confidence": 0.892,
+      "details": {
+        "score_std": 4.6,
+        "max_error": 18.4,
+        "min_error": 0.3
+      }
+    },
+    {
+      "bucket_name": "advantage_red",
+      "bucket_type": "advantage",
+      "sample_count": 50,
+      "probe_accuracy": 74.0,
+      "retrieval_accuracy": 96.0,
+      "mae": 19.4,
+      "confidence": 0.768,
+      "details": {
+        "score_std": 17.5,
+        "max_error": 86.9,
+        "min_error": 0.0
+      }
+    },
+    {
+      "bucket_name": "advantage_balanced",
+      "bucket_type": "advantage",
+      "sample_count": 50,
+      "probe_accuracy": 82.0,
+      "retrieval_accuracy": 90.0,
+      "mae": 4.4,
+      "confidence": 0.872,
+      "details": {
+        "score_std": 2.9,
+        "max_error": 11.1,
+        "min_error": 0.0
+      }
+    },
+    {
+      "bucket_name": "advantage_black",
+      "bucket_type": "advantage",
+      "sample_count": 50,
+      "probe_accuracy": 84.0,
+      "retrieval_accuracy": 100.0,
+      "mae": 23.8,
+      "confidence": 0.793,
+      "details": {
+        "score_std": 19.1,
+        "max_error": 112.3,
+        "min_error": 3.0
+      }
+    },
+    {
+      "bucket_name": "style_aggressive",
+      "bucket_type": "style",
+      "sample_count": 50,
+      "probe_accuracy": 78.0,
+      "retrieval_accuracy": 94.0,
+      "mae": 4.8,
+      "confidence": 0.865,
+      "details": {
+        "score_std": 4.0,
+        "max_error": 17.8,
+        "min_error": 0.3
+      }
+    },
+    {
+      "bucket_name": "style_defensive",
+      "bucket_type": "style",
+      "sample_count": 50,
+      "probe_accuracy": 84.0,
+      "retrieval_accuracy": 94.0,
+      "mae": 3.5,
+      "confidence": 0.897,
+      "details": {
+        "score_std": 3.4,
+        "max_error": 17.4,
+        "min_error": 0.0
+      }
+    },
+    {
+      "bucket_name": "style_balanced",
+      "bucket_type": "style",
+      "sample_count": 50,
+      "probe_accuracy": 90.0,
+      "retrieval_accuracy": 94.0,
+      "mae": 5.3,
+      "confidence": 0.91,
+      "details": {
+        "score_std": 3.7,
+        "max_error": 15.2,
+        "min_error": 0.1
+      }
+    }
+  ],
+  "overall_stability": 0.659,
+  "variance_analysis": {
+    "probe_accuracy": {
+      "mean": 80.9,
+      "std": 6.3,
+      "min": 68.0,
+      "max": 90.0,
+      "range": 22.0
+    },
+    "retrieval_accuracy": {
+      "mean": 94.7,
+      "std": 2.7,
+      "min": 90.0,
+      "max": 100.0,
+      "range": 10.0
+    },
+    "mae": {
+      "mean": 9.1,
+      "std": 6.9,
+      "min": 3.5,
+      "max": 23.8,
+      "range": 20.3
+    }
+  },
+  "recommendations": [
+    "探针准确率波动较大(22.0%)，建议检查特定分桶的数据质量",
+    "MAE波动较大(20.3)，建议针对高分桶增强训练",
+    "以下分桶表现较弱：phase_opening, phase_middlegame, advantage_red, advantage_balanced, advantage_black, style_aggressive, style_defensive，建议增加训练样本"
+  ]
+}

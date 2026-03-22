@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-03-11T14:20:54.696211",
+  "model_epoch": 5,
+  "train_loss": 0.01106177129120763,
+  "val_loss": 0.01106611581137746,
+  "loss_ratio": 1.0003927508583803,
+  "mae": 7.703064290040544,
+  "retrieval_accuracy": 94.0,
+  "probe_accuracy": 93.30929487179486,
+  "verdicts": {
+    "loss_comparison": "✅ 正常，模型学到了通用模式",
+    "score_calibration": "✅ 可用",
+    "similarity_retrieval": "✅ Embedding 学到了局面结构",
+    "semantic_probe": "✅ 模型内部有棋理知识"
+  },
+  "overall": "✅ 候选语义骨干模型基本可用，可作为中间层组件"
+}

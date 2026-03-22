@@ -1,0 +1,350 @@
+{
+  "timestamp": "2026-03-11T15:12:23.036800",
+  "total_samples": 30,
+  "valid_count": 30,
+  "invalid_count": 0,
+  "valid_rate": 100.0,
+  "avg_confidence": 0.95,
+  "quality_metrics": {
+    "avg_phase_length": 25.766666666666666,
+    "avg_conflict_length": 21.833333333333332,
+    "avg_principle_length": 13.833333333333334,
+    "common_issues": {}
+  },
+  "recommendations": [
+    "阶段判断内容偏短，建议增加细节描述",
+    "核心矛盾描述偏短，建议增加原因分析"
+  ],
+  "explanations": [
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "r1bakab1r/9/1cn3nc1/p1p1p1p1p/9/9/P1P1P1P1P/1C2N1NC1/9/R1BAKAB1R w - - 10 10",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "2baka3/9/2R6/p8/4PP3/3p5/9/4r4/4A4/3AK4 b - - 40 40",
+      "phase_judgment": "中局阶段，子力活跃，战术机会增多。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于将帅安全，将帅安全受到威胁（重要）",
+      "move_effect": "此着具有战术目的，引擎推荐着法：a0a1",
+      "future_impact": "后续变化将显著影响局面走向，预计后续着法：a0a1 b0b1 c0c1",
+      "memorable_principle": "优先确保将帅安全，再考虑进攻",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnb1kabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/R3K3R w - - 0 1",
+      "phase_judgment": "中局阶段，子力活跃，战术机会增多。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于中路控制权的争夺，双方争夺中路控制权",
+      "move_effect": "此着改善局面结构，引擎推荐着法：a0a1",
+      "future_impact": "后续变化可能改变局部形势",
+      "memorable_principle": "控制中路要点，限制对方子力活动空间",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "4k4/9/9/9/9/9/9/9/9/4K4 w - - 0 1",
+      "phase_judgment": "残局阶段，子力简化，精确计算更为重要。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "4k4/9/9/9/4R4/9/9/9/9/4K4 w - - 0 1",
+      "phase_judgment": "残局阶段，子力简化，精确计算更为重要。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于将帅安全，将帅安全受到威胁（重要）",
+      "move_effect": "此着具有战术目的，引擎推荐着法：a0a1",
+      "future_impact": "后续变化将显著影响局面走向，预计后续着法：a0a1 b0b1 c0c1",
+      "memorable_principle": "优先确保将帅安全，再考虑进攻",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "r3k4/9/9/9/9/9/9/9/4RR3/4K4 w - - 0 1",
+      "phase_judgment": "残局阶段，子力简化，精确计算更为重要。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于将帅安全，将帅安全受到威胁（紧急）",
+      "move_effect": "此着具有战术目的，引擎推荐着法：a0a1",
+      "future_impact": "后续变化将显著影响局面走向，预计后续着法：a0a1 b0b1 c0c1",
+      "memorable_principle": "优先确保将帅安全，再考虑进攻",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/2P6/P3P1P1P/1C5C1/9/RNBAKABNR w - - 5 5",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "r1bakab1r/9/1cn3nc1/p1p1p1p1p/9/2P6/P3P1P1P/1C2N1NC1/9/R1BAKAB1R w - - 15 15",
+      "phase_judgment": "中局阶段，子力活跃，战术机会增多。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于中路控制权的争夺，双方争夺中路控制权",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化可能改变局部形势",
+      "memorable_principle": "控制中路要点，限制对方子力活动空间",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "4k4/4C4/9/9/9/9/9/9/9/4K4 w - - 0 1",
+      "phase_judgment": "残局阶段，子力简化，精确计算更为重要。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着具有战术目的，引擎推荐着法：a0a1",
+      "future_impact": "后续变化影响有限，预计后续着法：a0a1 b0b1 c0c1",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/9/1C5C1/9/RNBAKABNR w - - 1 2",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 2 3",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "r1bakab1r/9/1cn3nc1/p1p1p1p1p/9/9/9/P1P1P1P1P/1C2N1NC1/9/R1BAKAB1R w - - 20 20",
+      "phase_judgment": "中局阶段，子力活跃，战术机会增多。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于中路控制权的争夺，双方争夺中路控制权",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化可能改变局部形势",
+      "memorable_principle": "控制中路要点，限制对方子力活动空间",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "4k4/9/9/9/9/9/9/9/4R4/4K4 w - - 0 1",
+      "phase_judgment": "残局阶段，子力简化，精确计算更为重要。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于将帅安全，将帅安全受到威胁（重要）",
+      "move_effect": "此着具有战术目的，引擎推荐着法：a0a1",
+      "future_impact": "后续变化将显著影响局面走向，预计后续着法：a0a1 b0b1 c0c1",
+      "memorable_principle": "优先确保将帅安全，再考虑进攻",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "4k4/9/9/9/9/9/9/9/4C4/4K4 w - - 0 1",
+      "phase_judgment": "残局阶段，子力简化，精确计算更为重要。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着具有战术目的，引擎推荐着法：a0a1",
+      "future_impact": "后续变化影响有限，预计后续着法：a0a1 b0b1 c0c1",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnb1kabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 8 8",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/R1BAKAB1R w - - 6 6",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "2bakab2/9/1cn3nc1/p1p1p1p1p/9/9/P1P1P1P1P/1C2N1NC1/9/R1BAKAB1R w - - 25 25",
+      "phase_judgment": "中局阶段，子力活跃，战术机会增多。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于中路控制权的争夺，双方争夺中路控制权",
+      "move_effect": "此着改善局面结构，引擎推荐着法：a0a1",
+      "future_impact": "后续变化可能改变局部形势",
+      "memorable_principle": "控制中路要点，限制对方子力活动空间",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "r1bakab1r/9/1cn3nc1/p1p1p1p1p/9/3P5/P3P1P1P/1C2N1NC1/9/R1BAKAB1R w - - 18 18",
+      "phase_judgment": "中局阶段，子力活跃，战术机会增多。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于中路控制权的争夺，双方争夺中路控制权",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化可能改变局部形势",
+      "memorable_principle": "控制中路要点，限制对方子力活动空间",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "4k4/9/9/9/4R4/9/9/9/9/3RK4 w - - 0 1",
+      "phase_judgment": "残局阶段，子力简化，精确计算更为重要。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于将帅安全，将帅安全受到威胁（紧急）",
+      "move_effect": "此着具有战术目的，引擎推荐着法：a0a1",
+      "future_impact": "后续变化将显著影响局面走向，预计后续着法：a0a1 b0b1 c0c1",
+      "memorable_principle": "优先确保将帅安全，再考虑进攻",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    },
+    {
+      "fen": "rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w - - 0 1",
+      "phase_judgment": "开局阶段，双方布局尚未定型。阶段判断基于子力分析",
+      "core_conflict": "当前核心在于主动权争夺，争夺主动权（次要）",
+      "move_effect": "此着改善局面结构，引擎推荐着法：None",
+      "future_impact": "后续变化影响有限",
+      "memorable_principle": "保持主动，不给对方喘息机会",
+      "confidence": 0.95,
+      "is_valid": true,
+      "issues": []
+    }
+  ]
+}

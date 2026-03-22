@@ -1,0 +1,488 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Modern Chinese Editorial Style — 现代中式编辑风
+   背景：Grain颗粒感 + 金色殿堂光带 + 棋谱留白 + Apple Liquid Glass 毛玻璃
+   核心质感来源：SVG feTurbulence 噪点滤镜
+   ============================================================ */
+
+:root {
+  /* ── 设计调色板 ── */
+  --apple-bg: #E0DBD1;
+  --apple-bg-gradient: radial-gradient(circle at 50% 0%, rgba(255,252,248,0.95) 0%, #E0DBD1 100%);
+  --apple-glass: rgba(255, 255, 255, 0.35);
+  --apple-glass-hover: rgba(255, 255, 255, 0.45);
+  --apple-glass-deep: rgba(255, 255, 255, 0.25);
+  --apple-border: rgba(255, 255, 255, 0.3);
+  --apple-border-top: rgba(255, 255, 255, 0.55);
+  --apple-border-subtle: rgba(255, 255, 255, 0.15);
+  --apple-text: #1D1D1F;
+  --apple-text-secondary: #86868B;
+  --apple-text-tertiary: #A1A1A6;
+  --gold-accent: rgba(212, 175, 55, 0.75);
+  --gold-accent-light: rgba(212, 175, 55, 0.15);
+  --gold-glow: rgba(212, 175, 55, 0.3);
+
+  /* ── 物理光学阴影 ── */
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02);
+  --shadow-glass-hover: 0 12px 40px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.03);
+  --shadow-glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+
+  /* ── 物理弹簧参数 ── */
+  --apple-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --apple-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --apple-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── 连续圆角体系 ── */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 9999px;
+}
+
+/* ── 全局基础 ── */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* 高级通透背景 — 强颗粒质感 + 清晰棋盘格 + 中式纸纹 */
+  background:
+    /* 第0层：强颗粒噪点 — 材质感核心 */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.80' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='0.10'/%3E%3C/svg%3E"),
+    /* 第1层：顶部深墨晕染 — 压顶感 */
+    linear-gradient(180deg, rgba(110,100,88,0.28) 0%, rgba(110,100,88,0.10) 20%, transparent 42%),
+    /* 第2层：左上角自然光晕 */
+    radial-gradient(ellipse 50% 50% at 15% 15%, rgba(255,252,248,0.45) 0%, transparent 55%),
+    /* 第3层：右侧反光 — 平衡左侧光感 */
+    radial-gradient(ellipse 35% 50% at 85% 30%, rgba(255,252,248,0.20) 0%, transparent 60%),
+    /* 第4层：强棋盘格纹理 — 清晰可见 */
+    repeating-linear-gradient(0deg, transparent, transparent 54px, rgba(110,100,88,0.18) 54px, rgba(110,100,88,0.18) 55px),
+    repeating-linear-gradient(90deg, transparent, transparent 54px, rgba(110,100,88,0.18) 54px, rgba(110,100,88,0.18) 55px),
+    /* 第5层：垂直纸纹 — 宣纸拉丝感 */
+    repeating-linear-gradient(90deg, transparent, transparent 13px, rgba(110,100,88,0.04) 13px, rgba(110,100,88,0.04) 14px),
+    /* 第6层：水平版式线 */
+    repeating-linear-gradient(180deg, transparent, transparent 89px, rgba(110,100,88,0.06) 89px, rgba(110,100,88,0.06) 90px),
+    /* 第7层：暖灰宣纸底 */
+    #E0DBD1;
+  background-attachment: fixed;
+  color: var(--apple-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* ── 核心材质：Liquid Glass 2.0 毛玻璃面板 ── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-top-color: rgba(255, 255, 255, 0.6);
+  box-shadow: var(--shadow-glass), var(--shadow-glass-inset);
+  border-radius: var(--radius-lg);
+  transition: background 0.2s var(--apple-ease), box-shadow 0.2s var(--apple-ease);
+}
+
+.glass-panel:hover {
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: var(--shadow-glass-hover), var(--shadow-glass-inset);
+}
+
+.glass-panel-sm {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-top-color: rgba(255, 255, 255, 0.45);
+  box-shadow: var(--shadow-glass);
+  border-radius: var(--radius-md);
+}
+
+.glass-panel-deep {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-top-color: rgba(255, 255, 255, 0.5);
+  box-shadow: var(--shadow-glass), var(--shadow-glass-inset);
+  border-radius: var(--radius-lg);
+}
+
+/* ── 毛玻璃悬停态（保留给独立使用） ── */
+.glass-panel-hover:hover {
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: var(--shadow-glass-hover), var(--shadow-glass-inset);
+  transition: background 0.2s var(--apple-ease), box-shadow 0.2s var(--apple-ease);
+}
+
+/* ── Apple 按钮材质 ── */
+.apple-btn {
+  background: var(--apple-glass);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--apple-border);
+  border-top-color: var(--apple-border-top);
+  border-radius: var(--radius-md);
+  color: var(--apple-text);
+  cursor: pointer;
+  transition: all 0.18s var(--apple-ease);
+  box-shadow: var(--shadow-glass);
+}
+
+.apple-btn:hover {
+  background: var(--apple-glass-hover);
+  box-shadow: var(--shadow-glass-hover);
+}
+
+.apple-btn:active {
+  transform: scale(0.98);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+/* ── 胶囊药丸按钮 ── */
+.apple-btn-pill {
+  background: var(--apple-glass);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid var(--apple-border);
+  border-top-color: var(--apple-border-top);
+  border-radius: var(--radius-full);
+  color: var(--apple-text);
+  cursor: pointer;
+  transition: all 0.18s var(--apple-ease);
+  box-shadow: var(--shadow-glass);
+}
+
+.apple-btn-pill:hover {
+  background: var(--apple-glass-hover);
+  box-shadow: var(--shadow-glass-hover);
+}
+
+.apple-btn-pill:active {
+  transform: scale(0.97);
+}
+
+/* ── 金色强调胶囊 ── */
+.apple-btn-gold {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.12));
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border: 1px solid rgba(212, 175, 55, 0.35);
+  border-top-color: rgba(212, 175, 55, 0.5);
+  border-radius: var(--radius-full);
+  color: #8B6914;
+  cursor: pointer;
+  transition: all 0.18s var(--apple-ease);
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.12);
+}
+
+.apple-btn-gold:hover {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(212, 175, 55, 0.18));
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.18);
+}
+
+/* ── 滚动条 ── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(180, 160, 140, 0.25);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(180, 160, 140, 0.4);
+}
+
+/* ── 链接 ── */
+a {
+  color: rgba(212, 175, 55, 0.8);
+  text-decoration: none;
+  transition: color 0.18s var(--apple-ease);
+}
+a:hover {
+  color: rgba(212, 175, 55, 1);
+}
+
+/* ── 选中文本 ── */
+::selection {
+  background: rgba(212, 175, 55, 0.2);
+  color: var(--apple-text);
+}
+
+/* ── 响应式调整 ── */
+@media (max-width: 1200px) {
+  body { font-size: 14px; }
+}
+@media (max-width: 768px) {
+  body { font-size: 13px; }
+}
+
+/* ============================================================
+   象棋特有效果（保留不变）
+   ============================================================ */
+
+/* 合法走法提示动画 */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(34, 197, 94, 0.9);
+    transform: scale(1.15);
+  }
+}
+.legal-move-indicator {
+  animation: pulse-glow 1.2s ease-in-out infinite;
+}
+
+/* 棋子落子动画 */
+@keyframes piece-land {
+  0%   { transform: scale(1.2); }
+  50%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+.piece-land-animation {
+  animation: piece-land 0.2s ease-out;
+}
+
+/* 棋子悬停效果 */
+.chess-piece:hover {
+  transform: scale(1.08) translateY(-2px);
+}
+.chess-piece:active {
+  transform: scale(0.95);
+}
+
+/* 分析模式棋盘外框光晕 */
+.board-container-analysis {
+  transition: box-shadow 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.board-container-analysis.is-collapsed {
+  box-shadow:
+    0 0 0 3px rgba(212, 175, 55, 0.15),
+    0 0 40px rgba(212, 175, 55, 0.08),
+    0 8px 32px rgba(0, 0, 0, 0.04);
+}
+
+/* ============================================================
+   Deep Analysis Timeline 样式（Apple 风格）
+   ============================================================ */
+
+.analysis-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.timeline-node {
+  display: flex;
+  align-items: flex-start;
+  animation: fadeInUp 0.3s var(--apple-ease);
+}
+
+.timeline-line {
+  width: 2px;
+  min-height: 12px;
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.25), rgba(212, 175, 55, 0.4));
+  margin-left: 5px;
+  flex-shrink: 0;
+  border-radius: 1px;
+}
+
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  border-radius: 50%;
+  margin-right: 10px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+}
+
+.dot-thinking {
+  background: rgba(212, 175, 55, 0.8);
+  box-shadow: 0 0 6px rgba(212, 175, 55, 0.4);
+}
+.dot-tension {
+  background: rgba(251, 191, 36, 0.8);
+  box-shadow: 0 0 6px rgba(251, 191, 36, 0.4);
+}
+.dot-primary_contradiction {
+  background: rgba(212, 175, 55, 1);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.5);
+}
+.dot-tool_call {
+  background: rgba(96, 165, 250, 0.85);
+  box-shadow: 0 0 6px rgba(96, 165, 250, 0.4);
+}
+.dot-tool_result {
+  background: rgba(74, 222, 128, 0.85);
+  box-shadow: 0 0 6px rgba(74, 222, 128, 0.4);
+}
+.dot-result {
+  background: rgba(34, 197, 94, 0.85);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+
+/* Primary Contradiction Card — 金色毛玻璃 */
+.primary-contradiction-card {
+  width: calc(100% + 12px);
+  margin-left: -6px;
+  padding: 12px 14px;
+  margin-top: 6px;
+  background: rgba(212, 175, 55, 0.08);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-top-color: rgba(212, 175, 55, 0.5);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.08);
+  animation: slideInFromTop 0.4s var(--apple-ease);
+}
+
+.contradiction-first-line {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(160, 120, 20, 0.9);
+  margin-bottom: 6px;
+}
+
+.contradiction-line {
+  font-size: 12px;
+  color: var(--apple-text);
+  line-height: 1.6;
+  margin: 3px 0;
+}
+
+.result-summary {
+  font-size: 11px;
+  color: rgba(22, 101, 52, 0.85);
+  line-height: 1.4;
+}
+
+.expand-btn {
+  font-size: 10px;
+  color: rgba(96, 165, 250, 0.8);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  margin-top: 3px;
+  transition: color 0.18s;
+}
+.expand-btn:hover {
+  color: rgba(96, 165, 250, 1);
+}
+
+.result-data {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  background: rgba(0, 0, 0, 0.04);
+  backdrop-filter: blur(8px);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  margin-top: 6px;
+  color: var(--apple-text-secondary);
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  padding: 8px 0 8px 22px;
+  color: var(--apple-text-secondary);
+  font-size: 12px;
+}
+
+.typing-dots {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Timeline Content */
+.timeline-content {
+  flex: 1;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.025);
+  border-radius: var(--radius-sm);
+  margin-bottom: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.timeline-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--apple-text);
+  line-height: 1.4;
+}
+
+.timeline-text {
+  font-size: 11px;
+  color: var(--apple-text-secondary);
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+.tool-result-content {
+  width: 100%;
+}
+
+/* 通用动画 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* ============================================================
+   全局装饰层（已精简，仅保留必要的顶级光晕）
+   ============================================================ */
+
+.global-decorations {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}

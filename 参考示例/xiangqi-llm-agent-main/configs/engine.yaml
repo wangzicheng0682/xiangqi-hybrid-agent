@@ -1,0 +1,15 @@
+# 象棋引擎配置
+
+# 引擎类型
+engine_type: "cchess"  # cchess, pikafish, fairy-stockfish
+
+# 引擎路径（如果使用外部引擎）
+engine_path: null
+
+# 引擎参数
+engine_params: {}
+
+# 超时设置
+move_timeout: 30  # 单步超时（秒）
+game_timeout: 3600  # 整局超时（秒）
+

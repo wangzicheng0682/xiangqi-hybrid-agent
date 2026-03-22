@@ -1,0 +1,139 @@
+# Xiangqi Hybrid Agent Configuration
+# Copy this file to settings.yaml and fill in your values
+
+# ============================================
+# Engine Configuration
+# ============================================
+engine:
+  # Path to Pikafish executable
+  path: "data/engine/pikafish"  # Linux/Mac
+  # path: "data\\engine\\pikafish.exe"  # Windows
+
+  # Default search depth (higher = stronger but slower)
+  default_depth: 20
+
+  # Maximum thinking time in milliseconds
+  time_limit_ms: 5000
+
+  # Number of threads for engine
+  threads: 4
+
+  # Hash table size in MB
+  hash_size_mb: 256
+
+# ============================================
+# Knowledge Graph (Neo4j) Configuration
+# ============================================
+knowledge_graph:
+  # Neo4j connection settings
+  uri: "bolt://localhost:7687"
+  username: "neo4j"
+  password: "xiangqi123"  # Change this!
+
+  # Database name (default: neo4j)
+  database: "neo4j"
+
+  # Query timeout in seconds
+  timeout: 30
+
+  # Connection pool settings
+  max_connection_pool_size: 50
+
+# ============================================
+# RAG (Retrieval Augmented Generation) Configuration
+# ============================================
+rag:
+  # Embedding model
+  embedding_model: "BAAI/bge-m3"
+
+  # Vector database path
+  index_path: "data/vector_db/books.index"
+  metadata_path: "data/vector_db/books.meta"
+
+  # Retrieval settings
+  default_top_k: 3
+  min_relevance_score: 0.5
+
+  # Chunking settings
+  chunk_size: 500  # characters per chunk
+  chunk_overlap: 50  # overlap between chunks
+
+# ============================================
+# Vision Model Configuration (Sprint 3)
+# ============================================
+vision:
+  # Qwen-VL model for board recognition
+  model: "Qwen/Qwen2-VL-7B-Instruct"
+
+  # Confidence threshold for piece detection
+  confidence_threshold: 0.85
+
+  # Image preprocessing
+  max_image_size: 1024  # pixels
+
+# ============================================
+# Agent Configuration (LangGraph)
+# ============================================
+agent:
+  # LLM provider and model
+  llm_provider: "deepseek"  # "deepseek" or "openai" or "anthropic"
+  llm_model: "deepseek-chat"
+
+  # API keys (set in environment variables, not here!)
+  # DEEPSEEK_API_KEY: your_key_here
+  # OPENAI_API_KEY: your_key_here
+  # ANTHROPIC_API_KEY: your_key_here
+
+  # Agent behavior
+  max_iterations: 10
+  verbose: true
+
+  # Grounding settings (引用优先原则)
+  require_citations: true
+  fallback_on_missing_citations: true
+
+# ============================================
+# Gradio UI Configuration
+# ============================================
+ui:
+  # Server settings
+  server_name: "0.0.0.0"
+  server_port: 7860
+  share: false  # Set to true for public URL
+
+  # Interface language
+  language: "zh-CN"
+
+  # Theme
+  theme: "default"  # "default", "compact", "huggingface"
+
+  # Feature flags
+  enable_vision_input: false  # Sprint 3
+  enable_game_review: false   # Sprint 4
+
+# ============================================
+# Logging Configuration
+# ============================================
+logging:
+  level: "INFO"  # "DEBUG", "INFO", "WARNING", "ERROR"
+  log_dir: "logs"
+  log_file: "xiangqi_agent.log"
+
+  # Log rotation
+  max_file_size_mb: 10
+  backup_count: 5
+
+# ============================================
+# Development Settings
+# ============================================
+development:
+  # Use mock implementations (Sprint 2.0)
+  use_mock_engine: true
+  use_mock_kg: true
+  use_mock_rag: true
+
+  # Debug mode
+  debug: false
+
+  # Test mode (faster but less accurate)
+  test_mode: false

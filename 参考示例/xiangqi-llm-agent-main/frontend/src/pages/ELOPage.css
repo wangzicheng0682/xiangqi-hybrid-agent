@@ -1,0 +1,183 @@
+.elo-page {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+}
+
+.elo-header {
+  text-align: center;
+  color: white;
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+}
+
+.elo-header h1 {
+  margin: 0;
+  font-size: 2.5em;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.elo-header button {
+  padding: 10px 20px;
+  background: white;
+  color: #667eea;
+  border: none;
+  border-radius: 4px;
+  font-size: 1em;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.elo-header button:hover:not(:disabled) {
+  background: #f0f0f0;
+}
+
+.elo-header button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.elo-content {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.leaderboard-section {
+  flex: 1;
+  min-width: 400px;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.leaderboard-section h2 {
+  margin-top: 0;
+  color: #333;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 10px;
+}
+
+.leaderboard-table {
+  overflow-x: auto;
+}
+
+.leaderboard-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.leaderboard-table th {
+  background: #f5f5f5;
+  font-weight: bold;
+  color: #333;
+}
+
+.leaderboard-table tr:hover {
+  background: #f9f9f9;
+  cursor: pointer;
+}
+
+.leaderboard-table tr.selected {
+  background: #e3f2fd;
+}
+
+.elo-score {
+  font-weight: bold;
+  color: #667eea;
+  font-size: 1.1em;
+}
+
+.leaderboard-table button {
+  padding: 6px 12px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9em;
+}
+
+.leaderboard-table button:hover {
+  background: #5568d3;
+}
+
+.chart-section {
+  flex: 1;
+  min-width: 500px;
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.chart-section h2 {
+  margin-top: 0;
+  color: #333;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 10px;
+}
+
+.chart-container {
+  height: 400px;
+  margin: 20px 0;
+}
+
+.no-selection,
+.no-data {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+  font-size: 1.2em;
+}
+
+.agent-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.stat-item {
+  background: #f5f5f5;
+  padding: 15px;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.stat-label {
+  font-weight: bold;
+  color: #666;
+}
+
+.stat-value {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #667eea;
+}
+
+@media (max-width: 768px) {
+  .elo-content {
+    flex-direction: column;
+  }
+
+  .leaderboard-section,
+  .chart-section {
+    min-width: 100%;
+  }
+}
+

@@ -1,0 +1,516 @@
+import { create } from 'zustand';
+import { api, AIMoveResponse, BestMovesResponse, GameSearchResult, GameDetailResponse } from '../services/api';
+
+export interface EvalPoint {
+  depth: number;
+  cp: number;
+  move: string;
+}
+
+const initialBoard: string[][] = [
+  ['r', 'n', 'b', 'a', 'k', 'a', 'b', 'n', 'r'],
+  ['', '', '', '', '', '', '', '', ''],
+  ['', 'c', '', '', '', '', '', 'c', ''],
+  ['p', '', 'p', '', 'p', '', 'p', '', 'p'],
+  ['', '', '', '', '', '', '', '', ''],
+  ['', '', '', '', '', '', '', '', ''],
+  ['P', '', 'P', '', 'P', '', 'P', '', 'P'],
+  ['', 'C', '', '', '', '', '', 'C', ''],
+  ['', '', '', '', '', '', '', '', ''],
+  ['R', 'N', 'B', 'A', 'K', 'A', 'B', 'N', 'R'],
+];
+
+type GameMode = 'analysis' | 'pvp' | 'pve_red' | 'pve_black' | 'replay';
+
+interface ReplayState {
+  games: GameSearchResult[];
+  selectedGame: GameDetailResponse | null;
+  currentIndex: number;
+  totalMoves: number;
+  moves: string[];
+  source: 'neo4j' | 'pgn' | null;
+  isLoadingGames: boolean;
+}
+
+interface GameState {
+  board: string[][];
+  fen: string;
+  previousFen: string;  // 走法之前的FEN，用于深度分析
+  history: string[];
+  legalMoves: string[];
+  selectedPos: { row: number; col: number } | null;
+  isLoading: boolean;
+  redToMove: boolean;
+  error: string | null;
+  gameMode: GameMode;
+  lastMove: { from: { row: number; col: number }, to: { row: number; col: number } } | null;
+  flipped: boolean;
+  showArrows: boolean;
+  isBoardCollapsed: boolean;
+  setBoardCollapsed: (v: boolean) => void;
+  toggleBoardCollapsed: () => void;
+  bestMoves: BestMovesResponse | null;
+  replayState: ReplayState;
+  highlightedPieces: { row: number; col: number; type: 'attack' | 'target' | 'defense' }[];
+  connectionLines: { from: { row: number; col: number }; to: { row: number; col: number }; type: 'attack' | 'defense' | 'pin' }[];
+  evalHistory: EvalPoint[];
+
+  selectPiece: (row: number, col: number) => Promise<void>;
+  movePiece: (toRow: number, toCol: number) => Promise<void>;
+  setGameMode: (mode: GameMode) => void;
+  resetGame: () => void;
+  clearError: () => void;
+  aiMove: () => Promise<void>;
+  toggleFlip: () => void;
+  toggleShowArrows: () => void;
+  fetchBestMoves: () => Promise<void>;
+  setHighlightedPieces: (pieces: { row: number; col: number; type: 'attack' | 'target' | 'defense' }[]) => void;
+  setConnectionLines: (lines: { from: { row: number; col: number }; to: { row: number; col: number }; type: 'attack' | 'defense' | 'pin' }[]) => void;
+  clearHighlights: () => void;
+  addEvalPoint: (point: EvalPoint) => void;
+  clearEvalHistory: () => void;
+
+  searchGames: (player?: string, event?: string) => Promise<void>;
+  loadGameFromNeo4j: (gameId: number) => Promise<void>;
+  loadGameFromPGN: (pgnContent: string) => Promise<void>;
+  navigateReplay: (direction: 'prev' | 'next' | 'start' | 'end' | 'goto', index?: number) => Promise<void>;
+  exitReplay: () => void;
+}
+
+function flipBoard(board: string[][]): string[][] {
+  return board.slice().reverse().map(row => row.slice().reverse());
+}
+
+export const useGameStore = create<GameState>((set, get) => ({
+  board: initialBoard,
+  fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w',
+  previousFen: '',
+  history: [],
+  legalMoves: [],
+  selectedPos: null,
+  isLoading: false,
+  redToMove: true,
+  error: null,
+  gameMode: 'analysis',
+  lastMove: null,
+  flipped: false,
+  showArrows: false,
+  bestMoves: null,
+  isBoardCollapsed: false,
+  setBoardCollapsed: (v) => set({ isBoardCollapsed: v }),
+  toggleBoardCollapsed: () => set(s => ({ isBoardCollapsed: !s.isBoardCollapsed })),
+  replayState: {
+    games: [],
+    selectedGame: null,
+    currentIndex: 0,
+    totalMoves: 0,
+    moves: [],
+    source: null,
+    isLoadingGames: false
+  },
+  highlightedPieces: [],
+  connectionLines: [],
+  evalHistory: [],
+
+  setHighlightedPieces: (pieces) => {
+    set({ highlightedPieces: pieces });
+  },
+
+  setConnectionLines: (lines) => {
+    set({ connectionLines: lines });
+  },
+
+  clearHighlights: () => {
+    set({ highlightedPieces: [], connectionLines: [] });
+  },
+
+  addEvalPoint: (point) => {
+    set(state => ({ evalHistory: [...state.evalHistory, point] }));
+  },
+
+  clearEvalHistory: () => {
+    set({ evalHistory: [] });
+  },
+
+  toggleFlip: () => {
+    set(state => ({ flipped: !state.flipped }));
+  },
+
+  toggleShowArrows: () => {
+    const newShowArrows = !get().showArrows;
+    set({ showArrows: newShowArrows });
+    if (newShowArrows) {
+      get().fetchBestMoves();
+    }
+  },
+
+  fetchBestMoves: async () => {
+    const { board, redToMove, flipped } = get();
+    
+    let actualBoard = board;
+    if (flipped) {
+      actualBoard = flipBoard(board);
+    }
+
+    try {
+      const res = await api.getBestMoves({
+        board: actualBoard,
+        red_to_move: redToMove,
+        difficulty: 15
+      });
+      set({ bestMoves: res });
+    } catch (e) {
+      console.error('获取最优解失败:', e);
+    }
+  },
+
+  setGameMode: (mode) => {
+    const flipped = mode === 'pve_black';
+    set({ gameMode: mode, selectedPos: null, legalMoves: [], flipped });
+  },
+
+  selectPiece: async (row, col) => {
+    const { board, redToMove, gameMode, flipped } = get();
+    
+    let actualRow = row;
+    let actualCol = col;
+    let actualBoard = board;
+    
+    if (flipped) {
+      actualRow = 9 - row;
+      actualCol = 8 - col;
+      actualBoard = flipBoard(board);
+    }
+    
+    const piece = actualBoard[actualRow][actualCol];
+    if (!piece) return;
+    
+    const isRedPiece = piece === piece.toUpperCase();
+    
+    if (gameMode === 'pve_red' && !isRedPiece) return;
+    if (gameMode === 'pve_black' && isRedPiece) return;
+    
+    if (isRedPiece !== redToMove && gameMode === 'analysis') return;
+
+    set({ selectedPos: { row: actualRow, col: actualCol }, legalMoves: [], error: null });
+    
+    try {
+      const response = await api.getLegalMoves({ board: actualBoard, row: actualRow, col: actualCol });
+      set({ legalMoves: response.moves });
+    } catch (e: any) {
+      set({ legalMoves: [], error: e.response?.data?.detail || '获取合法走法失败' });
+    }
+  },
+
+  movePiece: async (toRow, toCol) => {
+    const { selectedPos, board, history, redToMove, gameMode, flipped, fen: currentFen } = get();
+    if (!selectedPos) return;
+
+    let actualToRow = toRow;
+    let actualToCol = toCol;
+    let actualBoard = board;
+    
+    if (flipped) {
+      actualToRow = 9 - toRow;
+      actualToCol = 8 - toCol;
+      actualBoard = flipBoard(board);
+    }
+
+    set({ isLoading: true, error: null });
+    
+    const previousFen = currentFen;
+
+    try {
+      const res = await api.makeMove({
+        board: actualBoard,
+        from_row: selectedPos.row,
+        from_col: selectedPos.col,
+        to_row: actualToRow,
+        to_col: actualToCol,
+        red_to_move: redToMove
+      });
+
+      const fromColChar = String.fromCharCode(97 + selectedPos.col);
+      const fromRowNum = 9 - selectedPos.row;
+      const toColChar = String.fromCharCode(97 + actualToCol);
+      const toRowNum = 9 - actualToRow;
+      const moveStr = `${fromColChar}${fromRowNum}${toColChar}${toRowNum}`;
+
+      const newLastMove = {
+        from: { row: selectedPos.row, col: selectedPos.col },
+        to: { row: actualToRow, col: actualToCol }
+      };
+
+      let newBoard = res.board;
+      if (flipped) {
+        newBoard = flipBoard(res.board);
+      }
+
+      set({
+        board: newBoard,
+        fen: res.fen,
+        previousFen: previousFen,
+        selectedPos: null,
+        legalMoves: [],
+        isLoading: false,
+        redToMove: !redToMove,
+        history: [...history, moveStr],
+        lastMove: newLastMove
+      });
+
+      // 在分析模式下，如果开启了箭头，获取最佳走法
+      if (gameMode === 'analysis' && get().showArrows) {
+        get().fetchBestMoves();
+      }
+
+      if (gameMode === 'pve_red' || gameMode === 'pve_black') {
+        setTimeout(() => {
+          get().aiMove();
+        }, 500);
+      }
+    } catch (e: any) {
+      const errorMsg = e.response?.data?.detail || '移动失败';
+      set({ isLoading: false, error: errorMsg, selectedPos: null, legalMoves: [] });
+    }
+  },
+
+  aiMove: async () => {
+    const { board, redToMove, gameMode, flipped } = get();
+    
+    if ((gameMode === 'pve_red' && redToMove) || (gameMode === 'pve_black' && !redToMove)) {
+      return;
+    }
+
+    let actualBoard = board;
+    if (flipped) {
+      actualBoard = flipBoard(board);
+    }
+
+    set({ isLoading: true, error: null });
+    try {
+      const res: AIMoveResponse = await api.aiMove({
+        board: actualBoard,
+        red_to_move: redToMove,
+        difficulty: 10
+      });
+
+      const fromColChar = String.fromCharCode(97 + res.from_col);
+      const fromRowNum = 9 - res.from_row;
+      const toColChar = String.fromCharCode(97 + res.to_col);
+      const toRowNum = 9 - res.to_row;
+      const moveStr = `${fromColChar}${fromRowNum}${toColChar}${toRowNum}`;
+
+      const newLastMove = {
+        from: { row: res.from_row, col: res.from_col },
+        to: { row: res.to_row, col: res.to_col }
+      };
+
+      let newBoard = res.board;
+      if (flipped) {
+        newBoard = flipBoard(res.board);
+      }
+
+      set({
+        board: newBoard,
+        fen: res.fen,
+        selectedPos: null,
+        legalMoves: [],
+        isLoading: false,
+        redToMove: !redToMove,
+        history: [...get().history, moveStr],
+        lastMove: newLastMove
+      });
+    } catch (e: any) {
+      set({ isLoading: false, error: e.response?.data?.detail || 'AI走棋失败' });
+    }
+  },
+
+  resetGame: () => {
+    set({
+      board: initialBoard,
+      fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w',
+      history: [],
+      legalMoves: [],
+      selectedPos: null,
+      isLoading: false,
+      redToMove: true,
+      error: null,
+      lastMove: null,
+      bestMoves: null
+    });
+    
+    if (get().showArrows) {
+      get().fetchBestMoves();
+    }
+  },
+
+  clearError: () => {
+    set({ error: null });
+  },
+
+  searchGames: async (player?: string, event?: string) => {
+    set({ replayState: { ...get().replayState, isLoadingGames: true } });
+    try {
+      const res = await api.searchGames({ player, event, limit: 50 });
+      set({ replayState: { ...get().replayState, games: res.games, isLoadingGames: false } });
+    } catch (e) {
+      console.error('搜索对局失败:', e);
+      set({ replayState: { ...get().replayState, isLoadingGames: false, games: [] } });
+    }
+  },
+
+  loadGameFromNeo4j: async (gameId: number) => {
+    set({ isLoading: true, error: null });
+    try {
+      const gameDetail = await api.getGameDetail(gameId);
+      
+      set({
+        board: initialBoard,
+        fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w',
+        history: [],
+        redToMove: true,
+        selectedPos: null,
+        legalMoves: [],
+        lastMove: null,
+        isLoading: false,
+        replayState: {
+          ...get().replayState,
+          selectedGame: gameDetail,
+          moves: gameDetail.moves,
+          currentIndex: 0,
+          totalMoves: gameDetail.moves.length,
+          source: 'neo4j'
+        }
+      });
+    } catch (e: any) {
+      set({ isLoading: false, error: e.response?.data?.detail || '加载对局失败' });
+    }
+  },
+
+  loadGameFromPGN: async (pgnContent: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const pgnRes = await api.pgnLoad(pgnContent);
+      
+      if (pgnRes.games.length === 0) {
+        set({ isLoading: false, error: '未找到有效对局' });
+        return;
+      }
+      
+      const firstGame = pgnRes.games[0];
+      const gameDetail: GameDetailResponse = {
+        game_id: -1,
+        red: firstGame.red_player,
+        black: firstGame.black_player,
+        event: firstGame.event,
+        date: firstGame.date,
+        result: firstGame.result,
+        moves: firstGame.moves
+      };
+      
+      set({
+        board: initialBoard,
+        fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w',
+        history: [],
+        redToMove: true,
+        selectedPos: null,
+        legalMoves: [],
+        lastMove: null,
+        isLoading: false,
+        replayState: {
+          ...get().replayState,
+          selectedGame: gameDetail,
+          moves: firstGame.moves,
+          currentIndex: 0,
+          totalMoves: firstGame.moves.length,
+          source: 'pgn',
+          games: pgnRes.games.map((g, i) => ({
+            game_id: i,
+            red: g.red_player,
+            black: g.black_player,
+            event: g.event,
+            date: g.date,
+            result: g.result
+          }))
+        }
+      });
+    } catch (e: any) {
+      set({ isLoading: false, error: e.response?.data?.detail || '解析PGN失败' });
+    }
+  },
+
+  navigateReplay: async (direction: 'prev' | 'next' | 'start' | 'end' | 'goto', index?: number) => {
+    const { replayState } = get();
+    const { moves, currentIndex } = replayState;
+    
+    if (!moves.length) return;
+    
+    let newIndex = currentIndex;
+    
+    switch (direction) {
+      case 'prev':
+        newIndex = Math.max(0, currentIndex - 1);
+        break;
+      case 'next':
+        newIndex = Math.min(moves.length, currentIndex + 1);
+        break;
+      case 'start':
+        newIndex = 0;
+        break;
+      case 'end':
+        newIndex = moves.length;
+        break;
+      case 'goto':
+        newIndex = index !== undefined ? Math.max(0, Math.min(moves.length, index)) : currentIndex;
+        break;
+    }
+    
+    try {
+      const navRes = await api.pgnNavigate({
+        moves: moves,
+        current_index: newIndex,
+        direction: 'goto'
+      });
+      
+      const lastMoveInfo = newIndex > 0 && newIndex <= moves.length ? {
+        from: { row: 0, col: 0 },
+        to: { row: 0, col: 0 }
+      } : null;
+      
+      set({
+        board: navRes.board,
+        fen: navRes.fen,
+        redToMove: newIndex % 2 === 0,
+        history: moves.slice(0, newIndex),
+        lastMove: lastMoveInfo,
+        replayState: {
+          ...replayState,
+          currentIndex: newIndex
+        }
+      });
+    } catch (e) {
+      console.error('导航失败:', e);
+    }
+  },
+
+  exitReplay: () => {
+    set({
+      board: initialBoard,
+      fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w',
+      history: [],
+      redToMove: true,
+      selectedPos: null,
+      legalMoves: [],
+      lastMove: null,
+      replayState: {
+        games: [],
+        selectedGame: null,
+        currentIndex: 0,
+        totalMoves: 0,
+        moves: [],
+        source: null,
+        isLoadingGames: false
+      }
+    });
+  }
+}));

@@ -1,0 +1,800 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 全局样式 - 深色主题 */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #1a1a2e;
+  color: #e8e8e8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* 标题使用中文字体 */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Noto Serif SC', 'STZhongsong', 'SimSun', serif;
+}
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #D4AF37 0%, #B8860B 100%);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #E5C158 0%, #D4AF37 100%);
+}
+
+/* 动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(212, 175, 55, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.8);
+  }
+}
+
+/* 棋子悬停效果 */
+.chess-piece:hover {
+  transform: scale(1.08) translateY(-2px);
+}
+
+.chess-piece:active {
+  transform: scale(0.95);
+}
+
+/* 合法走法提示动画 */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(34, 197, 94, 0.9);
+    transform: scale(1.15);
+  }
+}
+
+.legal-move-indicator {
+  animation: pulse-glow 1.2s ease-in-out infinite;
+}
+
+/* 棋子落子动画 */
+@keyframes piece-land {
+  0% {
+    transform: scale(1.2);
+  }
+  50% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.piece-land-animation {
+  animation: piece-land 0.2s ease-out;
+}
+
+/* 按钮通用样式 */
+button {
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  filter: brightness(1.1);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+/* 链接样式 */
+a {
+  color: #D4AF37;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #E5C158;
+}
+
+/* 选中文本样式 */
+::selection {
+  background: rgba(212, 175, 55, 0.3);
+  color: #fff;
+}
+
+/* 代码字体 */
+code, pre {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+/* 工具提示 */
+[title] {
+  position: relative;
+}
+
+/* 卡片阴影效果 */
+.card-shadow {
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.3),
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* 玻璃态效果 */
+.glass-effect {
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 渐变文字 */
+.gradient-text {
+  background: linear-gradient(135deg, #D4AF37, #F5DEB3);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ========================================
+   Bottom Terminal Panel Styles
+   ======================================== */
+
+/* Body scroll lock */
+body.terminal-panel-open {
+  overflow: hidden;
+}
+
+/* Backdrop */
+.terminal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 998;
+  cursor: pointer;
+}
+
+/* Main Panel */
+.terminal-panel {
+  position: fixed;
+  bottom: 0;
+  left: 240px;
+  right: 0;
+  z-index: 999;
+  border-radius: 16px 16px 0 0;
+  background: rgba(10, 10, 30, 0.95);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(212, 175, 55, 0.25);
+  border-bottom: none;
+  box-shadow:
+    0 -8px 40px rgba(0, 0, 0, 0.6),
+    0 -2px 0 rgba(212, 175, 55, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Resize Handle */
+.terminal-resize-handle {
+  height: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px 16px 0 0;
+  user-select: none;
+  flex-shrink: 0;
+  transition: background 0.2s ease;
+}
+
+.terminal-resize-grip {
+  height: 4px;
+  width: 48px;
+  background: rgba(212, 175, 55, 0.35);
+  border-radius: 2px;
+  transition: width 0.2s ease, opacity 0.2s ease;
+}
+
+.terminal-resize-handle:hover .terminal-resize-grip {
+  background: rgba(212, 175, 55, 0.6);
+  width: 64px;
+}
+
+/* Title Bar */
+.terminal-titlebar {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  flex-shrink: 0;
+}
+
+.terminal-titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.terminal-titlebar-icon {
+  font-size: 18px;
+}
+
+.terminal-titlebar-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #D4AF37;
+  font-family: 'Noto Serif SC', serif;
+}
+
+.terminal-titlebar-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #888;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 10px;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.terminal-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #f59e0b;
+  animation: terminalPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes terminalPulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.terminal-titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.terminal-titlebar-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  line-height: 1;
+  padding: 0;
+}
+
+.terminal-titlebar-btn:hover {
+  background: rgba(255,255,255,0.1);
+  color: #ccc;
+}
+
+.terminal-btn-close:hover {
+  background: rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Content Area */
+.terminal-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Experts Grid */
+.terminal-experts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+/* Scrollbar for terminal content */
+.terminal-content::-webkit-scrollbar {
+  width: 4px;
+}
+.terminal-content::-webkit-scrollbar-track {
+  background: rgba(255,255,255,0.03);
+  border-radius: 2px;
+}
+.terminal-content::-webkit-scrollbar-thumb {
+  background: rgba(212,175,55,0.3);
+  border-radius: 2px;
+}
+.terminal-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(212,175,55,0.5);
+}
+
+/* Finding slide animation */
+@keyframes findingSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.finding-enter {
+  animation: findingSlideIn 0.35s ease forwards;
+}
+
+/* Tool bubble animation */
+@keyframes toolBubbleIn {
+  from {
+    opacity: 0;
+    transform: translateX(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .terminal-panel {
+    left: 0;
+  }
+  .terminal-experts-grid {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .terminal-experts-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 1200px) {
+  body {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 13px;
+  }
+}
+
+/* ========================================
+   Deep Analysis Timeline Styles
+   ======================================== */
+
+/* Timeline Container */
+.analysis-timeline {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+/* Timeline Node */
+.timeline-node {
+  display: flex;
+  align-items: flex-start;
+  animation: fadeInUp 0.3s ease;
+}
+
+/* Vertical Line */
+.timeline-line {
+  width: 2px;
+  min-height: 16px;
+  background: linear-gradient(180deg, rgba(212, 175, 55, 0.3), rgba(212, 175, 55, 0.5));
+  margin-left: 5px;
+  flex-shrink: 0;
+}
+
+/* Timeline Dot */
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  border-radius: 50%;
+  margin-right: 10px;
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
+.dot-thinking { background: #D4AF37; box-shadow: 0 0 6px #D4AF37; }
+.dot-tension { background: #fbbf24; box-shadow: 0 0 6px #fbbf24; }
+.dot-primary_contradiction { background: #D4AF37; box-shadow: 0 0 12px #D4AF37; }
+.dot-tool_call { background: #60a5fa; box-shadow: 0 0 6px #60a5fa; }
+.dot-tool_result { background: #4ade80; box-shadow: 0 0 6px #4ade80; }
+.dot-result { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+
+/* 多Agent专家节点样式 */
+.dot-expert-start { background: #a855f7; box-shadow: 0 0 6px #a855f7; }
+.dot-expert-result { background: #a855f7; box-shadow: 0 0 8px #a855f7; }
+.dot-expert-thinking { background: #c084fc; box-shadow: 0 0 4px #c084fc; }
+.dot-expert-tool { background: #818cf8; box-shadow: 0 0 4px #818cf8; }
+.dot-expert-tool-result { background: #a78bfa; box-shadow: 0 0 4px #a78bfa; }
+.dot-synthesis { background: #f472b6; box-shadow: 0 0 8px #f472b6; }
+
+/* Timeline Content */
+.timeline-content {
+  flex: 1;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.timeline-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e8e8e8;
+}
+
+.timeline-text {
+  font-size: 11px;
+  color: #aaa;
+  margin-top: 3px;
+  line-height: 1.5;
+}
+
+/* Primary Contradiction Card - Full Width Golden */
+.primary-contradiction-card {
+  width: calc(100% + 20px);
+  margin-left: -10px;
+  padding: 12px 14px;
+  margin-top: 8px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.12));
+  border-radius: 8px;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  animation: slideInFromTop 0.4s ease;
+}
+
+.contradiction-first-line {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fbbf24;
+  margin-bottom: 6px;
+}
+
+.contradiction-line {
+  font-size: 12px;
+  color: #d4d4d4;
+  line-height: 1.6;
+  margin: 3px 0;
+}
+
+/* Tool Result Content */
+.tool-result-content {
+  width: 100%;
+}
+
+.result-summary {
+  font-size: 11px;
+  color: #4ade80;
+  line-height: 1.4;
+}
+
+.expand-btn {
+  font-size: 10px;
+  color: #60a5fa;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 0;
+  margin-top: 3px;
+}
+
+.expand-btn:hover {
+  text-decoration: underline;
+}
+
+.result-data {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 6px 8px;
+  border-radius: 4px;
+  margin-top: 6px;
+  color: #aaa;
+  max-height: 120px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  padding: 8px 0 8px 22px;
+  color: #888;
+  font-size: 12px;
+}
+
+.typing-dots {
+  animation: pulse 1.5s infinite;
+}
+
+/* New Animations */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ========================================
+   Expert Cards - Three Column Layout
+   ======================================== */
+
+/* 专家卡片发光动画 */
+@keyframes expertGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px var(--glow-color, rgba(212, 175, 55, 0.3)), 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 30px var(--glow-color, rgba(212, 175, 55, 0.6)), 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* 光标闪烁 */
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 专家卡片进入动画 */
+@keyframes expertCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.expert-card-enter {
+  animation: expertCardIn 0.4s ease forwards;
+}
+
+/* 专家卡片独立发光色 */
+.expert-card-tactics {
+  --glow-color: rgba(239, 68, 68, 0.4);
+}
+.expert-card-strategy {
+  --glow-color: rgba(245, 158, 11, 0.4);
+}
+.expert-card-engine {
+  --glow-color: rgba(59, 130, 246, 0.4);
+}
+.expert-card-synthesis {
+  --glow-color: rgba(244, 114, 182, 0.4);
+}
+
+/* 合成器进度动画 */
+@keyframes synthesisPulse {
+  0%, 100% {
+    border-color: rgba(244, 114, 182, 0.3);
+  }
+  50% {
+    border-color: rgba(244, 114, 182, 0.7);
+  }
+}
+
+.synthesis-active {
+  animation: synthesisPulse 2s ease-in-out infinite;
+}
+
+/* 思考内容打字动画 */
+@keyframes typingChar {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 工具调用气泡 */
+.tool-bubble {
+  transition: all 0.2s ease;
+}
+.tool-bubble:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* 三列网格响应式 */
+@media (max-width: 600px) {
+  .experts-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ========================================
+   Analysis Mode Layout
+   ======================================== */
+
+/* Board wrapper transitions */
+.board-wrapper-analyzing {
+  transition: margin 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Analysis footer */
+.analysis-footer {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  padding-top: 12px;
+  width: 100%;
+  max-width: 480px;
+  overflow: hidden;
+}
+
+.analysis-footer-chart {
+  flex-shrink: 0;
+}
+
+.analysis-footer-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 80px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ========================================
+   Agent Debut Animations
+   ======================================== */
+
+/* Orb pulse animations */
+@keyframes orbPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+}
+
+@keyframes orbRing {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
+@keyframes orbGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px var(--glow-color, rgba(239, 68, 68, 0.6));
+  }
+  50% {
+    box-shadow: 0 0 30px var(--glow-color, rgba(239, 68, 68, 0.8));
+  }
+}
+
+/* Stagger card entrance */
+@keyframes cardStaggerIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Synthesis section slide */
+@keyframes synthesisSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

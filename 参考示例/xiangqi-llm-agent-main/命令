@@ -1,0 +1,14 @@
+# 运行自我对弈
+python -m src.main self-play --num-games 10
+
+# 评估Agent
+python -m src.main evaluate --agent-name MyAgent --agent-version v1.0
+
+# 启动API服务器
+python -m src.main api --host 0.0.0.0 --port 8000
+
+# 导入人类对局
+python -m src.main import-games --file games.json
+
+# 清理经验池
+python -m src.main cleanup --min-visits 5 --dry-run

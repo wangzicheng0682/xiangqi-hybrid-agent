@@ -1,0 +1,1203 @@
+# 战术标签检测器算法实现报告
+
+**版本**: v1.0  
+**日期**: 2026-03-14  
+**文件**: `core/rules/tactical_detector.py`
+
+---
+
+## 一、概述
+
+本文档详细说明六大层级共15个战术标签的检测算法实现思路。每个标签包含：
+- 标签中文名称与定义
+- 检测思路（逻辑分析）
+- 具体算法实现（代码级别细节）
+
+---
+
+## 二、第一层：将杀困毙层
+
+### 2.1 标签：被将军 (is_check)
+
+**定义**：一方将/帅处于对方棋子的合法攻击范围内。
+
+**检测思路**：
+1. 找到当前方的将/帅位置
+2. 遍历所有敌方棋子
+3. 检查每个敌方棋子的合法走法是否包含将/帅位置
+4. 如果有任何敌方棋子能攻击到将/帅，则判定为被将军
+
+**算法实现**：
+
+```python
+def _is_in_check(self, board: List[List[str]], is_red: bool) -> bool:
+    """
+    判断是否被将军
+    
+    步骤1: 找到将/帅位置
+    步骤2: 遍历敌方所有棋子
+    步骤3: 检查敌方棋子是否能攻击到将/帅
+    """
+    # 步骤1: 找到将/帅位置
+    king_pos = self._find_king(board, is_red)
+    if not king_pos:
+        return False  # 没有将/帅（异常情况）
+    
+    # 步骤2 & 3: 遍历敌方棋子，检查攻击范围
+    for r in range(10):
+        for c in range(9):
+            piece = board[r][c]
+            # 只检查敌方棋子
+            if piece and self._is_red(piece) != is_red:
+                # 获取该棋子的合法走法（攻击范围）
+                attacks = self._get_attacks(board, r, c)
+                # 如果将/帅在攻击范围内，则被将军
+                if king_pos in attacks:
+                    return True
+    return False
+```
+
+**绑定棋子**：
+- 被将军的将/帅
+- 所有攻击将/帅的敌方棋子
+
+```python
+# 找到所有攻击者
+attackers = self._find_check_attackers(board, is_red_turn)
+bind_pieces = []
+# 绑定将/帅
+if king_pos:
+    bind_pieces.append(self._bind_piece(board[king_pos[0]][king_pos[1]], 
+                                         king_pos[0], king_pos[1]))
+# 绑定所有攻击者
+for attacker in attackers:
+    bind_pieces.append(self._bind_piece(board[attacker[0]][attacker[1]],
+                                         attacker[0], attacker[1]))
+```
+
+---
+
+### 2.2 标签：将死 (is_checkmate)
+
+**定义**：一方将/帅被将军，且无任何合法解将手段。
+
+**检测思路**：
+1. 检测是否被将军
+2. 检测是否有合法走法
+3. 如果被将军且无合法走法，则判定为将死
+
+**算法实现**：
+
+```python
+def _detect_check_mate_stalemate(self, board, is_red_turn):
+    """
+    检测将杀困毙层标签
+    """
+    results = []
+    
+    # 步骤1: 检测是否被将军
+    is_in_check = self._is_in_check(board, is_red_turn)
+    
+    # 步骤2: 检测是否有合法走法
+    has_legal_moves = self._has_legal_moves(board, is_red_turn)
+    
+    # 步骤3: 判断将死
+    # 条件：被将军 + 无合法走法
+    if is_in_check and not has_legal_moves:
+        # 生成is_checkmate标签
+        tag = get_tag_by_name("is_checkmate")
+        if tag:
+            results.append(TagDetectionResult(
+                tag=tag,
+                detected=True,
+                confidence=1.0,
+                bind_pieces=[将/帅的绑定]
+            ))
+    
+    return results
+
+def _has_legal_moves(self, board, is_red):
+    """
+    检测是否有合法走法
+    
+    遍历己方所有棋子，检查是否有任何合法走法
+    """
+    for r in range(10):
+        for c in range(9):
+            piece = board[r][c]
+            if piece and self._is_red(piece) == is_red:
+                moves = self.rules_engine.get_legal_moves(board, r, c)
+                if moves:  # 有合法走法
+                    return True
+    return False
+```
+
+**绑定棋子**：
+- 被将死的将/帅
+
+---
+
+### 2.3 标签：困毙 (is_stalemate)
+
+**定义**：一方行棋时无任何合法着法，且未被将军。
+
+**检测思路**：
+1. 检测是否被将军（必须不被将军）
+2. 检测是否有合法走法（必须没有）
+3. 如果不被将军且无合法走法，则判定为困毙
+
+**算法实现**：
+
+```python
+# 在_detect_check_mate_stalemate中继续判断
+
+# 步骤3: 判断困毙
+# 条件：不被将军 + 无合法走法
+if not is_in_check and not has_legal_moves:
+    tag = get_tag_by_name("is_stalemate")
+    if tag:
+        results.append(TagDetectionResult(
+            tag=tag,
+            detected=True,
+            confidence=1.0,
+            bind_pieces=[将/帅的绑定]
+        ))
+```
+
+**绑定棋子**：
+- 被困毙的将/帅
+
+---
+
+## 三、第二层：捉子层
+
+### 3.1 标签：攻无根 (is_attack_unprotected)
+
+**定义**：一方棋子攻击对方无保护棋子。
+
+**检测思路**：
+1. 遍历己方所有棋子
+2. 对每个棋子，获取其攻击范围（合法走法）
+3. 对攻击范围内的每个敌方棋子：
+   - 检查该敌方棋子是否被己方（敌方视角）保护
+   - 如果无保护，则标记为"攻无根"
+
+**算法实现**：
+
+```python
+def _detect_capture(self, board, is_red_turn):
+    results = []
+    seen_unprotected = set()  # 去重
+    
+    # 步骤1: 获取己方所有棋子
+    my_pieces = self._get_my_pieces(board, is_red_turn)
+    
+    for piece_pos in my_pieces:
+        # 步骤2: 获取该棋子的攻击范围
+        attacks = self._get_attacks(board, piece_pos[0], piece_pos[1])
+        
+        for target_pos in attacks:
+            target_piece = board[target_pos[0]][target_pos[1]]
+            
+            # 只检查敌方棋子
+            if not target_piece:
+                continue
+            is_enemy = self._is_red(target_piece) != is_red_turn
+            if not is_enemy:
+                continue
+            
+            # 步骤3: 检查目标是否被保护
+            # is_protected: 从敌方视角检查是否有己方棋子保护
+            is_protected = self._is_protected(
+                board, 
+                target_pos[0], target_pos[1], 
+                not is_red_turn  # 敌方视角
+            )
+            
+            # 步骤4: 如果无保护，生成标签
+            if not is_protected:
+                key = (piece_pos, target_pos)
+                if key not in seen_unprotected:
+                    seen_unprotected.add(key)
+                    tag = get_tag_by_name("is_attack_unprotected")
+                    if tag:
+                        results.append(TagDetectionResult(
+                            tag=tag,
+                            detected=True,
+                            confidence=1.0,
+                            bind_pieces=[
+                                攻击方棋子绑定,
+                                被攻击的无根子绑定
+                            ]
+                        ))
+    
+    return results
+
+def _is_protected(self, board, row, col, is_red):
+    """
+    判断棋子是否被保护
+    
+    遍历同色所有棋子，检查是否有任何棋子能攻击到该位置
+    注意：攻击 = 保护（同色棋子的攻击范围包含该位置）
+    """
+    for r in range(10):
+        for c in range(9):
+            piece = board[r][c]
+            if piece and self._is_red(piece) == is_red:
+                if (r, c) == (row, col):
+                    continue  # 不检查自己
+                attacks = self._get_attacks(board, r, c)
+                if (row, col) in attacks:
+                    return True
+    return False
+```
+
+**绑定棋子**：
+- 攻击方棋子（己方）
+- 被攻击的无根子（敌方）
+
+---
+
+### 3.2 标签：互吃 (is_mutual_attack)
+
+**定义**：红黑双方棋子互相攻击，形成互捉。
+
+**检测思路**：
+1. 遍历己方所有棋子的攻击范围
+2. 对每个攻击到的敌方棋子：
+   - 检查该敌方棋子是否能反向攻击己方棋子
+   - 如果能，则形成互吃
+
+**算法实现**：
+
+```python
+# 在_detect_capture中继续检测
+
+seen_mutual = set()  # 去重
+
+for piece_pos in my_pieces:
+    attacks = self._get_attacks(board, piece_pos[0], piece_pos[1])
+    
+    for target_pos in attacks:
+        target_piece = board[target_pos[0]][target_pos[1]]
+        if not target_piece:
+            continue
+        is_enemy = self._is_red(target_piece) != is_red_turn
+        if not is_enemy:
+            continue
+        
+        # 检测互吃：敌方棋子是否能攻击己方棋子
+        if self._can_attack(board, target_pos, piece_pos):
+            # 使用排序后的元组去重，避免重复报告
+            key = tuple(sorted([piece_pos, target_pos]))
+            if key not in seen_mutual:
+                seen_mutual.add(key)
+                tag = get_tag_by_name("is_mutual_attack")
+                if tag:
+                    results.append(TagDetectionResult(
+                        tag=tag,
+                        detected=True,
+                        confidence=1.0,
+                        bind_pieces=[
+                            己方棋子绑定,
+                            敌方棋子绑定
+                        ]
+                    ))
+
+def _can_attack(self, board, from_pos, to_pos):
+    """
+    判断棋子是否能攻击目标位置
+    """
+    r, c = from_pos
+    attacks = self._get_attacks(board, r, c)
+    return to_pos in attacks
+```
+
+**绑定棋子**：
+- 己方棋子
+- 敌方棋子
+
+---
+
+### 3.3 标签：攻将邻 (is_attack_king_adjacent)
+
+**定义**：棋子攻击将/帅相邻空位（将军前兆）。
+
+**检测思路**：
+1. 找到敌方将/帅位置
+2. 获取将/帅的相邻位置（上下左右）
+3. 过滤出空位（无棋子）
+4. 检查己方棋子是否能攻击到这些空位
+
+**算法实现**：
+
+```python
+# 在_detect_capture中继续检测
+
+seen_king_adjacent = set()
+
+# 步骤1: 找到敌方将/帅
+enemy_king_pos = self._find_king(board, not is_red_turn)
+if enemy_king_pos:
+    # 步骤2: 获取相邻位置
+    adjacent_positions = self._get_adjacent_positions(enemy_king_pos)
+    
+    for piece_pos in my_pieces:
+        attacks = self._get_attacks(board, piece_pos[0], piece_pos[1])
+        
+        for adj_pos in adjacent_positions:
+            # 步骤3: 检查是否为空位
+            if board[adj_pos[0]][adj_pos[1]] != '':
+                continue
+            
+            # 步骤4: 检查是否能攻击到空位
+            if adj_pos in attacks:
+                key = (piece_pos, adj_pos)
+                if key not in seen_king_adjacent:
+                    seen_king_adjacent.add(key)
+                    tag = get_tag_by_name("is_attack_king_adjacent")
+                    if tag:
+                        results.append(TagDetectionResult(
+                            tag=tag,
+                            detected=True,
+                            confidence=1.0,
+                            bind_pieces=[
+                                攻击方棋子绑定,
+                                敌方将/帅绑定
+                            ]
+                        ))
+
+def _get_adjacent_positions(self, pos):
+    """
+    获取相邻位置（上下左右）
+    """
+    r, c = pos
+    adjacent = []
+    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        nr, nc = r + dr, c + dc
+        if 0 <= nr < 10 and 0 <= nc < 9:
+            adjacent.append((nr, nc))
+    return adjacent
+```
+
+**绑定棋子**：
+- 攻击方棋子
+- 敌方将/帅
+
+---
+
+## 四、第三层：闪击抽将层（动态检测）
+
+### 4.1 标签：闪将 (is_discovered_check)
+
+**定义**：移开己方棋子后，露出后方远程棋子将军。
+
+**检测思路**：
+1. 解析走法，确定移动的棋子位置
+2. 找到该位置后方的远程攻击棋子（车、炮）
+3. 执行走法后，检查是否形成将军
+4. 如果形成将军，则判定为闪将
+
+**算法实现**：
+
+```python
+def _detect_discovered_attack(self, board, move, is_red_turn):
+    results = []
+    
+    # 步骤1: 解析走法
+    (from_row, from_col), (to_row, to_col) = self._parse_uci(move)
+    moving_piece = board[from_row][from_col]
+    if not moving_piece:
+        return results
+    
+    # 步骤2: 找到后方的远程攻击棋子
+    back_attackers = self._find_back_attackers(
+        board, from_row, from_col, is_red_turn
+    )
+    
+    # 步骤3: 执行走法
+    new_board = self._apply_move(board, move)
+    
+    for back_pos in back_attackers:
+        back_piece = board[back_pos[0]][back_pos[1]]
+        if not back_piece:
+            continue
+        
+        # 步骤4: 检查是否形成将军
+        if self._is_in_check(new_board, not is_red_turn):
+            tag = get_tag_by_name("is_discovered_check")
+            if tag:
+                results.append(TagDetectionResult(
+                    tag=tag,
+                    detected=True,
+                    confidence=1.0,
+                    bind_pieces=[
+                        移动的棋子绑定,
+                        后方攻击棋子绑定
+                    ],
+                    metadata={"move": move}
+                ))
+    
+    return results
+
+def _find_back_attackers(self, board, row, col, is_red):
+    """
+    找到移动棋子后方的远程攻击棋子（车、炮）
+    
+    从移动位置向四个方向扫描，找到第一个己方车或炮
+    """
+    attackers = []
+    
+    # 四个方向：上、下、左、右
+    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        r, c = row + dr, col + dc
+        
+        # 沿方向扫描
+        while 0 <= r < 10 and 0 <= c < 9:
+            piece = board[r][c]
+            if piece:
+                # 找到棋子，检查是否为己方车或炮
+                if self._is_red(piece) == is_red and piece.lower() in ('r', 'c'):
+                    attackers.append((r, c))
+                break  # 遇到任何棋子都停止
+            r += dr
+            c += dc
+    
+    return attackers
+```
+
+**绑定棋子**：
+- 移动的棋子（闪开）
+- 后方远程攻击棋子（车或炮）
+
+---
+
+### 4.2 标签：抽将 (is_double_attack_with_check)
+
+**定义**：将军的同时，另一棋子攻击对方无根子/关键子。
+
+**检测思路**：
+1. 执行走法
+2. 检查是否形成将军
+3. 如果形成将军，检查执行走法的棋子是否同时攻击其他目标
+
+**算法实现**：
+
+```python
+def _detect_double_attack_with_check(self, board, move, is_red_turn):
+    results = []
+    
+    # 步骤1: 执行走法
+    new_board = self._apply_move(board, move)
+    
+    # 步骤2: 检查是否形成将军
+    if not self._is_in_check(new_board, not is_red_turn):
+        return results  # 没有将军，不是抽将
+    
+    # 步骤3: 找到执行走法的棋子位置
+    (from_row, from_col), (to_row, to_col) = self._parse_uci(move)
+    attacker_piece = new_board[to_row][to_col]
+    if not attacker_piece:
+        return results
+    
+    # 步骤4: 检查该棋子的攻击范围
+    attacks = self._get_attacks(new_board, to_row, to_col)
+    
+    for target_pos in attacks:
+        target_piece = new_board[target_pos[0]][target_pos[1]]
+        
+        # 只检查敌方棋子
+        if target_piece and self._is_red(target_piece) != is_red_turn:
+            tag = get_tag_by_name("is_double_attack_with_check")
+            if tag:
+                results.append(TagDetectionResult(
+                    tag=tag,
+                    detected=True,
+                    confidence=1.0,
+                    bind_pieces=[
+                        执行走法的棋子绑定,
+                        被攻击的敌方棋子绑定
+                    ],
+                    metadata={"move": move}
+                ))
+    
+    return results
+```
+
+**绑定棋子**：
+- 执行走法的棋子
+- 被攻击的敌方棋子
+
+---
+
+### 4.3 标签：闪击 (is_discovered_attack)
+
+**定义**：移开己方棋子后，露出后方棋子攻击对方无根子。
+
+**检测思路**：
+1. 找到移动棋子后方的远程攻击棋子
+2. 执行走法后，比较前后攻击范围变化
+3. 检查新增的攻击目标是否为无根子
+
+**算法实现**：
+
+```python
+# 在_detect_discovered_attack中继续检测
+
+for back_pos in back_attackers:
+    back_piece = board[back_pos[0]][back_pos[1]]
+    if not back_piece:
+        continue
+    
+    # 比较移动前后的攻击范围
+    old_attacks = set(self._get_attacks(board, back_pos[0], back_pos[1]))
+    new_attacks = set(self._get_attacks(new_board, back_pos[0], back_pos[1]))
+    
+    # 找到新增的攻击目标
+    new_targets = new_attacks - old_attacks
+    
+    for target_pos in new_targets:
+        target_piece = new_board[target_pos[0]][target_pos[1]]
+        
+        # 只检查敌方棋子
+        if target_piece and self._is_red(target_piece) != is_red_turn:
+            # 检查是否无根
+            if not self._is_protected(
+                new_board, target_pos[0], target_pos[1], 
+                not is_red_turn
+            ):
+                tag = get_tag_by_name("is_discovered_attack")
+                if tag:
+                    results.append(TagDetectionResult(
+                        tag=tag,
+                        detected=True,
+                        confidence=1.0,
+                        bind_pieces=[
+                            移动的棋子绑定,
+                            后方攻击棋子绑定,
+                            被攻击的无根子绑定
+                        ],
+                        metadata={"move": move}
+                    ))
+```
+
+**绑定棋子**：
+- 移动的棋子
+- 后方攻击棋子
+- 被攻击的无根子
+
+---
+
+## 五、第四层：牵制串打层
+
+### 5.1 标签：被牵制 (is_pinned)
+
+**定义**：一方棋子被对方车/炮牵制，移动后会导致己方将/帅被将军。
+
+**检测思路**：
+1. 找到己方将/帅位置
+2. 找到敌方所有车和炮
+3. 检查车/炮与将/帅是否在同一直线上
+4. 如果直线上只有一个己方棋子，则该棋子被牵制
+
+**算法实现**：
+
+```python
+def _detect_pin_skewer(self, board, is_red_turn):
+    results = []
+    seen_pinned = set()
+    
+    # 步骤1: 找到己方将/帅
+    my_king_pos = self._find_king(board, is_red_turn)
+    if not my_king_pos:
+        return results
+    
+    # 步骤2: 找到敌方所有车和炮
+    enemy_pinners = []
+    for r in range(10):
+        for c in range(9):
+            piece = board[r][c]
+            if piece and self._is_red(piece) != is_red_turn:
+                if piece.lower() in ('r', 'c'):
+                    enemy_pinners.append((r, c))
+    
+    for pinner_pos in enemy_pinners:
+        # 步骤3: 检查是否在同一直线上
+        if not self._is_on_same_line(pinner_pos, my_king_pos):
+            continue
+        
+        # 获取连线上的所有位置（不包含端点）
+        line_positions = self._get_line_positions(pinner_pos, my_king_pos)
+        
+        # 步骤4: 统计连线上的己方棋子
+        pinned_pieces = []
+        for pos in line_positions:
+            piece = board[pos[0]][pos[1]]
+            if piece and self._is_red(piece) == is_red_turn:
+                pinned_pieces.append(pos)
+        
+        # 如果只有一个己方棋子，则被牵制
+        if len(pinned_pieces) == 1:
+            pinned_pos = pinned_pieces[0]
+            key = (pinned_pos, pinner_pos)
+            if key not in seen_pinned:
+                seen_pinned.add(key)
+                tag = get_tag_by_name("is_pinned")
+                if tag:
+                    results.append(TagDetectionResult(
+                        tag=tag,
+                        detected=True,
+                        confidence=1.0,
+                        bind_pieces=[
+                            被牵制的棋子绑定,
+                            牵制方棋子绑定
+                        ]
+                    ))
+    
+    return results
+
+def _is_on_same_line(self, pos1, pos2):
+    """判断两点是否在同一直线上"""
+    return pos1[0] == pos2[0] or pos1[1] == pos2[1]
+
+def _get_line_positions(self, start, end):
+    """获取两点连线上的所有位置（不包含端点）"""
+    dr = 0 if end[0] == start[0] else (1 if end[0] > start[0] else -1)
+    dc = 0 if end[1] == start[1] else (1 if end[1] > start[1] else -1)
+    
+    if dr == 0 and dc == 0:
+        return []
+    
+    positions = []
+    r, c = start[0] + dr, start[1] + dc
+    while (r, c) != end:
+        positions.append((r, c))
+        r += dr
+        c += dc
+    
+    return positions
+```
+
+**绑定棋子**：
+- 被牵制的棋子
+- 牵制方棋子（车或炮）
+
+---
+
+### 5.2 标签：炮串打 (is_cannon_double_attack)
+
+**定义**：炮隔一个炮架同时攻击两个对方棋子。
+
+**检测思路**：
+1. 找到己方所有炮
+2. 对每个炮，沿四个方向扫描
+3. 找到炮架后的敌方棋子
+4. 如果有两个及以上敌方棋子，则形成串打
+
+**算法实现**：
+
+```python
+# 在_detect_pin_skewer中继续检测
+
+seen_cannon_double = set()
+
+# 找到己方所有炮
+my_cannons = []
+for r in range(10):
+    for c in range(9):
+        piece = board[r][c]
+        if piece and piece.lower() == 'c' and self._is_red(piece) == is_red_turn:
+            my_cannons.append((r, c))
+
+for cannon_pos in my_cannons:
+    # 四个方向扫描
+    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        targets = self._find_cannon_double_targets(
+            board, cannon_pos, dr, dc, is_red_turn
+        )
+        
+        # 如果有2个及以上目标，形成串打
+        if len(targets) >= 2:
+            key = (cannon_pos, tuple(targets[:2]))
+            if key not in seen_cannon_double:
+                seen_cannon_double.add(key)
+                tag = get_tag_by_name("is_cannon_double_attack")
+                if tag:
+                    bind_pieces = [炮的绑定]
+                    for t in targets[:2]:
+                        bind_pieces.append(目标棋子绑定)
+                    results.append(TagDetectionResult(
+                        tag=tag,
+                        detected=True,
+                        confidence=1.0,
+                        bind_pieces=bind_pieces
+                    ))
+
+def _find_cannon_double_targets(self, board, cannon_pos, dr, dc, is_red):
+    """
+    找到炮串打的目标
+    
+    沿指定方向扫描：
+    1. 先找到炮架（第一个棋子）
+    2. 然后找到炮架后的敌方棋子
+    """
+    targets = []
+    r, c = cannon_pos
+    
+    found_platform = False
+    r += dr
+    c += dc
+    
+    while 0 <= r < 10 and 0 <= c < 9:
+        piece = board[r][c]
+        
+        if not found_platform:
+            # 寻找炮架
+            if piece:
+                found_platform = True
+        else:
+            # 炮架后寻找目标
+            if piece:
+                # 只攻击敌方棋子
+                if self._is_red(piece) != is_red:
+                    targets.append((r, c))
+                # 最多找2个目标
+                if len(targets) >= 2:
+                    break
+        
+        r += dr
+        c += dc
+    
+    return targets
+```
+
+**绑定棋子**：
+- 炮
+- 第一个被攻击的敌方棋子
+- 第二个被攻击的敌方棋子
+
+---
+
+## 六、第五层：标准杀法层
+
+### 6.1 标签：马后炮 (checkmate_horse_back_cannon)
+
+**定义**：马和炮配合将死对方的经典杀法。
+
+**检测思路**：
+1. 找到己方马和炮
+2. 检查炮是否与敌方将/帅在同一直线上
+3. 检查马是否封锁了将/帅的逃跑路线
+4. 检查炮是否有炮架
+
+**算法实现**：
+
+```python
+def _detect_horse_back_cannon(self, board, is_red_turn):
+    results = []
+    
+    # 步骤1: 找到敌方将/帅
+    enemy_king_pos = self._find_king(board, not is_red_turn)
+    if not enemy_king_pos:
+        return results
+    
+    # 步骤2: 找到己方马和炮
+    my_horses = []
+    my_cannons = []
+    for r in range(10):
+        for c in range(9):
+            piece = board[r][c]
+            if piece and self._is_red(piece) == is_red_turn:
+                if piece.lower() == 'n':
+                    my_horses.append((r, c))
+                elif piece.lower() == 'c':
+                    my_cannons.append((r, c))
+    
+    # 步骤3: 检查马后炮组合
+    for horse_pos in my_horses:
+        for cannon_pos in my_cannons:
+            # 检查炮是否与将/帅在同一直线上
+            if self._is_on_same_line(cannon_pos, enemy_king_pos):
+                # 检查是否有炮架
+                line = self._get_line_positions(cannon_pos, enemy_king_pos)
+                has_screen = any(board[p[0]][p[1]] for p in line)
+                
+                if has_screen:
+                    # 检查马是否封锁逃跑路线
+                    escape_blocked = self._is_king_escape_blocked_by_horse(
+                        board, enemy_king_pos, horse_pos, is_red_turn
+                    )
+                    
+                    if escape_blocked:
+                        tag = get_tag_by_name("checkmate_horse_back_cannon")
+                        if tag:
+                            results.append(TagDetectionResult(
+                                tag=tag,
+                                detected=True,
+                                confidence=1.0,
+                                bind_pieces=[
+                                    马的绑定,
+                                    炮的绑定,
+                                    敌方将/帅绑定
+                                ]
+                            ))
+    
+    return results
+
+def _is_king_escape_blocked_by_horse(self, board, king_pos, horse_pos, is_red):
+    """
+    判断马是否封锁了将/帅的逃跑路线
+    
+    检查马的攻击范围是否覆盖将/帅的多个相邻位置
+    """
+    horse_attacks = set(self._get_attacks(board, horse_pos[0], horse_pos[1]))
+    
+    # 获取将/帅的相邻位置（在九宫格内）
+    king_adjacent = self._get_adjacent_positions(king_pos)
+    king_adjacent = [p for p in king_adjacent if self._is_in_palace(p, not is_red)]
+    
+    # 统计被马封锁的位置数
+    blocked_count = 0
+    for adj in king_adjacent:
+        if adj in horse_attacks:
+            blocked_count += 1
+    
+    # 封锁2个以上位置才算有效封锁
+    return blocked_count >= 2
+```
+
+**绑定棋子**：
+- 马
+- 炮
+- 敌方将/帅
+
+---
+
+### 6.2 标签：铁门栓 (checkmate_iron_gate)
+
+**定义**：车在将/帅门线上配合其他子将死。
+
+**检测思路**：
+1. 找到敌方将/帅位置
+2. 找到己方所有车
+3. 检查车是否与将/帅在同一列
+4. 检查车与将/帅之间是否有阻挡
+
+**算法实现**：
+
+```python
+def _detect_iron_gate(self, board, is_red_turn):
+    results = []
+    
+    # 步骤1: 找到敌方将/帅
+    enemy_king_pos = self._find_king(board, not is_red_turn)
+    if not enemy_king_pos:
+        return results
+    
+    # 步骤2: 找到己方所有车
+    my_rooks = []
+    for r in range(10):
+        for c in range(9):
+            piece = board[r][c]
+            if piece and piece.lower() == 'r' and self._is_red(piece) == is_red_turn:
+                my_rooks.append((r, c))
+    
+    for rook_pos in my_rooks:
+        # 步骤3: 检查是否在同一列
+        if rook_pos[1] == enemy_king_pos[1]:
+            # 步骤4: 检查是否有阻挡
+            min_row = min(rook_pos[0], enemy_king_pos[0])
+            max_row = max(rook_pos[0], enemy_king_pos[0])
+            
+            blocking_pieces = []
+            for r in range(min_row + 1, max_row):
+                if board[r][rook_pos[1]]:
+                    blocking_pieces.append((r, rook_pos[1]))
+            
+            # 没有阻挡，形成铁门栓
+            if not blocking_pieces:
+                tag = get_tag_by_name("checkmate_iron_gate")
+                if tag:
+                    results.append(TagDetectionResult(
+                        tag=tag,
+                        detected=True,
+                        confidence=1.0,
+                        bind_pieces=[
+                            车的绑定,
+                            敌方将/帅绑定
+                        ]
+                    ))
+    
+    return results
+```
+
+**绑定棋子**：
+- 车
+- 敌方将/帅
+
+---
+
+### 6.3 标签：双车错 (checkmate_double_cannon)
+
+**定义**：双车交替将军将死。
+
+**检测思路**：
+1. 找到己方所有车
+2. 检查是否有两辆车
+3. 检查两辆车是否能攻击到敌方将/帅
+
+**算法实现**：
+
+```python
+def _detect_double_rook(self, board, is_red_turn):
+    results = []
+    
+    # 步骤1: 找到敌方将/帅
+    enemy_king_pos = self._find_king(board, not is_red_turn)
+    if not enemy_king_pos:
+        return results
+    
+    # 步骤2: 找到己方所有车
+    my_rooks = []
+    for r in range(10):
+        for c in range(9):
+            piece = board[r][c]
+            if piece and piece.lower() == 'r' and self._is_red(piece) == is_red_turn:
+                my_rooks.append((r, c))
+    
+    # 需要至少两辆车
+    if len(my_rooks) < 2:
+        return results
+    
+    # 步骤3: 检查双车组合
+    for i, rook1 in enumerate(my_rooks):
+        for rook2 in my_rooks[i+1:]:
+            attacks1 = set(self._get_attacks(board, rook1[0], rook1[1]))
+            attacks2 = set(self._get_attacks(board, rook2[0], rook2[1]))
+            
+            # 任一车能攻击到将/帅
+            if enemy_king_pos in attacks1 or enemy_king_pos in attacks2:
+                tag = get_tag_by_name("checkmate_double_cannon")
+                if tag:
+                    results.append(TagDetectionResult(
+                        tag=tag,
+                        detected=True,
+                        confidence=1.0,
+                        bind_pieces=[
+                            第一辆车的绑定,
+                            第二辆车的绑定,
+                            敌方将/帅绑定
+                        ]
+                    ))
+    
+    return results
+```
+
+**绑定棋子**：
+- 第一辆车
+- 第二辆车
+- 敌方将/帅
+
+---
+
+## 七、第六层：子力状态层
+
+### 7.1 标签：子无根 (piece_is_unprotected)
+
+**定义**：某个棋子无任何己方棋子保护。
+
+**检测思路**：
+1. 遍历所有棋子
+2. 对每个棋子，检查是否有同色棋子能攻击到该位置
+3. 如果没有，则该棋子无根
+
+**算法实现**：
+
+```python
+def _detect_piece_status(self, board):
+    results = []
+    seen_unprotected = set()
+    
+    for r in range(10):
+        for c in range(9):
+            piece = board[r][c]
+            if not piece:
+                continue
+            
+            is_red = self._is_red(piece)
+            
+            # 检查是否被保护
+            if not self._is_protected(board, r, c, is_red):
+                key = (r, c)
+                if key not in seen_unprotected:
+                    seen_unprotected.add(key)
+                    tag = get_tag_by_name("piece_is_unprotected")
+                    if tag:
+                        results.append(TagDetectionResult(
+                            tag=tag,
+                            detected=True,
+                            confidence=1.0,
+                            bind_pieces=[该棋子的绑定]
+                        ))
+    
+    return results
+```
+
+**绑定棋子**：
+- 无根的棋子
+
+---
+
+### 7.2 标签：炮有架 (cannon_has_platform)
+
+**定义**：炮有可用的炮架（己方棋子）。
+
+**检测思路**：
+1. 找到所有炮
+2. 对每个炮，沿四个方向扫描
+3. 检查是否有己方棋子可以作为炮架
+
+**算法实现**：
+
+```python
+# 在_detect_piece_status中继续检测
+
+seen_cannon_platform = set()
+
+for r in range(10):
+    for c in range(9):
+        piece = board[r][c]
+        if not piece:
+            continue
+        
+        # 只检查炮
+        if piece.lower() == 'c':
+            is_red = self._is_red(piece)
+            has_platform = self._has_cannon_platform(board, r, c, is_red)
+            
+            if has_platform:
+                key = (r, c)
+                if key not in seen_cannon_platform:
+                    seen_cannon_platform.add(key)
+                    tag = get_tag_by_name("cannon_has_platform")
+                    if tag:
+                        results.append(TagDetectionResult(
+                            tag=tag,
+                            detected=True,
+                            confidence=1.0,
+                            bind_pieces=[炮的绑定]
+                        ))
+
+def _has_cannon_platform(self, board, row, col, is_red):
+    """
+    判断炮是否有炮架
+    
+    沿四个方向扫描，找到第一个棋子后，继续找第二个敌方棋子
+    """
+    for dr, dc in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+        r, c = row + dr, col + dc
+        found_piece = False
+        
+        while 0 <= r < 10 and 0 <= c < 9:
+            piece = board[r][c]
+            if piece:
+                if not found_piece:
+                    # 找到第一个棋子（炮架）
+                    found_piece = True
+                else:
+                    # 找到第二个棋子（目标）
+                    if self._is_red(piece) != is_red:
+                        return True  # 有炮架且能攻击敌方
+                    break
+            r += dr
+            c += dc
+    
+    return False
+```
+
+**绑定棋子**：
+- 有架的炮
+
+---
+
+## 八、辅助函数说明
+
+### 8.1 棋子绑定函数
+
+```python
+def _bind_piece(self, piece, row, col):
+    """
+    将棋子绑定到坐标
+    
+    格式: 颜色-兵种-(列,行)
+    示例: 红车-(5,8), 黑将-(5,1)
+    
+    坐标说明:
+    - 列: 1-9 (从左到右)
+    - 行: 1-10 (从红方到黑方)
+    """
+    if not piece:
+        return ""
+    
+    # 获取棋子名称和颜色
+    piece_info = self.PIECE_NAMES.get(piece, ('未知', '红' if piece.isupper() else '黑'))
+    piece_type = piece_info[0]
+    color = piece_info[1]
+    
+    # 转换坐标
+    x = col + 1           # 列: 0-8 → 1-9
+    y = 10 - row          # 行: 0-9 → 10-1
+    
+    return f"{color}{piece_type}-({x},{y})"
+```
+
+### 8.2 UCI格式转换
+
+```python
+def _to_uci(self, from_row, from_col, to_row, to_col):
+    """
+    坐标转UCI格式
+    
+    中国象棋UCI格式:
+    - 列: a-i (从左到右)
+    - 行: 0-9 (从红方视角，红方底线为0)
+    """
+    files = 'abcdefghi'
+    from_sq = f"{files[from_col]}{9 - from_row}"
+    to_sq = f"{files[to_col]}{9 - to_row}"
+    return f"{from_sq}{to_sq}"
+
+def _parse_uci(self, move):
+    """
+    UCI格式转坐标
+    """
+    files = 'abcdefghi'
+    move = move.lower()
+    
+    from_col = files.index(move[0])
+    from_row = 9 - int(move[1])
+    to_col = files.index(move[2])
+    to_row = 9 - int(move[3])
+    
+    return (from_row, from_col), (to_row, to_col)
+```
+
+---
+
+## 九、性能优化建议
+
+### 9.1 当前实现
+
+- 时间复杂度：O(n²) 其中n为棋子数量
+- 空间复杂度：O(n)
+
+### 9.2 优化方向
+
+1. **缓存攻击范围**：避免重复计算同一棋子的攻击范围
+2. **增量更新**：动态检测时，只更新变化的部分
+3. **并行计算**：多线程处理不同层级的检测
+
+---
+
+**文档版本**: v1.0  
+**最后更新**: 2026-03-14

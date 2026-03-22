@@ -1,0 +1,104 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Logs
+logs/
+*.log
+
+# Configuration (copy from .example)
+config/settings.yaml
+
+# ============================================
+# Data Files (Do not commit large binaries)
+# ============================================
+
+# Chess engine binaries
+data/engine/pikafish
+data/engine/pikafish.exe
+data/engine/*.tar.bz2
+data/engine/*.zip
+
+# Chess books (PDF)
+data/books/*.pdf
+data/books/*.txt
+
+# Game databases
+data/games/*.pgn
+data/games/*.csv
+
+# Vector database indices
+data/vector_db/*.index
+data/vector_db/*.meta
+data/vector_db/*.json
+
+# Graph database
+data/graph_db/
+
+# ============================================
+# Environment Variables & Secrets
+# ============================================
+.env
+.env.local
+*.key
+*_key.txt
+
+# ============================================
+# OS Generated Files
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ============================================
+# Temporary Files
+# ============================================
+*.tmp
+*.bak
+*.swp
+*.swo
+*~
+
+# Jupyter Notebooks
+.ipynb_checkpoints/

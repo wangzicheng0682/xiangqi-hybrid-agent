@@ -1,0 +1,14 @@
+# Position Encoder 训练依赖
+# 安装命令: pip install -r requirements.txt
+
+# 核心依赖
+torch>=2.0.0
+numpy>=1.24.0
+tqdm>=4.65.0
+
+# 数据处理
+neo4j>=5.0.0
+
+# 可选依赖（如果需要完整core模块）
+requests>=2.28.0
+langgraph>=0.2.0

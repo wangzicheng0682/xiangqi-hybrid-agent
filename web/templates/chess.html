@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>象棋AI混合代理 - 现代化前端</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: '楷体', 'STKaiti', 'KaiTi', serif;
+            background: linear-gradient(135deg, #F5F5DC 0%, #E8E4D9 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px;
+            background: radial-gradient(circle at 50% 0%, #F5F5DC 0%, #E8E4D9 100%);
+            border-radius: 12px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #C41E3A;
+            font-size: 36px;
+            text-align: center;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.2);
+            background: linear-gradient(135deg, #F5E6D3 0%, #E8E4D9 100%);
+            padding: 25px;
+            margin-bottom: 20px;
+            border-bottom: 4px solid #D4AF37;
+            border-radius: 8px;
+        }
+
+        .game-area {
+            display: flex;
+            gap: 20px;
+        }
+
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+            background: #FFFFFF;
+            border: 2px solid #D4AF37;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .board-panel {
+            flex: 2;
+            min-width: 600px;
+            background: #FFFFFF;
+            border: 2px solid #D4AF37;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #C41E3A 0%, #D32F2F 100%);
+            color: #FFFFFF;
+            border: none;
+            border-radius: 6px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-family: '楷体', 'STKaiti', 'KaiTi', serif;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(196,30,58,0.3);
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(196,30,58,0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .status {
+            font-size: 16px;
+            font-weight: bold;
+            padding: 15px;
+            background: rgba(212,175,55,0.1);
+            border-left: 4px solid #D4AF37;
+            border-radius: 6px;
+            margin: 15px 0;
+            color: #2C3E50;
+        }
+
+        .move-history {
+            background: #F5F5DC;
+            border: 1px solid #B8860B;
+            border-radius: 6px;
+            padding: 15px;
+            min-height: 150px;
+            font-size: 14px;
+            font-family: '楷体', 'STKaiti', 'KaiTi', serif;
+            color: #2C3E50;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        #chessboard {
+            display: inline-block;
+            margin: 20px auto;
+        }
+
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏯 象棋AI混合代理教学系统</h1>
+
+        <div class="game-area">
+            <div class="control-panel">
+                <h2 style="color: #C41E3A; margin-bottom: 15px;">控制面板</h2>
+
+                <div class="status" id="status">红方先行，请点击棋子选择</div>
+
+                <button class="btn" onclick="newGame()">🔄 新对局</button>
+
+                <h3 style="color: #C41E3A; margin: 15px 0 10px 0;">走棋记录</h3>
+                <div class="move-history" id="moveHistory">暂无走棋记录</div>
+
+                <div id="message" class="message" style="display: none;"></div>
+            </div>
+
+            <div class="board-panel">
+                <h2 style="color: #C41E3A; margin-bottom: 15px; text-align: center;">棋盘</h2>
+                <div id="chessboard"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 棋盘状态
+        let gameState = {
+            board: [],
+            redToMove: true,
+            selectedPos: null,
+            legalMoves: [],
+            moveHistory: [],
+            gameOver: false,
+            winner: null
+        };
+
+        // 棋子名称
+        const PIECE_NAMES = {
+            'K': '帅', 'k': '将', 'A': '仕', 'a': '士',
+            'B': '相', 'b': '象', 'R': '车', 'r': '車',
+            'C': '炮', 'c': '砲', 'N': '马', 'n': '馬',
+            'P': '兵', 'p': '卒',
+        };
+
+        // 初始化
+        async function init() {
+            try {
+                const response = await fetch('/api/initial');
+                const data = await response.json();
+                gameState = data;
+                renderBoard();
+                updateStatus();
+            } catch (error) {
+                console.error('初始化失败:', error);
+                showMessage('初始化失败，请刷新页面', 'error');
+            }
+        }
+
+        // 渲染棋盘
+        function renderBoard() {
+            const boardHtml = generateBoardHtml(
+                gameState.board,
+                gameState.selectedPos,
+                gameState.legalMoves
+            );
+            document.getElementById('chessboard').innerHTML = boardHtml;
+            updateMoveHistory();
+        }
+
+        // 生成棋盘HTML
+        function generateBoardHtml(board, selectedPos, legalMoves) {
+            let html = `
+                <div style="
+                    position: relative;
+                    width: 540px;
+                    height: 600px;
+                    background: radial-gradient(circle at 30% 20%, #F5F5DC 0%, #E8E4D9 100%);
+                    border: 4px solid #B8860B;
+                    border-radius: 8px;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.2), inset 0 1px 0 rgba(0,0,0,0.1);
+                ">
+            `;
+
+            // 棋盘网格
+            for (let i = 0; i < 10; i++) {
+                for (let j = 0; j < 9; j++) {
+                    const x = j * 60;
+                    const y = i * 60;
+
+                    // 绘制格子
+                    html += `
+                        <div style="
+                            position: absolute;
+                            left: ${x}px;
+                            top: ${y}px;
+                            width: 60px;
+                            height: 60px;
+                            cursor: pointer;
+                            z-index: 10;
+                        " onclick="handleCellClick(${i}, ${j})">
+                    `;
+
+                    // 绘制网格线
+                    html += `
+                        <div style="
+                            position: absolute;
+                            left: ${x}px;
+                            top: ${y}px;
+                            width: 60px;
+                            height: 60px;
+                            border: 1px solid #8B4513;
+                            pointer-events: none;
+                            box-sizing: border-box;
+                            z-index: 1;
+                        "></div>
+                    `;
+                }
+            }
+
+            // 楚河汉界
+            html += `
+                <div style="
+                    position: absolute;
+                    left: 0;
+                    right: 0;
+                    top: 270px;
+                    height: 60px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-family: '楷体', 'STKaiti', 'KaiTi', serif;
+                    font-size: 24px;
+                    font-weight: bold;
+                    color: #2C3E50;
+                    background: linear-gradient(90deg, transparent 0%, #D4AF37 50%, transparent 100%);
+                    border-top: 2px solid #8B4513;
+                    border-bottom: 2px solid #8B4513;
+                    letter-spacing: 4rem;
+                    pointer-events: none;
+                    z-index: 2;
+                ">
+                    <span style="margin-right: 2rem;">楚河</span>
+                    <span style="margin-left: 2rem;">汉界</span>
+                </div>
+            `;
+
+            // 九宫格
+            html += `
+                <div style="
+                    position: absolute;
+                    left: 180px;
+                    top: 0;
+                    width: 120px;
+                    height: 180px;
+                    border: 2px dashed #D4AF37;
+                    opacity: 0.3;
+                    pointer-events: none;
+                    z-index: 2;
+                "></div>
+                <div style="
+                    position: absolute;
+                    left: 180px;
+                    top: 420px;
+                    width: 120px;
+                    height: 180px;
+                    border: 2px dashed #D4AF37;
+                    opacity: 0.3;
+                    pointer-events: none;
+                    z-index: 2;
+                "></div>
+            `;
+
+            // 棋子
+            for (let i = 0; i < 10; i++) {
+                for (let j = 0; j < 9; j++) {
+                    const piece = board[i][j];
+                    if (piece) {
+                        const isRed = piece === piece.toUpperCase();
+                        const pieceName = PIECE_NAMES[piece];
+                        const isSelected = selectedPos && selectedPos[0] === i && selectedPos[1] === j;
+                        const isValidMove = legalMoves.some(m => m[0] === i && m[1] === j);
+
+                        const x = j * 60 + 30;
+                        const y = i * 60 + 30;
+
+                        html += `
+                            <div style="
+                                position: absolute;
+                                left: ${x - 25}px;
+                                top: ${y - 25}px;
+                                width: 50px;
+                                height: 50px;
+                                border-radius: 50%;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                font-family: '楷体', 'STKaiti', 'KaiTi', serif;
+                                font-weight: bold;
+                                font-size: 28px;
+                                cursor: pointer;
+                                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                                background: radial-gradient(circle at 30% 30%, #FFFFFF 0%, #F5F5DC 50%, #E8E4D0 100%);
+                                box-shadow:
+                                    0 6px 12px rgba(0, 0, 0, 0.3),
+                                    0 3px 6px rgba(0, 0, 0, 0.2),
+                                    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+                                    inset 0 1px 2px rgba(0, 0, 0, 0.1);
+                                border: 3px solid ${isRed ? '#E63946' : '#2C3E50'};
+                                color: ${isRed ? '#E63946' : '#2C3E50'};
+                                text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+                                z-index: 10;
+                                ${isSelected ? 'transform: scale(1.15); box-shadow: 0 0 20px #D4AF37, 0 0 40px rgba(212, 175, 55, 0.3);' : ''}
+                            " onclick="handleCellClick(${i}, ${j})">
+                                ${pieceName}
+                            </div>
+                        `;
+
+                        // 有效走法高亮
+                        if (isValidMove) {
+                            html += `
+                                <div style="
+                                    position: absolute;
+                                    left: ${x - 10}px;
+                                    top: ${y - 10}px;
+                                    width: 20px;
+                                    height: 20px;
+                                    border-radius: 50%;
+                                    background: radial-gradient(circle, #00A86B 0%, transparent 70%);
+                                    animation: pulse-jade 1.5s infinite;
+                                    z-index: 5;
+                                    pointer-events: none;
+                                "></div>
+                            `;
+                        }
+                    }
+                }
+            }
+
+            html += '</div>';
+
+            // 添加动画样式
+            html += `
+                <style>
+                @keyframes pulse-jade {
+                    0%, 100% { opacity: 0.3; }
+                    50% { opacity: 0.7; }
+                }
+                </style>
+            `;
+
+            return html;
+        }
+
+        // 处理格子点击
+        async function handleCellClick(row, col) {
+            if (gameState.gameOver) {
+                showMessage('游戏已结束', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/click', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ row, col })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    gameState = data;
+                    renderBoard();
+                    updateStatus();
+                    showMessage(data.message || '操作成功', 'success');
+
+                    if (gameState.gameOver) {
+                        setTimeout(() => {
+                            showMessage(`游戏结束！${gameState.winner}获胜！`, 'success');
+                        }, 500);
+                    }
+                } else {
+                    showMessage(data.message || '操作失败', 'error');
+                }
+            } catch (error) {
+                console.error('操作失败:', error);
+                showMessage('操作失败，请重试', 'error');
+            }
+        }
+
+        // 新游戏
+        async function newGame() {
+            try {
+                const response = await fetch('/api/new_game', {
+                    method: 'POST'
+                });
+
+                const data = await response.json();
+                gameState = data;
+                renderBoard();
+                updateStatus();
+                showMessage('新对局开始', 'success');
+            } catch (error) {
+                console.error('新游戏失败:', error);
+                showMessage('新游戏失败，请重试', 'error');
+            }
+        }
+
+        // 更新状态
+        function updateStatus() {
+            const statusEl = document.getElementById('status');
+            if (gameState.gameOver) {
+                statusEl.textContent = `游戏结束！${gameState.winner}获胜！`;
+            } else {
+                const turn = gameState.redToMove ? '红方' : '黑方';
+                statusEl.textContent = `${turn}走棋`;
+            }
+        }
+
+        // 更新走棋记录
+        function updateMoveHistory() {
+            const historyEl = document.getElementById('moveHistory');
+            if (gameState.moveHistory.length === 0) {
+                historyEl.textContent = '暂无走棋记录';
+            } else {
+                historyEl.innerHTML = gameState.moveHistory.map(move => `<div>${move}</div>`).join('');
+            }
+        }
+
+        // 显示消息
+        function showMessage(message, type) {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = message;
+            messageEl.className = `message ${type}`;
+            messageEl.style.display = 'block';
+
+            setTimeout(() => {
+                messageEl.style.display = 'none';
+            }, 3000);
+        }
+
+        // 页面加载完成后初始化
+        window.onload = init;
+    </script>
+</body>
+</html>

@@ -1,0 +1,42 @@
+# 自我对弈配置
+
+# 玩家配置
+player:
+  color: "RED"  # RED, BLACK
+  mode: "mixed"  # exploitation, exploration, mixed
+  exploration_rate: 0.2
+  temperature: 0.7
+  top_k: 3
+  use_retrieval: true
+  max_retries: 3
+  fallback_random: true
+  
+  # 阶段相关配置
+  opening_exploration_rate: 0.3
+  midgame_exploration_rate: 0.2
+  endgame_exploration_rate: 0.1
+
+# 走法选择器配置
+move_selector:
+  top_k: 3
+  exploration_rate: 0.2
+  temperature: 0.7
+  max_retries: 3
+  fallback_random: true
+  use_experience: true
+  min_good_moves: 1
+  max_bad_moves: 3
+
+# 游戏运行器配置
+game_runner:
+  max_moves: 300
+  save_boards: true
+  verbose: true
+  log_interval: 10
+
+# 批量对弈配置
+batch:
+  num_games: 10
+  reset_stats: true
+  parallel: false  # 是否并行运行（未来功能）
+
