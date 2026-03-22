@@ -1,16 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from './store/useGameStore';
+import { useAgentStore } from './store/useAgentStore';
 import ChessBoard from './components/ChessBoard';
-import DeepAnalysisPanel from './components/DeepAnalysisPanel';
-import PositionAnalysisPanel from './components/PositionAnalysisPanel';
-import TacticalTagsPanel from './components/TacticalTagsPanel';
-import ReplayPanel from './components/ReplayPanel';
+import AgentThinkingPanel from './components/AgentThinkingPanel';
 import ReplayNavigator from './components/ReplayNavigator';
 import EngineChart from './components/EngineChart';
 
 type GameMode = 'analysis' | 'pvp' | 'pve_red' | 'pve_black' | 'replay';
-type RightTab = 'deep' | 'position' | 'tags' | 'moves';
 type InputMode = 'online' | 'camera';
 
 export default function App() {
@@ -21,8 +18,18 @@ export default function App() {
     isBoardCollapsed, setBoardCollapsed, toggleBoardCollapsed,
   } = useGameStore();
 
-  const [rightTab, setRightTab] = useState<RightTab>('deep');
+  const { setPanelActive, setAnalyzing } = useAgentStore();
+
   const [inputMode, setInputMode] = useState<InputMode>('online');
+  const [isDark, setIsDark] = useState(() =>
+    document.documentElement.getAttribute('data-theme') === 'dark'
+  );
+
+  const toggleTheme = () => {
+    const next = !isDark;
+    setIsDark(next);
+    document.documentElement.setAttribute('data-theme', next ? 'dark' : '');
+  };
 
   // 测量棋盘高度，用于计算引擎图的 top 位置
   const boardRef = useRef<HTMLDivElement>(null);
@@ -45,19 +52,6 @@ export default function App() {
     return () => ro.disconnect();
   }, [isBoardCollapsed]);
 
-  useEffect(() => {
-    if (gameMode === 'replay') {
-      setRightTab('moves');
-    }
-  }, [gameMode]);
-
-  const tabLabels: Record<RightTab, { label: string; icon: string }> = {
-    'deep': { label: '深度分析', icon: '◈' },
-    'position': { label: '局面解析', icon: '◇' },
-    'tags': { label: '战术标签', icon: '◎' },
-    'moves': { label: '走法记录', icon: '≡' },
-  };
-
   const handleModeChange = (mode: GameMode) => {
     if (mode === 'replay') {
       setGameMode(mode);
@@ -67,7 +61,11 @@ export default function App() {
       }
       setGameMode(mode);
     }
-    if (mode !== 'analysis') {
+    if (mode === 'analysis') {
+      // 触发分析模式：启动扑克牌动画（棋盘收缩由 handleToggleBoard 处理）
+      setPanelActive(true);
+      setAnalyzing(true);
+    } else {
       setBoardCollapsed(false);
     }
   };
@@ -95,7 +93,7 @@ export default function App() {
       }}
     >
       {/* ── 左侧边栏 ── */}
-      <aside style={S.leftSidebar}>
+      <aside className="lg-sidebar lg-sidebar-left" style={S.leftSidebar}>
         {/* Logo区域 */}
         <div style={S.logoSection}>
           <div style={S.logoIcon}>♕</div>
@@ -103,6 +101,28 @@ export default function App() {
             <div style={S.logoTitle}>象棋AI教练</div>
             <div style={S.logoSubtitle}>混合代理系统</div>
           </div>
+          <button
+            onClick={toggleTheme}
+            title={isDark ? '浅色模式' : '深色模式'}
+            style={{
+              marginLeft: 'auto',
+              background: 'rgba(255,255,255,0.15)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: 8,
+              width: 32,
+              height: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              fontSize: 16,
+              color: 'rgba(255,255,255,0.7)',
+              flexShrink: 0,
+              transition: 'background 0.2s',
+            }}
+          >
+            {isDark ? '☀️' : '🌙'}
+          </button>
         </div>
 
         {/* 输入局面 */}
@@ -309,43 +329,14 @@ export default function App() {
 
       {/* ── 右侧分析面板 ── */}
       <motion.aside
-        className="glass-panel-deep"
+        className="lg-sidebar lg-sidebar-right"
         style={S.rightSidebar}
         layout
         transition={{ type: 'spring', stiffness: 280, damping: 24 }}
       >
-        {/* Tab 标签栏 */}
-        <div style={S.tabHeader}>
-          {(Object.keys(tabLabels) as RightTab[]).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setRightTab(tab)}
-              style={{
-                ...S.tabButton,
-                ...(rightTab === tab ? S.tabButtonActive : {}),
-              }}
-              title={tabLabels[tab].label}
-            >
-              <span style={S.tabIcon}>{tabLabels[tab].icon}</span>
-            </button>
-          ))}
-        </div>
-
-        {/* Tab 内容 */}
-        <div style={S.tabContent}>
-          {rightTab === 'deep' && <DeepAnalysisPanel />}
-          {rightTab === 'position' && <PositionAnalysisPanel />}
-          {rightTab === 'tags' && <TacticalTagsPanel />}
-          {rightTab === 'moves' && gameMode === 'replay' && <ReplayPanel />}
-          {rightTab === 'moves' && gameMode !== 'replay' && (
-            <div style={S.emptyState}>
-              <div style={S.emptyIcon}>≡</div>
-              <div style={{ color: 'var(--apple-text-secondary)', fontSize: 13 }}>
-                走法记录显示在左侧边栏
-              </div>
-              <div style={S.emptyHint}>打棋谱模式下可在此查看棋谱</div>
-            </div>
-          )}
+        {/* 分析栏内部：直接渲染 AgentThinkingPanel */}
+        <div style={{ height: '100%', overflow: 'visible' }}>
+          <AgentThinkingPanel />
         </div>
       </motion.aside>
     </div>
@@ -355,8 +346,6 @@ export default function App() {
 const S: Record<string, React.CSSProperties> = {
   // ── 左侧边栏 ──────────────────────────
   leftSidebar: {
-    background: 'rgba(255,255,255,0.15)',
-    borderRight: '1px solid rgba(180,160,140,0.15)',
     padding: '20px 14px',
     display: 'flex',
     flexDirection: 'column',
@@ -596,7 +585,7 @@ const S: Record<string, React.CSSProperties> = {
   rightSidebar: {
     display: 'flex',
     flexDirection: 'column' as const,
-    overflow: 'hidden',
+    overflow: 'visible',
   },
 
   tabHeader: {

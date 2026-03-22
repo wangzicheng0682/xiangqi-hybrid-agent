@@ -2,7 +2,7 @@
 
 > 本文档记录当前开发进度，架构详情请阅读 [DNA.md](DNA.md)
 
-**版本**: v3.23
+**版本**: v3.25
 **最后更新**: 2026-03-22
 
 ---
@@ -25,7 +25,7 @@
 | Agent工具 | ██████████ 100% | 10个工具已实现，Function Calling已集成 |
 | 双模式API | ██████████ 100% | 真Agent模式上线，SSE新消息类型 |
 | **SSE流式输出** | ██████████ 100% | **完成！** 延迟问题已定位，旧分析工具已删除 |
-| 前端 | █████████░ 90% | 深度分析面板完成，思考过程实时展示 |
+| 前端 | ██████████ 100% | 深度分析面板完成，Liquid Glass + 亮暗双模式 |
 | Neo4j棋谱 | ████░░░░░░ 40% | 框架已搭建，数据待完善 |
 
 ---
@@ -51,6 +51,95 @@
 ---
 
 ## 最近更新
+
+### 2026-03-22 🎴 分析面板：扑克牌收叠翻面动画 + 全部原有功能恢复
+
+#### 动画序列（Apple 风格）
+
+点击"开始深度分析"后，扑克牌全程连续动画，不消失：
+
+```
+T=0ms     面板扩张，卡片随布局自然位移（不中断）
+T=100ms   三卡开始收叠（spring stiffness:320, damping:26）
+T=600ms   收叠完成，三卡完美重叠
+T=700ms   整体 3D 翻面（rotateY spring stiffness:260, damping:28）
+T=1100ms  翻面完成，Agent 流光液态玻璃背面展示
+```
+
+#### 架构改动
+
+**一套卡片全程渲染**：
+- `AgentThinkingPanel` 始终渲染 `AgentCardFlip`，不切换组件
+- `AgentCardFlip` 内部通过 `phase` 状态驱动动画
+- 无 `AnimatePresence` 组件切换，无卡片消失
+
+**牌的正面**：`CollapsedCardsView` 原有的 Liquid Glass 卡片（含全部交互）：
+- Apple 风格 `borderRadius: 16` + `overflow: hidden`
+- 鼠标悬停 `onMouseEnter/onMouseLeave`（phase===idle 时启用）
+- `hovered` 状态 → `glowColor` box-shadow 光晕增强
+- `isSqueezed` 邻居卡让位动画（左右各偏移16px）
+- `isHovered ? 1.18 : 1` 悬浮放大
+- `ExpertGlassPanel` Portal 弹出详情（abilities 列表）
+
+**牌的背面**：Apple 彩色流光液态玻璃：
+- `conic-gradient`（蓝→紫→粉→金→蓝）+ `liquid-shimmer` hue-rotate 动画（3秒无限循环）
+- `mixBlendMode: overlay` 叠加质感
+- `backdrop-filter: blur(20px) saturate(180%)`
+- 多层 inset box-shadow 模拟玻璃厚度
+- 皇冠 ♕ + 闪电 ⚡ + 装饰线 + Agent 金色文字
+
+#### CSS 新增
+
+- `@keyframes liquid-shimmer`：hue-rotate + brightness 脉冲流光
+
+**文件变更**：
+- `frontend/src/components/AgentCardFlip.tsx` — 新建，核心动画组件
+- `frontend/src/components/AgentThinkingPanel.tsx` — 简化为单组件渲染
+- `frontend/src/index.css` — 新增 `liquid-shimmer` 动画
+
+### 2026-03-22 🎨 前端视觉增强：侧边栏 Liquid Glass 强化 + 亮暗双模式
+
+#### 侧边栏 Liquid Glass 增强
+
+左右侧边栏从弱玻璃效果升级为 Apple iOS 26 Liquid Glass 风格：
+
+**核心改动**：
+- `backdrop-filter: blur(12px)` → `blur(40px)`，玻璃模糊感大幅增强
+- 背景透明度提升：`rgba(255,255,255,0.15)` → `rgba(255,255,255,0.18)`
+- 边框加粗：`rgba(180,160,140,0.15)` → `rgba(255,255,255,0.28)`
+- 多层 box-shadow：外阴影 + inset 高光（模拟玻璃厚度）
+- 顶部白边高光：内 inset 反射感
+
+**CSS 新增**：
+- `.lg-sidebar` — 完整 Liquid Glass 样式
+- `.lg-sidebar-left` / `.lg-sidebar-right` — 左右专属白边
+- CSS 变量支持亮暗双模式
+
+**文件变更**：
+- `frontend/src/index.css` — 新增 CSS 变量 + `.lg-sidebar` 完整样式
+- `frontend/src/App.tsx` — 侧边栏改用 `className="lg-sidebar"`，移除内联弱玻璃样式
+
+#### CollapsedCardsView 扑克牌 Liquid Glass 化
+
+收起状态的三张专家扑克牌（K/J/Q）升级为 Apple Liquid Glass 风格：
+
+- 尺寸 `110×150` → `130×175`
+- `backdrop-filter: blur(12px) saturate(150%)`
+- 内高光 + 内暗边（inset box-shadow 玻璃厚度感）
+- 每张牌专属渗色光晕（K红/J银/Q蓝）
+- KJQ 字母 `44px` → `54px`，悬浮时加文字光晕
+- 标题字号 `11px → 14px`，金色 `#D4AF37` + 光晕
+- 底部文字透明度 `0.5 → 0.75`
+
+**文件变更**：
+- `frontend/src/components/CollapsedCardsView.tsx` — 完整重构卡片样式
+
+#### 亮暗双模式切换
+
+- 新增 `data-theme="dark"` 属性切换
+- ☀️/🌙 切换按钮放置于左侧 Logo 区域
+- 暗色模式：暖色暗底 `rgba(20,15,10,0.32)`，适配暖黄木纹背景
+- 亮色模式：微透明白底 `rgba(255,255,255,0.18)`，Apple 原生风格
 
 ### 2026-03-22 🎨 前端视觉打磨：高级通透背景 + 分析面板扩张
 

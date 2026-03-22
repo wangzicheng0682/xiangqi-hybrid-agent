@@ -42,6 +42,39 @@
   --radius-lg: 20px;
   --radius-xl: 28px;
   --radius-full: 9999px;
+
+  /* ── Liquid Glass 变量 ── */
+  --lg-glass-bg: rgba(255, 255, 255, 0.08);
+  --lg-glass-border: rgba(255, 255, 255, 0.15);
+  --lg-glass-highlight: rgba(255, 255, 255, 0.3);
+  --lg-glass-shadow: rgba(0, 0, 0, 0.15);
+  --lg-glass-blur: blur(12px) saturate(150%);
+
+  /* ── 侧边栏 Liquid Glass 变量（亮色模式）── */
+  --sidebar-glass-bg: rgba(255, 255, 255, 0.18);
+  --sidebar-glass-border: rgba(255, 255, 255, 0.28);
+  --sidebar-glass-border-top: rgba(255, 255, 255, 0.6);
+  --sidebar-glass-inset-light: rgba(255, 255, 255, 0.5);
+  --sidebar-glass-shadow: rgba(0, 0, 0, 0.07);
+  --sidebar-glass-glow: rgba(255, 255, 255, 0.12);
+}
+
+/* ── 侧边栏 Liquid Glass（暗色模式）── */
+[data-theme="dark"] {
+  --sidebar-glass-bg: rgba(20, 15, 10, 0.32);
+  --sidebar-glass-border: rgba(255, 255, 255, 0.14);
+  --sidebar-glass-border-top: rgba(255, 255, 255, 0.3);
+  --sidebar-glass-inset-light: rgba(255, 255, 255, 0.18);
+  --sidebar-glass-shadow: rgba(0, 0, 0, 0.2);
+  --sidebar-glass-glow: rgba(180, 150, 100, 0.08);
+}
+
+/* ── Liquid Glass 扑克牌基础样式 ── */
+@supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
+  .lg-card {
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+  }
 }
 
 /* ── 全局基础 ── */
@@ -79,6 +112,45 @@ body {
   overflow-x: hidden;
 }
 
+/* ── Apple Liquid Glass 侧边栏 ── */
+.lg-sidebar {
+  background: var(--sidebar-glass-bg);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid var(--sidebar-glass-border);
+  border-top-color: var(--sidebar-glass-border-top);
+  box-shadow:
+    0 8px 32px var(--sidebar-glass-shadow),
+    0 2px 8px var(--sidebar-glass-shadow),
+    0 0 0 1px var(--sidebar-glass-glow),
+    inset 0 1px 0 var(--sidebar-glass-inset-light),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
+    inset 1px 0 0 rgba(255, 255, 255, 0.15),
+    inset -1px 0 0 rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* 侧边栏悬浮态 */
+.lg-sidebar:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+[data-theme="dark"] .lg-sidebar:hover {
+  background: rgba(30, 22, 14, 0.38);
+}
+
+/* 左侧栏专属：左白边 */
+.lg-sidebar-left {
+  border-left: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* 右侧栏专属：右白边 */
+.lg-sidebar-right {
+  border-right: 1px solid rgba(255, 255, 255, 0.25);
+}
+
 /* ── 核心材质：Liquid Glass 2.0 毛玻璃面板 ── */
 .glass-panel {
   background: rgba(255, 255, 255, 0.35);
@@ -114,6 +186,7 @@ body {
   border-top-color: rgba(255, 255, 255, 0.5);
   box-shadow: var(--shadow-glass), var(--shadow-glass-inset);
   border-radius: var(--radius-lg);
+  overflow: visible;
 }
 
 /* ── 毛玻璃悬停态（保留给独立使用） ── */
@@ -472,9 +545,422 @@ a:hover {
   50% { opacity: 0.5; transform: scale(0.85); }
 }
 
+/* ── Apple Liquid Glass 流光动画 ── */
+@keyframes liquid-shimmer {
+  0%   { filter: hue-rotate(0deg) brightness(1); }
+  50%  { filter: hue-rotate(180deg) brightness(1.15); }
+  100% { filter: hue-rotate(360deg) brightness(1); }
+}
+
 /* ============================================================
    全局装饰层（已精简，仅保留必要的顶级光晕）
    ============================================================ */
+
+/* ============================================================
+   Agent Poker Panel — 专家扑克牌面板动画系统
+   Apple Spring Physics + Liquid Glass + WWDC25
+   ============================================================ */
+
+/* Apple Spring Curves */
+:root {
+  --apple-spring-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+  --apple-spring-enter: cubic-bezier(0.0, 0.0, 0.2, 1);
+  --apple-spring-exit: cubic-bezier(0.4, 0.0, 1.0, 1.0);
+
+  /* Agent Poker Panel 专用 spring 参数 */
+  --spring-smooth: 300, 28, 0.9;   /* stiffness, damping, mass */
+  --spring-bounce: 400, 20, 0.7;
+  --spring-deal:   450, 22, 0.6;
+  --spring-flip:   350, 25, 0.8;
+}
+
+/* ── Orchestrator Orb (Claude-style breathing circle) ── */
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.75; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+@keyframes orb-glow {
+  0%, 100% {
+    box-shadow: 0 0 12px rgba(212,175,55,0.4), 0 0 24px rgba(212,175,55,0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(212,175,55,0.6), 0 0 40px rgba(212,175,55,0.3);
+  }
+}
+
+.orchestrator-orb {
+  animation: orb-breathe 2.5s ease-in-out infinite, orb-glow 2.5s ease-in-out infinite;
+}
+
+/* ── Card dealing animation ── */
+@keyframes card-deal-left {
+  from {
+    transform: translateX(280px) translateY(-20px) rotateZ(15deg) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) translateY(0) rotateZ(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes card-deal-mid {
+  from {
+    transform: translateX(300px) translateY(0px) rotateZ(0deg) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) translateY(0) rotateZ(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes card-deal-right {
+  from {
+    transform: translateX(280px) translateY(20px) rotateZ(-15deg) scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0) translateY(0) rotateZ(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* ── Card flip animation (3D) ── */
+@keyframes card-flip-front {
+  0% { transform: rotateY(0deg); }
+  50% { transform: rotateY(90deg); }
+  51% { transform: rotateY(-90deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+@keyframes card-flip-back {
+  0% { transform: rotateY(180deg); }
+  50% { transform: rotateY(90deg); }
+  51% { transform: rotateY(-90deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+/* ── Merge / collapse animation ── */
+@keyframes card-merge {
+  from {
+    transform: translateX(0) translateY(0) rotateZ(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(var(--merge-x, 0)) translateY(var(--merge-y, 0))
+               rotateZ(var(--merge-r, 0deg));
+    opacity: 0.7;
+  }
+}
+
+/* ── Orb appear / disappear ── */
+@keyframes orb-appear {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes orb-split {
+  from {
+    transform: scale(1);
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+}
+
+/* ── K/J/Q Poker Card Styles ── */
+.poker-card {
+  width: 52px;
+  height: 72px;
+  border-radius: 8px;
+  border: 1px solid rgba(0,0,0,0.15);
+  box-shadow: 2px 3px 8px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Noto Serif SC', serif;
+  position: relative;
+  cursor: default;
+  transition: box-shadow 0.2s ease;
+}
+
+.poker-card:hover {
+  box-shadow: 3px 5px 14px rgba(0,0,0,0.3);
+}
+
+/* King (Tactics) — 红心 ♥ */
+.poker-card.king {
+  background: linear-gradient(145deg, #fff5f5, #ffe0e0);
+  color: #dc2626;
+  border-color: rgba(220, 38, 38, 0.25);
+}
+
+/* Jack (Strategy) — 黑桃 ♠ */
+.poker-card.jack {
+  background: linear-gradient(145deg, #f8f8f8, #e8e8e8);
+  color: #1a1a1a;
+  border-color: rgba(0, 0, 0, 0.12);
+}
+
+/* Queen (Engine) — 方块 ♦ */
+.poker-card.queen {
+  background: linear-gradient(145deg, #f0f8ff, #dceeff);
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+.poker-card .rank {
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.poker-card .suit {
+  font-size: 18px;
+  line-height: 1;
+  margin-top: 2px;
+}
+
+.poker-card .badge {
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.poker-card .label {
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  margin-top: 4px;
+  opacity: 0.65;
+}
+
+/* ── Thinking Stream Styles ── */
+.thinking-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.thinking-stream-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid;
+  animation: fadeInUp 0.25s var(--apple-spring-smooth);
+}
+
+.thinking-stream-item.tactics {
+  border-color: #ef4444;
+}
+
+.thinking-stream-item.strategy {
+  border-color: #f59e0b;
+}
+
+.thinking-stream-item.engine {
+  border-color: #3b82f6;
+}
+
+.thinking-stream-item.orchestrator {
+  border-color: rgba(212, 175, 55, 0.75);
+  background: rgba(212, 175, 55, 0.05);
+}
+
+.stream-subtitle {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  animation: slideInFromTop 0.2s var(--apple-spring-smooth);
+}
+
+.stream-content {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--apple-text-secondary);
+  font-family: 'Noto Serif SC', serif;
+  position: relative;
+}
+
+.stream-cursor {
+  color: rgba(212, 175, 55, 0.85);
+  font-weight: bold;
+  animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ── Tool call in stream ── */
+.stream-tool-call {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 3px 6px;
+  background: rgba(96, 165, 250, 0.08);
+  border-radius: 4px;
+  margin-top: 4px;
+}
+
+/* ── Timeline connection line ── */
+.timeline-connector {
+  width: 2px;
+  height: 16px;
+  background: linear-gradient(
+    180deg,
+    rgba(212, 175, 55, 0.5),
+    rgba(212, 175, 55, 0.15)
+  );
+  margin: 0 auto;
+  border-radius: 1px;
+}
+
+/* ── Card back (face down) ── */
+.poker-card-back {
+  background: linear-gradient(145deg, #2d2d3a, #1a1a24);
+  border-color: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.poker-card-back .card-pattern {
+  width: 36px;
+  height: 52px;
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 3px,
+    rgba(212, 175, 55, 0.08) 3px,
+    rgba(212, 175, 55, 0.08) 6px
+  );
+}
+
+/* ── Liquid Glass Popup（Apple Liquid Glass 风格）── */
+/*
+ * Apple Liquid Glass 核心原理：
+ * - 大范围 blur (60px) 捕获周围扑克牌彩色背景，渗入玻璃内部
+ * - 无色基底 + 边缘多层彩色 box-shadow 向内渗入
+ * - 半透明暗底色消除暖黄色调
+ */
+
+/* 无色基准 */
+.liquid-glass-popup {
+  /* 暗底色消除暖黄，大范围 blur 捕获周围彩色 */
+  background: rgba(15, 15, 25, 0.45);
+  backdrop-filter: blur(60px) saturate(200%);
+  -webkit-backdrop-filter: blur(60px) saturate(200%);
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 24px;
+
+  box-shadow:
+    /* 外层：底部深度阴影 */
+    0 20px 60px rgba(0, 0, 0, 0.15),
+    /* 外层：彩色边缘渗光 */
+    0 0 0 1px rgba(200, 210, 230, 0.08),
+    0 0 24px 4px rgba(200, 210, 240, 0.10),
+    0 0 12px 2px rgba(210, 220, 255, 0.15),
+    /* 内层：上左高光 */
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    inset 1px 0 1px rgba(255, 255, 255, 0.15),
+    /* 内层：下右暗边 */
+    inset 0 -1px 1px rgba(0, 0, 0, 0.08),
+    inset -1px 0 1px rgba(0, 0, 0, 0.05);
+
+  overflow: visible;
+}
+
+/* 战术专家：红色渗光 */
+.liquid-glass-popup.tactics {
+  background: rgba(20, 10, 10, 0.50);
+  border-color: rgba(255, 180, 180, 0.20);
+  box-shadow:
+    0 20px 60px rgba(180, 20, 20, 0.12),
+    0 0 0 1px rgba(220, 38, 38, 0.08),
+    0 0 24px 5px rgba(220, 38, 38, 0.12),
+    0 0 12px 3px rgba(255, 100, 100, 0.18),
+    inset 0 1px 1px rgba(255, 200, 200, 0.50),
+    inset 1px 0 1px rgba(255, 180, 180, 0.20),
+    inset 0 -1px 1px rgba(120, 10, 10, 0.10),
+    inset -1px 0 1px rgba(120, 10, 10, 0.05);
+}
+
+/* 战略专家：灰白渗光 */
+.liquid-glass-popup.strategy {
+  background: rgba(12, 12, 18, 0.50);
+  border-color: rgba(220, 220, 220, 0.18);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(200, 200, 200, 0.06),
+    0 0 24px 5px rgba(200, 200, 200, 0.10),
+    0 0 12px 3px rgba(230, 230, 230, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.45),
+    inset 1px 0 1px rgba(220, 220, 220, 0.15),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.08),
+    inset -1px 0 1px rgba(0, 0, 0, 0.05);
+}
+
+/* 引擎专家：蓝色渗光 */
+.liquid-glass-popup.engine {
+  background: rgba(10, 15, 25, 0.50);
+  border-color: rgba(180, 210, 255, 0.20);
+  box-shadow:
+    0 20px 60px rgba(20, 50, 150, 0.12),
+    0 0 0 1px rgba(37, 99, 235, 0.08),
+    0 0 24px 5px rgba(37, 99, 235, 0.12),
+    0 0 12px 3px rgba(100, 160, 255, 0.18),
+    inset 0 1px 1px rgba(220, 235, 255, 0.50),
+    inset 1px 0 1px rgba(180, 210, 255, 0.20),
+    inset 0 -1px 1px rgba(10, 40, 120, 0.10),
+    inset -1px 0 1px rgba(10, 40, 120, 0.05);
+}
+
+/* ── Card stack (collapsed) ── */
+.poker-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+}
+
+/* ── Responsive layout helpers ── */
+.poker-panel-collapsed {
+  width: 260px;
+  overflow: hidden;
+}
+
+.poker-panel-expanded {
+  width: 620px;
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: 0;
+}
 
 .global-decorations {
   position: fixed;
