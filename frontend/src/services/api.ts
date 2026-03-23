@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 统一使用 127.0.0.1，避免 localhost DNS 解析延迟
 // 同时确保所有请求使用同一个 origin，避免浏览器连接数限制
-const API_BASE = 'http://127.0.0.1:8003/api';
+const API_BASE = 'http://127.0.0.1:8002/api';
 
 export interface AnalyzeResponse {
   fen: string;
@@ -270,7 +270,7 @@ export const api = {
   // 添加连接管理，防止连接泄漏
   analyzeDeep: async (
     data: { fen: string; move?: string; show_thinking?: boolean; question?: string },
-    onThinking: (msg: { type: string; stage?: number; message?: string; tool?: string; finding?: string }) => void,
+    onThinking: (msg: { type: string; stage?: number; message?: string; tool?: string; finding?: string; expert?: string }) => void,
     onResult: (result: { explanation: string; confidence: string }) => void,
     onError: (error: string) => void
   ): Promise<void> => {
@@ -317,7 +317,12 @@ export const api = {
         try {
           const json = JSON.parse(event.data);
           if (json.type === 'thinking' || json.type === 'thinking_chunk' ||
-              json.type === 'tool_call' || json.type === 'tool_result') {
+              json.type === 'tool_call' || json.type === 'tool_result' ||
+              // 专家归属事件（来自 multi_agent_orchestrator 并行三专家）
+              json.type === 'expert_start' || json.type === 'expert_result' ||
+              json.type.startsWith('expert_') ||
+              // 协调者思维流事件
+              json.type === 'synthesis_chunk' || json.type === 'orchestrator_subtitle') {
             onThinking(json);
           } else if (json.type === 'result') {
             if (json.explanation) {

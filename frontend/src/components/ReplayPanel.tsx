@@ -51,14 +51,14 @@ export default function ReplayPanel() {
       {/* 标签切换 */}
       <div style={styles.tabBar}>
         <button
+          className={`liquid-glass-btn sm${tab === 'database' ? ' primary' : ''}`}
           onClick={() => setTab('database')}
-          style={{ ...styles.tab, ...(tab === 'database' ? styles.tabActive : {}) }}
         >
           📚 数据库
         </button>
         <button
+          className={`liquid-glass-btn sm${tab === 'pgn' ? ' primary' : ''}`}
           onClick={() => setTab('pgn')}
-          style={{ ...styles.tab, ...(tab === 'pgn' ? styles.tabActive : {}) }}
         >
           📄 导入PGN
         </button>
@@ -77,9 +77,9 @@ export default function ReplayPanel() {
               style={styles.searchInput}
             />
             <button
+              className="liquid-glass-btn primary"
               onClick={handleSearch}
               disabled={isLoadingGames}
-              style={styles.searchButton}
             >
               {isLoadingGames ? '...' : '搜索'}
             </button>
@@ -143,12 +143,10 @@ export default function ReplayPanel() {
           />
 
           <button
+            className="liquid-glass-btn primary"
+            style={{ width: '100%' }}
             onClick={handleLoadPGN}
             disabled={!pgnText.trim()}
-            style={{
-              ...styles.loadButton,
-              ...(pgnText.trim() ? {} : styles.loadButtonDisabled)
-            }}
           >
             加载棋谱
           </button>
@@ -191,11 +189,11 @@ export default function ReplayPanel() {
             </div>
           </div>
           <button
+            className="liquid-glass-btn sm"
             onClick={() => {
               useGameStore.getState().exitReplay();
               setGameMode('analysis');
             }}
-            style={styles.exitButton}
           >
             退出棋谱模式
           </button>

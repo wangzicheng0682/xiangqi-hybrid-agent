@@ -72,43 +72,49 @@ export default function ReplayNavigator() {
       {/* 导航按钮 */}
       <div style={styles.navButtons}>
         <button
+          className="liquid-glass-btn"
           onClick={() => navigateReplay('start')}
           disabled={currentIndex === 0}
           style={{
-            ...styles.navButton,
-            ...(currentIndex === 0 ? styles.navButtonDisabled : {}),
+            width: 38, height: 38,
+            borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
           ⏮
         </button>
         <button
+          className="liquid-glass-btn primary"
           onClick={() => navigateReplay('prev')}
           disabled={currentIndex === 0}
           style={{
-            ...styles.navButton,
-            ...styles.navButtonMain,
-            ...(currentIndex === 0 ? styles.navButtonDisabled : {}),
+            width: 44, height: 44,
+            borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
           ◀
         </button>
         <button
+          className="liquid-glass-btn primary"
           onClick={() => navigateReplay('next')}
           disabled={currentIndex >= totalMoves}
           style={{
-            ...styles.navButton,
-            ...styles.navButtonMain,
-            ...(currentIndex >= totalMoves ? styles.navButtonDisabled : {}),
+            width: 44, height: 44,
+            borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
           ▶
         </button>
         <button
+          className="liquid-glass-btn"
           onClick={() => navigateReplay('end')}
           disabled={currentIndex >= totalMoves}
           style={{
-            ...styles.navButton,
-            ...(currentIndex >= totalMoves ? styles.navButtonDisabled : {}),
+            width: 38, height: 38,
+            borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
         >
           ⏭
@@ -161,11 +167,8 @@ export default function ReplayNavigator() {
       <div style={styles.autoCommentToggle}>
         <span style={styles.autoCommentLabel}>自动讲解</span>
         <button
+          className={`liquid-glass-btn sm${autoComment ? ' primary' : ''}`}
           onClick={() => setAutoComment(!autoComment)}
-          style={{
-            ...styles.toggleBtn,
-            ...(autoComment ? styles.toggleBtnActive : {}),
-          }}
         >
           {autoComment ? '开 ●' : '关 ○'}
         </button>

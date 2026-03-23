@@ -6,22 +6,24 @@ import { ExpertType, ExpertStatus, ToolCall } from '../components/ExpertCard';
 // ============================================
 
 /**
- * Agent思考面板的动画阶段
- * collapsed:  收起状态，三张扑克牌散开
- * idle:       分析未开始前的稳定状态
- * merging:    叠卡阶段，三张牌向中心聚拢成叠
- * orb:        圆标阶段，叠卡变形为协调者呼吸圆标
- * dealing:    发牌阶段，圆标裂开，三张牌依次飞出
- * flipping:   翻牌阶段，三张牌依次翻面揭示内容
- * streaming:  思维流阶段，右侧显示Claude风格思考流
+ * Agent思考面板的动画阶段（Apple/WWDC 风格动画序列）
+ * collapsed:   收起状态，三张扑克牌散开
+ * idle:        分析未开始前的稳定状态
+ * stacking:    叠卡阶段，三张牌向中心聚拢成叠
+ * flipped:     翻面完成，叠卡整齐显露彩虹背面
+ * morphing:    收缩变形，叠卡流畅收缩变形成小球
+ * orbMoving:   球曲线滑动到右上角 + 逐张发牌（macOS拉伸感）
+ * cardsLanded: 三张落地左侧整体垂直居中，球固定右上角
+ * streaming:   协调者球呼吸 + 思维流输出
  */
 export type AgentAnimationPhase =
   | 'collapsed'
   | 'idle'
-  | 'merging'
-  | 'orb'
-  | 'dealing'
-  | 'flipping'
+  | 'stacking'
+  | 'flipped'
+  | 'morphing'
+  | 'orbMoving'
+  | 'cardsLanded'
   | 'streaming';
 
 export interface ExpertAgentState {

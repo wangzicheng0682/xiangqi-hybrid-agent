@@ -102,24 +102,10 @@ export default function App() {
             <div style={S.logoSubtitle}>混合代理系统</div>
           </div>
           <button
+            className="apple-btn"
+            style={{ marginLeft: 'auto', padding: 0, width: 32, height: 32, flexShrink: 0 }}
             onClick={toggleTheme}
             title={isDark ? '浅色模式' : '深色模式'}
-            style={{
-              marginLeft: 'auto',
-              background: 'rgba(255,255,255,0.15)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              borderRadius: 8,
-              width: 32,
-              height: 32,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              fontSize: 16,
-              color: 'rgba(255,255,255,0.7)',
-              flexShrink: 0,
-              transition: 'background 0.2s',
-            }}
           >
             {isDark ? '☀️' : '🌙'}
           </button>
@@ -130,24 +116,18 @@ export default function App() {
           <div style={S.sectionLabel}>输入局面</div>
           <div style={S.inputModeGrid}>
             <button
+              className={`apple-btn${inputMode === 'online' ? '' : ''}`}
+              style={{ ...S.inputModeBtn }}
               onClick={() => handleInputModeChange('online')}
-              className="glass-panel"
-              style={{
-                ...S.inputModeBtn,
-                ...(inputMode === 'online' ? S.inputModeBtnActive : {}),
-              }}
             >
               <div style={S.inputModeIcon}>◻</div>
               <div style={S.inputModeLabel}>在线对局</div>
               <div style={S.inputModeHint}>网页棋盘走棋</div>
             </button>
             <button
+              className={`apple-btn${inputMode === 'camera' ? '' : ''}`}
+              style={{ ...S.inputModeBtn }}
               onClick={() => handleInputModeChange('camera')}
-              className="glass-panel"
-              style={{
-                ...S.inputModeBtn,
-                ...(inputMode === 'camera' ? S.inputModeBtnActive : {}),
-              }}
             >
               <div style={S.inputModeIcon}>◎</div>
               <div style={S.inputModeLabel}>拍照识别</div>
@@ -163,12 +143,9 @@ export default function App() {
             {(['analysis', 'pve_red', 'pvp'] as GameMode[]).map(mode => (
               <button
                 key={mode}
+                className="apple-btn"
+                style={{ ...S.modeButton }}
                 onClick={() => { handleModeChange(mode); if (mode === 'analysis') handleToggleBoard(); }}
-                className="glass-panel"
-                style={{
-                  ...S.modeButton,
-                  ...(gameMode === mode ? S.modeButtonActive : {}),
-                }}
               >
                 <div style={S.modeIcon}>{mode === 'analysis' ? '◈' : mode === 'pve_red' ? '◉' : '◎'}</div>
                 <div>{mode === 'analysis' ? '分析' : mode === 'pve_red' ? '人机' : '双人'}</div>
@@ -181,13 +158,9 @@ export default function App() {
         <div style={S.section}>
           <div style={S.sectionLabel}>学习模式</div>
           <button
+            className="apple-btn"
+            style={{ ...S.modeButton, width: '100%' }}
             onClick={() => handleModeChange('replay')}
-            className={`glass-panel ${gameMode === 'replay' ? '' : ''}`}
-            style={{
-              ...S.modeButton,
-              width: '100%',
-              ...(gameMode === 'replay' ? S.modeButtonActive : {}),
-            }}
           >
             <div style={S.modeIcon}>▣</div>
             <div>打棋谱</div>
@@ -200,24 +173,18 @@ export default function App() {
             <div style={S.sectionLabel}>显示设置</div>
             <div style={S.settingList}>
               <button
+                className="apple-btn"
+                style={{ ...S.settingButton }}
                 onClick={toggleFlip}
-                className="glass-panel glass-panel-hover"
-                style={{
-                  ...S.settingButton,
-                  ...(flipped ? S.settingButtonActive : {}),
-                }}
               >
                 <span>↺</span>
                 <span>翻转棋盘</span>
                 <span style={S.toggleIndicator}>{flipped ? '✓' : ''}</span>
               </button>
               <button
+                className="apple-btn"
+                style={{ ...S.settingButton }}
                 onClick={toggleShowArrows}
-                className="glass-panel glass-panel-hover"
-                style={{
-                  ...S.settingButton,
-                  ...(showArrows ? S.settingButtonActive : {}),
-                }}
               >
                 <span>→</span>
                 <span>显示提示</span>

@@ -2,8 +2,8 @@
 
 > 本文档记录当前开发进度，架构详情请阅读 [DNA.md](DNA.md)
 
-**版本**: v3.25
-**最后更新**: 2026-03-22
+**版本**: v3.28
+**最后更新**: 2026-03-23
 
 ---
 
@@ -51,6 +51,102 @@
 ---
 
 ## 最近更新
+
+### 2026-03-23 🎴 分析面板：重写 AgentCardFlip 动画 + 左右分栏思维流
+
+#### 核心改动
+
+重写深度分析面板的动画序列，达到 Apple/WWDC 风格：
+
+**动画序列**：
+```
+T=0ms      翻面完成，叠卡整齐显露彩虹背面
+T=600ms    翻面完成 → morphing 开始
+T=800ms    收缩变形完成 → orbMoving 开始（球曲线滑动 + 逐张发牌）
+T=1100ms   三张依次弹出（macOS 最小化拉伸效果）
+T=1400ms   三张落地左侧，整体垂直居中
+T=1500ms   协调者思维流开始输出
+```
+
+**Phase 改造**（`useAgentStore.ts`）：
+- 新增 `cardsLanded` / `streaming` phase
+- 动画序列更流畅，无硬串停顿
+
+**左右分栏布局**（`AgentThinkingPanel.tsx`）：
+- `cardsLanded`/`streaming` 阶段：左侧三专家扑克牌 + 右侧协调者思维流
+- 紫色渐变分隔线
+- 协调者球 + 金色连接线 + 思维流内容
+
+**新建文件**：
+| 文件 | 说明 |
+|------|------|
+| `ThinkingStream.tsx` | 协调者思维流组件，打字机效果 + 金色子弹点 |
+| `SplitLandedCards`（内联） | 落地后的三专家扑克牌（边缘彩虹流光） |
+
+**动画细节**：
+- 球呼吸：`orb-breathe` + `orb-body-rotate` 持续循环
+- 边缘流光：`card-edge-glow` CSS keyframe（conic-gradient + hue-rotate）
+- 发牌拉伸：`scaleX/scaleY` 差异化，stagger 150ms
+
+**Bug 修复**：
+- API 端口 `8003 → 8002`
+- `ToolCall` 类型添加 `id` 字段
+- SSE 事件类型添加 `expert` 字段
+
+**死代码清理**：删除 8 个文件
+
+**文件变更**：
+- `AgentCardFlip.tsx` — 重写动画逻辑
+- `AgentThinkingPanel.tsx` — 左右分栏布局
+- `ThinkingStream.tsx` — 新建
+- `index.css` — 新增 `card-edge-glow` keyframe
+- `useAgentStore.ts` — phase 类型更新
+- `ExpertCard.tsx` — ToolCall 类型更新
+
+### 2026-03-23 🔧 Liquid Glass 按钮效果修复
+
+**v2 问题**：尝试用 SVG `feDisplacementMap` 位移滤镜替代假白点，但：
+- `filter` 属性导致 `backdrop-filter` 失效，按钮完全不可见
+- `rgba(255,255,255,0.10)` 背景太透明，几乎融入暖米色背景
+- 白字在暖米色背景上对比极差
+
+**v3 正确实现**：
+- 去掉 SVG 滤镜（与 `backdrop-filter` 不兼容）
+- `rgba(255,255,255,0.40)` 背景 — 与 `.glass-panel` 一致的可见度
+- `rgba(80,60,40,0.90)` 深色文字 — 在暖米色背景上清晰可见
+- `border-top-color` 加亮 — 模拟玻璃顶部高光边
+- 径向渐变 `::before` — 左上角柔和光晕，悬停时显现
+- 金色变体：深色文字 `rgba(140,100,20,0.95)` + 金色边框 + 顶部高光
+
+**涉及组件**：App.tsx 侧边栏全部按钮 + 分析面板组件
+
+#### Apple iOS 26 水滴边缘反光效果
+
+所有按钮统一升级为 Apple Liquid Glass 悬停光效：
+
+**核心 CSS 类** `.liquid-glass-btn`：
+- `backdrop-filter: blur(12px) saturate(160%)` — 玻璃模糊质感
+- 多层 `inset box-shadow` — 模拟水滴四边镜面高光（上/下/左/右各有不同强度的白色边缘）
+- `::before` / `::after` 伪元素 — 左上角微小白点光斑，悬停时出现（模拟水滴表面反光）
+- 悬停时 `scale(1.03)` + 背景变亮 + 四边高光加强
+- 按下时 `scale(0.97)` 反馈
+
+**变体**：
+- `.sm` — 小尺寸（padding: 4px 10px, border-radius: 8px）
+- `.primary` — 金色主题（背景 `rgba(212,175,55,...)`，四边金色高光）
+- `:disabled` — 禁用状态保持原样式但禁用交互
+
+**涉及组件**：
+- `App.tsx` — 左侧侧边栏全部按钮（☀️主题/在线对局/拍照识别/分析/人机/双人/打棋谱/翻转棋盘/显示提示/重新开始）
+- `DeepAnalysisPanel.tsx` — 收起/快速/深度/分析主按钮
+- `ReplayNavigator.tsx` — 导航圆按钮（⏮◀▶⏭）/自动讲解开关
+- `PositionAnalysisPanel.tsx` — 摘要/棋子/标签标签按钮
+- `PGNPanel.tsx` — 加载棋谱按钮
+- `ReplayPanel.tsx` — 数据库/PGN标签/搜索/加载/退出按钮
+- `ChessBoard.tsx` — 错误关闭按钮
+- `ExpertCard.tsx` — 展开/收起按钮
+- `BottomTerminalPanel.tsx` — 最小化/关闭按钮
+- `AgentDebutPanel.tsx` — 关闭按钮
 
 ### 2026-03-22 🎴 分析面板：扑克牌收叠翻面动画 + 全部原有功能恢复
 

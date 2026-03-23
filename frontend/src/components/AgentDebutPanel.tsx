@@ -374,7 +374,7 @@ export const AgentDebutPanel: React.FC<AgentDebutPanelProps> = ({
             </motion.div>
           )}
         </div>
-        <button style={styles.closeBtn} onClick={onClose}>×</button>
+        <button className="liquid-glass-btn sm" onClick={onClose}>×</button>
       </div>
 
       {/* Content */}

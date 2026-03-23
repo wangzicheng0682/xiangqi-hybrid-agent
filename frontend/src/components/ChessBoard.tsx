@@ -415,7 +415,7 @@ export default function ChessBoard() {
       {error && (
         <div style={styles.errorPopup}>
           <span>{error}</span>
-          <button onClick={clearError} style={styles.errorClose}>✕</button>
+          <button className="liquid-glass-btn sm" onClick={clearError}>✕</button>
         </div>
       )}
     </div>

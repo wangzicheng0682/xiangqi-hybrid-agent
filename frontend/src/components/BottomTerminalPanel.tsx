@@ -153,11 +153,11 @@ const TitleBar: React.FC<TitleBarProps> = ({ onClose, isAnalyzing }) => (
       )}
     </div>
     <div className="terminal-titlebar-actions">
-      <button className="terminal-titlebar-btn terminal-btn-minimize" onClick={onClose}>
-        <span>−</span>
+      <button className="liquid-glass-btn sm" onClick={onClose}>
+        −
       </button>
-      <button className="terminal-titlebar-btn terminal-btn-close" onClick={onClose}>
-        <span>×</span>
+      <button className="liquid-glass-btn sm" onClick={onClose}>
+        ×
       </button>
     </div>
   </div>

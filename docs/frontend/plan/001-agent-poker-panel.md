@@ -1,257 +1,291 @@
-# 专家 Agent 扑克牌展示面板
+# 专家 Agent 扑克牌展示面板 v2
 
 ## 背景
 
-用户想要在右侧边栏（展开宽度 620px）中实现三个专家 Agent 的可视化展示。设计概念：
-1. Agent 绘制成扑克牌样式，以"发牌"动画登场
-2. 牌发在栏的左侧，从上到下三张垂直堆叠
-3. 发完之后逐个掀开，占住左边
-4. 右侧模仿 Claude 的实时思考流 —— 时间线 + **动态生成的小标题**（非固定写死）
-5. **风格要求**：Apple 般丝滑动效（WWDC25 Liquid Glass 风格），扑克牌发牌动画要生动
-6. 尺寸约束：**原有尺寸和扩张后尺寸绝对不能动**（260px 收起 / 620px 展开）
+用户对现有实现不满意，现有动画（变形/移动/发牌）与 Apple 风格差距过大，且对系统设计有更清晰的定义。
+
+### 核心架构（三层 Agent）
+
+```
+                    ┌──────────────────────────────────────┐
+                    │         协调者 Agent（主）            │
+                    │  实时读取三专家输出 → 生成小标题       │
+                    │  展示在右侧思维流                    │
+                    │  最终输出"最终讲解"                   │
+                    └──────────┬───────────────────────────┘
+                               │ 读取隐藏输出
+              ┌────────────────┼────────────────┐
+              ▼                ▼                ▼
+        ┌──────────┐   ┌──────────┐    ┌──────────┐
+        │ 战术专家  │   │ 战略专家  │    │ 引擎专家  │
+        │  Agent   │   │  Agent   │    │  Agent   │
+        │ LLM思考  │   │ LLM思考  │    │ LLM思考  │
+        │ (隐藏)   │   │ (隐藏)   │    │ (隐藏)   │
+        └──────────┘   └──────────┘    └──────────┘
+```
+
+### 三层职责
+
+| 层级 | 内容 | 对用户可见性 |
+|------|------|------------|
+| 三专家 Agent | 各自调用工具 → LLM思考 → 输出分析结果 | **隐藏**（hover 扑克牌弹出查看） |
+| 协调者 Agent | 读取三专家隐藏输出 → 实时生成小标题 → 输出最终讲解 | **可见**（右侧思维流） |
+| 扑克牌 | 三专家的视觉符号，边缘流光 = 专家工作中 | 可见（左侧） |
+
+### 小标题的本质
+
+- **不是写死的**
+- **不是固定模板**
+- **协调者实时生成**：协调者观察到三专家正在做什么（调用什么工具、处于什么阶段、发现了什么），立刻用自己的 LLM 能力**实时总结成小标题**
+- 例："战略专家发现中路突破机会"、"战术专家找到了两步杀的方案"、"引擎专家给出胜率评估"
+- 小标题逐个向下延伸，形成思维流
+
+### 协调者 Agent 的全流程
+
+1. **发牌动画**中 → 协调者出场
+2. **三专家就位后** → 协调者开始工作
+3. **实时阶段** → 协调者不断读取三专家隐藏输出 → 不断生成小标题 → 思维流不断延伸
+4. **最终阶段** → 协调者输出"最终讲解"
+
+### 协调者球登场 + 思维流登场
+
+**登场**：球滑动到右上角稳定后，思维流从球底部**生长**出来——第一根金色细线向下延伸，第一个小标题出现。容器**无边框、无背景色**，极轻极简，内容在透明空间中流动。随内容增加，背景逐渐实体化。像 Apple Intelligence 的思维流——球是锚点，内容是主角。
+
+**右侧布局**：
+
+```
+┌──────────────────────────────┐
+│ 🤍 协调者球（右上角）          │  ← 持续呼吸，不消失
+│ ↓ 金色连接线                  │  ← 球底延伸出来
+│ ┌────────────────────────┐  │
+│ │ 💭 小标题1              │  │  ← 协调者实时生成的摘要
+│ │ 💭 小标题2              │  │  ← 不是写死的，是观察专家后的总结
+│ │ 💭 小标题3              │  │
+│ │ ...                    │  │
+│ └────────────────────────┘  │
+└──────────────────────────────┘
+```
+
+**风格总要求**：一比一复刻 Apple，像是 Apple 公司团队做的。WWDC 级别的 Liquid Glass 动画质感。
 
 ---
 
 ## 权限边界
 
-- ❌ **不动**：侧边栏外壳（glass-panel-deep 容器）、顶部 Tab 栏（◈◇◎≡ 图标按钮）、主题 CSS 变量、整体配色
-- ✅ **可动**：Tab 内容区 `tabContent` 内部的全部内容
-- **当前范围**：只实现**深度分析** Tab（AgentThinkingPanel），其他三个 Tab 以后再加
+- ❌ **不动**：侧边栏外壳、整体配色、主题 CSS 变量、260px/620px 尺寸约束
+- ✅ **可动**：Tab 内容区内部全部内容、动画时序与逻辑
+- **当前范围**：只实现**深度分析** Tab（AgentThinkingPanel）中的动画
 
 ---
 
-## 设计语言
+## 最终布局（620px 展开宽度）
 
-### 动效核心参数（Apple Spring Physics）
-
-| 类型 | Stiffness | Damping | Mass | 用途 |
-|------|-----------|---------|------|------|
-| smooth | 300 | 28 | 0.9 | 基础交互 |
-| bounce | 400 | 20 | 0.7 | 弹性弹出 |
-| deal | 450 | 22 | 0.6 | 扑克牌发牌（速度感） |
-| flip | 350 | 25 | 0.8 | 翻牌（3D 旋转） |
-
-Apple 缓动曲线：`cubic-bezier(0.16, 1, 0.3, 1)`
-
-### Liquid Glass 视觉
-
-- 主面板：`backdrop-filter: blur(20px) saturate(180%)`，`background: rgba(255,255,255,0.12)`
-- 卡片：半透明玻璃 + 微妙边框高光 + 实时阴影
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                                                                    │
+│   ┌─────────────┐         ┌──────────────────────────────┐     │
+│   │  ♥ K       │         │  🤍 协调者呼吸球               │     │
+│   │  战术专家   │         │  （右上角，持续呼吸发光）       │     │
+│   └─────────────┘         │  ────────────────────────      │     │
+│   ┌─────────────┐         │  💭 协调者思维流               │     │
+│   │  ♠ J       │   ←三专家就位     协调者工作区           │     │
+│   │  战略专家   │         │                               │     │
+│   └─────────────┘         │                               │     │
+│   ┌─────────────┐         │                               │     │
+│   │  ♦ Q       │         │                               │     │
+│   │  引擎专家   │         │                               │     │
+│   └─────────────┘         └──────────────────────────────┘     │
+│                                                                    │
+│   左侧：三专家扑克牌，整体居中，不偏上不偏下                       │
+│   右侧：协调者球（右上角）+ 协调者思维流                          │
+│                                                                    │
+└──────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 收起状态布局（260px 宽）
+## 扑克牌设计（与 idle 状态一致）
 
-```
-┌─────────────────────┐
-│  ┌───┐ ┌───┐ ┌───┐  │  ← 三张散开的 K(战术) / J(战略) / Q(引擎) 扑克牌
-│  │ K │ │ J │ │ Q │  │     传统扑克牌样式：红黑花色、圆角、微妙阴影
-│  │ ♥ │ │ ♠ │ │ ♦ │  │
-│  └───┘ └───┘ └───┘  │
-│  三位专家 · 待命中     │  ← 底部文字
-└─────────────────────┘
-```
+- K（战术专家）→ 红心 ♥，红色主题
+- J（战略专家）→ 黑桃 ♠，黑色/银色主题
+- Q（引擎专家）→ 方块 ♦，蓝色主题
 
-**扑克牌设计（传统风格）**：
-- K（战术专家）→ 红心 ♥，数字 K 放大，角标小图标 ⚔️，红色主题
-- J（战略专家）→ 黑桃 ♠，数字 J 放大，角标小图标 🎯，黑色主题
-- Q（引擎专家）→ 方块 ♦，数字 Q 放大，角标小图标 📊，蓝色主题
-- 牌面：经典红/黑配色，圆角 8px，微妙的 box-shadow
+**正面外观**：
+- 液态玻璃磨砂质感（`backdrop-filter: blur` + 微透明底）
+- **与 idle 状态的唯一区别**：边缘流动着彩色光（代表专家开始发力）
+- 边缘流光：每张牌根据专家主题色（红/灰/蓝）做边缘流光
+- K/J/Q 字母 + 花色 + 底部专家名
 
 ---
 
-## 扩张动画序列（完整流程）
+## 动画序列（从翻面完成开始计时）
 
-### Step 1: 叠卡(收拢) → 合并成一叠
-三张散开的牌向中心聚拢，**叠成一叠**（fanned stack）：
-- K、J、Q 按顺序叠在一起（K 在最上）
-- 整体向侧栏顶部居中位置移动
-- 使用 Apple **bounce spring**：`stiffness: 400, damping: 20, mass: 0.7`
+### 翻面阶段（已实现，保留）
+- 三张叠在一起的牌翻转，崭露彩虹背面
+- 这一阶段已经很流畅，**不做修改**
 
-### Step 2: 变形 → 合并成协调者圆形呼吸图标
-叠好的扑克牌**缩小、变形**为 Claude 风格的**协调者呼吸圆标**：
-- 圆形呼吸动画：大小 60px → 66px，opacity 0.7 → 1.0，循环
-- 颜色：使用金色（rgba(212,175,55,0.75)）——与项目主题色一致
-- 内部可以有微妙的"大脑/神经网络"光点动画
-- 使用 Apple **smooth spring**：`stiffness: 300, damping: 28, mass: 0.9`
-- 变形持续时间：400ms
+### 阶段一：收缩变形（T=0 开始，无停顿）
 
-### Step 3: 发牌 → 三张牌从圆标中飞出
-协调者圆形图标**展开**，三张牌**依次飞出**到左侧位置：
-- 圆形图标从中心向两侧"裂开"（opacity 渐变消失）
-- 三张牌从裂开处飞出发向左侧
-- 发牌动画（Apple deal spring）：`stiffness: 450, damping: 22, mass: 0.6`
-- Stagger：tactics 0ms, strategy 180ms, engine 360ms
-- 牌飞到位后，**每张翻面**（rotateY 3D，间隔 120ms）
+**动画**：叠在一起的彩虹背面牌，从当前状态**流畅不间断地收缩变形成一个小球**。
 
-### Step 4: 思维流延伸 → 从协调者图标底部生长
-翻牌完成后，协调者圆形图标移动到**右侧思考流的顶部**：
-- 圆标从左侧移到右侧思考流区域的最上方
-- 底部开始延伸出**金色的思维连接线**
-- 思维流内容从连接线底部**生长**出来
-- 流式输出配合打字机效果
-- 协调者图标作为"首席裁判"的角色持续显示在思考流顶部
+**关键要求**：
+- 无停顿，从翻面完成瞬间立刻开始
+- 变形过程像**一个完整的有机体在呼吸变化**，不是机械的 borderRadius 弹跳
+- 变形后的小球**像 Claude 的呼吸图标**，有持续的呼吸感（scale + opacity 脉冲）
+- 球的大小适中，作为协调者的视觉锚点
+- 变形时长：约 400-500ms
+- 曲线：Apple spring `cubic-bezier(0.16, 1, 0.3, 1)`
+
+### 阶段二：曲线滑动 + 逐张发牌（T=变形完成后）
+
+**动画**：小球沿着**曲线路径**滑动到**右上角**，过程中逐张把牌弹射出来。
+
+**滑动要求**：
+- 路径：**曲线**，不是直线，是 Apple 风格的优雅轨迹
+- 速度：**曲线速度**，不是匀速，符合 Apple 的物理直觉
+- 方向：从中心向右上角
+- 球在滑动过程中边移动边发牌，不是停在那发
+- 曲线运动总时长：约 800-1000ms
+- 曲线：`cubic-bezier(0.16, 1, 0.3, 1)` + 合理的贝塞尔曲线
+
+**发牌要求**：
+- 牌在空中时的过渡动画：**像 macOS 最小化窗口的拉伸效果**
+  - 窗口最小化时：从原始尺寸被"压扁+缩小"到一个点
+  - 这里反过来：从球中被"拉伸"出来，先细长，然后弹到正常比例
+- 三张牌依次被弹出，stagger 间隔约 150-200ms
+- 牌在空中时有**拉伸/挤压**的物理感，不是直接平移出现
+
+### 阶段三：牌落位（发牌完成后）
+
+**三张牌落地后的状态**：
+- 位置：分析栏**左侧**，三张**整体垂直居中**，不偏上不偏下
+- 排列：与 idle 状态相同的间距和顺序（K 上，J 中，Q 下）
+- 外观：**正面**，液态磨砂玻璃质感，**边缘流动彩色光**
+- 边缘流光：Apple 风格的边缘彩虹流光，代表三专家开始发力
+- 流光颜色：根据专家主题色（红/银/蓝）做边缘渗色动画
+
+### 阶段四：协调者就位（发牌完成后）
+
+**动画**：小球到达右上角后，**持续呼吸发光**，作为协调者的视觉锚点。
+
+**关键要求**：
+- 球**不消失**，一直留在右上角
+- 球**持续呼吸**（scale + opacity 脉冲），像 Claude 的呼吸图标
+- 球的呼吸是**持续的**，不只发牌时存在
+- 球同时**生成思维流**：从球底部延伸出思维流内容，像 ChatGPT/Claude 的流式输出
+
+### 完整动画时序图
+
+```
+T=0ms      翻面完成，叠卡整齐显露彩虹背面
+           ↓ 无停顿，无断裂
+T=400ms    收缩变形完成 → 协调者小球诞生（持续呼吸中）
+           ↓ 边滑动边发牌
+T=800ms    牌1弹出（macOS最小化拉伸效果）
+T=950ms    牌2弹出
+T=1100ms   牌3弹出，球到达右上角
+           ↓ 球持续呼吸，等待发牌完成
+T=1300ms   三张牌落位左侧，整体居中
+           ↓ 边缘流光启动
+T=1400ms   三专家边缘彩色流光启动（代表开始发力）
+           ↓
+T=1500ms   协调者球在右上角稳定，持续呼吸
+           ↓ 思维流从球底部生长
+T=1600ms   协调者思维流开始输出
+```
 
 ---
 
-## 扩张后布局（620px 总宽度）
+## 技术实现要点
 
-```
-+------------------------------------------------------------+
-|  左侧 K/J/Q 牌区  |  右侧思考流区                            |
-|  ┌────────────┐   |  ┌─ 🤍 协调者呼吸圆标（金色） ─────────┐ |
-|  │  ♥ K       │   |  │  ▼ 思维连接线（金色渐变延伸）      │ |
-|  │  战术专家   │   |  ├────────────────────────────────────┤ |
-|  └────────────┘   |  │ 🎯 [战术] 动态副标题                 │ |
-|  ┌────────────┐   |  │ 💭 思考流内容 ···                   │ |
-|  │  ♠ J       │   |  │ 🔧 工具调用                        │ |
-|  │  战略专家   │   |  ├────────────────────────────────────┤ |
-|  └────────────┘   |  │ 🎯 [战略] 动态副标题                 │ |
-|  ┌────────────┐   |  │ 💭 思考流内容 ···                   │ |
-|  │  ♦ Q       │   |  │ 🔧 工具调用                        │ |
-|  │  引擎专家   │   |  ├────────────────────────────────────┤ |
-|  └────────────┘   |  │ 🎯 [引擎] 动态副标题                 │ |
-|                   |  │ 💭 思考流内容 ···                   │ |
-+------------------------------------------------------------+
-```
+### 动画架构
 
-**三张牌**：K(♥红心/战术) · J(♠黑桃/战略) · Q(♦方块/引擎)
-**协调者圆标**：位于右侧思考流顶部，金色呼吸动画，作为"首席裁判"角色
+1. **不再用 setTimeout 硬串阶段** — 改用 Framer Motion 的 `AnimatePresence` + 阶段状态机，让动画自然衔接
+2. **球作为核心动画元素**：
+   - 一个 `<motion.div>` 负责变形 + 滑动
+   - 发牌通过 Framer Motion 的 `onAnimationComplete` 触发
+   - 球在发牌过程中始终存在，不消失
+3. **发牌动画**：
+   - 用 `scaleX/scaleY` 的差异化实现 macOS 最小化拉伸效果
+   - 先压扁（scaleY 小，scaleX 大）再弹到正常
+4. **曲线路径**：
+   - 用 Framer Motion 的 `path` 或多个 keyframe 关键帧实现曲线
+   - 或用 CSS `@keyframes` + `offset-path`
 
----
+### 球的样式
 
-## 右侧思考流（Claude Extended Thinking 风格）
+- 外层模糊光晕
+- 主球：圆角方形（变形后）→ 变圆（持续呼吸）
+- 内层旋转流光
+- 持续呼吸动画：永远循环，不只动画阶段存在
 
-每个专家在右侧有自己的思考流区域：
+### 三专家牌落地后的外观
 
-```
-┌─ [专家色左边框] ─────────────────────────────────────┐
-│  动态副标题（14px, 专家主色, 实时更新）                 │
-│  ─────────────────────────────────────────          │
-│  💭 思考内容流（打字机效果，cursor 光标闪烁）           │
-│  💭 继续流式输出...█                                  │
-│                                                        │
-│  🔧 get_piece_attacks → 结果预览（可展开）             │
-│  ─────────────────────────────────────────          │
-│  💭 更多思考...                                       │
-└──────────────────────────────────────────────────────┘
-```
-
-**动态副标题特征**：
-- 来源：**后端 emit 的 `subtitle` 事件**（用户确认）
-- 样式：专家主色，粗体，14px，出现时从上方滑入（translateY -4→0）200ms
-- 切换时：旧副标题 fadeOut（100ms），新副标题 fadeIn（200ms）
+- 正面内容：`CardContent` 组件（复用现有）
+- 边缘流光：CSS `conic-gradient` + `hue-rotate` 动画 + `mask-image` 裁剪到边缘
+- 三张整体垂直居中：`flex-direction: column` + `justify-content: center`
 
 ---
 
-## 后端改动
+## 右侧协调者区域（完整设计）
 
-### `api/main.py` — `analyze_deep_stream()`
-添加 subtitle 事件路由：
-```python
-elif event["type"] == "subtitle":
-    yield f"data: {json.dumps({'type': 'subtitle', 'expert': event.get('expert'), 'message': event['message']}, ensure_ascii=False)}\n\n"
-```
+- 协调者球固定在右上角，**持续呼吸**，不消失
+- 球底延伸出**金色细线连接**
+- 连接线向下生长出**思维流容器**
 
-### `core/llm/multi_agent_orchestrator.py` — `analyze_multi()`
-在以下节点 emit subtitle：
-- 每个 expert_start 后 → `"正在分析{专家名}视角..."`
-- 工具调用前 → `"{专家}正在调用{工具名}..."`
-- 工具结果返回 → `"解读{工具名}结果..."`
-- expert_result 后 → `"{专家}分析完成"`
-- synthesis 开始 → `"综合裁判整合三位专家观点..."`
-- synthesis_chunk 中 → 根据内容实时 emit 动态副标题
+**思维流内容**：
+- 核心是一个个**小标题**
+- 小标题是协调者实时生成的，不是写死的
+- 内容来源：协调者读取三专家的隐藏 LLM 输出后实时总结
+- 样式：打字机效果逐字出现，Claude Extended Thinking 风格
+- 每个小标题代表协调者对某一刻三专家状态的实时裁判
+- 最终状态：思维流以"最终讲解"作为收尾
 
----
-
-## 前端文件变更
-
-### 新建文件（6个）
-
-| 文件 | 用途 |
-|------|------|
-| `frontend/src/store/useAgentStore.ts` | Zustand store，管理动画 phase（collapsed/idle→merging→orb→dealing→flipping→streaming）+ 三位专家状态 |
-| `frontend/src/components/CollapsedCardsView.tsx` | 收起状态：三张散开的 K/J/Q 扑克牌布局（260px 宽）|
-| `frontend/src/components/OrchestratorOrb.tsx` | 协调者呼吸圆标：Claude 风格金色圆形呼吸动画，可从扑克牌变形而来，可移动到思考流顶部 |
-| `frontend/src/components/PokerExpertCard.tsx` | 扑克牌组件：K(♥战术) / J(♠战略) / Q(♦引擎) 传统扑克牌样式 + 发牌+翻牌动画 |
-| `frontend/src/components/AgentCardStack.tsx` | 发牌容器：管理收牌→合并→变形的动画时序 |
-| `frontend/src/components/ThinkingStreamView.tsx` | 右侧思考流：协调者图标在顶部 + 思维连接线 + 每专家独立流区域 + 动态副标题 |
-| `frontend/src/components/AgentThinkingPanel.tsx` | 主面板：根据 phase 渲染收起/扩张状态 + 协调动画时序 + SSE 连接 |
-
-### 修改文件（4个）
-
-| 文件 | 改动 |
-|------|------|
-| `frontend/src/App.tsx` | 深度分析 Tab：根据 `isBoardCollapsed` 渲染 `AgentThinkingPanel`（收起/扩张自适应）|
-| `frontend/src/services/api.ts` | `analyzeDeep` 扩展：处理 `subtitle` + `expert_*` 事件路由 |
-| `frontend/src/index.css` | 新增 Apple Spring curves、扑克牌样式（K/J/Q）、orchestrator orb 动画 keyframes |
-| `api/main.py` | `analyze_deep_stream()` 添加 subtitle 事件路由 |
-| `core/llm/multi_agent_orchestrator.py` | `analyze_multi()` 在关键节点 emit subtitle 事件 |
-
-### 可复用现有代码
-
-| 文件 | 复用内容 |
-|------|---------|
-| `frontend/src/components/ExpertCard.tsx` | `StreamText` 打字机组件、EXPERT_CONFIG（颜色/图标/名称/描述）|
-| `frontend/src/components/SynthesisPanel.tsx` | 高亮格式逻辑（`**粗体**` / `[工具名]` / `(坐标)`）|
-| `frontend/src/components/AgentDebutPanel.tsx` | `BreathingDot` 呼吸动画参考 |
-| `frontend/src/services/api.ts` | 现有 `analyzeDeep` 方法 → 扩展事件类型，不改动原有接口 |
+**专家隐藏信息的展示**：
+- 用户 hover 左侧某张扑克牌时
+- 弹出 `ExpertGlassPanel`（现有 Portal 实现可复用）
+- 显示该专家的实时状态：正在调用什么工具、处于什么阶段、LLM原始思考内容
+- 这是协调者看到的原始数据，普通用户看不到
 
 ---
 
 ## CSS 动画变量
 
 ```css
-/* Apple Spring Curves */
+/* Apple Spring Easing */
 --apple-spring-smooth: cubic-bezier(0.16, 1, 0.3, 1);
---apple-spring-enter: cubic-bezier(0.0, 0.0, 0.2, 1);
---apple-spring-exit: cubic-bezier(0.4, 0.0, 1.0, 1.0);
 
-/* Orchestrator Orb (Claude-style breathing circle) */
+/* 球呼吸动画 */
 @keyframes orb-breathe {
-  0%, 100% { transform: scale(1); opacity: 0.75; }
-  50% { transform: scale(1.1); opacity: 1; }
-}
-@keyframes orb-glow {
-  0%, 100% { box-shadow: 0 0 12px rgba(212,175,55,0.4), 0 0 24px rgba(212,175,55,0.2); }
-  50% { box-shadow: 0 0 20px rgba(212,175,55,0.6), 0 0 40px rgba(212,175,55,0.3); }
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.08); opacity: 1; }
 }
 
-/* Card dealing keyframe */
-@keyframes card-deal {
-  from { transform: translateX(-280px) rotateZ(-12deg) scale(0.6); opacity: 0.4; }
-  to { transform: translateX(0) rotateZ(0) scale(1); opacity: 1; }
+/* 牌边缘流光 */
+@keyframes card-edge-glow {
+  0% { filter: hue-rotate(0deg) brightness(1); }
+  50% { filter: hue-rotate(180deg) brightness(1.2); }
+  100% { filter: hue-rotate(360deg) brightness(1); }
 }
 
-/* Card flip keyframe */
-@keyframes card-flip {
-  0% { transform: rotateY(0deg); }
-  50% { transform: rotateY(90deg); }
-  51% { transform: rotateY(-90deg); }
-  100% { transform: rotateY(0deg); }
+/* macOS 最小化拉伸（参考） */
+@keyframes card-stretch-out {
+  0% { transform: scaleX(0.1) scaleY(2) rotate(-30deg); opacity: 0; }
+  40% { transform: scaleX(1.1) scaleY(0.9) rotate(2deg); opacity: 1; }
+  70% { transform: scaleX(0.95) scaleY(1.05) rotate(-1deg); opacity: 1; }
+  100% { transform: scaleX(1) scaleY(1) rotate(0deg); opacity: 1; }
 }
-
-/* K/J/Q 扑克牌样式 */
-.poker-card {
-  width: 52px;
-  height: 70px;
-  border-radius: 8px;
-  border: 1px solid rgba(0,0,0,0.15);
-  box-shadow: 2px 3px 8px rgba(0,0,0,0.2);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Noto Serif SC', serif;
-  position: relative;
-}
-.poker-card.king  { background: linear-gradient(135deg, #fff5f5, #ffe8e8); color: #dc2626; }
-.poker-card.jack  { background: linear-gradient(135deg, #f8f8f8, #e8e8e8); color: #1a1a1a; }
-.poker-card.queen { background: linear-gradient(135deg, #f0f8ff, #e0f0ff); color: #2563eb; }
-.poker-card .rank { font-size: 20px; font-weight: 900; line-height: 1; }
-.poker-card .suit { font-size: 16px; }
-.poker-card .badge { position: absolute; top: 3px; right: 3px; font-size: 9px; }
 ```
+
+---
+
+## 待验证问题
+
+1. 曲线路径用 Framer Motion 怎么实现最优雅？贝塞尔曲线还是 SVG path？
+2. macOS 最小化拉伸效果，scaleX/scaleY 的参数是否准确？
+3. 三张牌落地后垂直居中，容器高度如何动态计算？
+4. SSE 事件里的小标题事件类型叫什么？现有 `thinking_chunk` 是否够用，还是需要新增 `orchestrator_subtitle` 事件类型？
+5. 协调者实时读取三专家输出的机制：后端如何将三专家的隐藏输出传给协调者？这是后端架构问题，需确认 multi_agent_orchestrator 的实现。
 
 ---
 
@@ -259,37 +293,37 @@ elif event["type"] == "subtitle":
 
 | 阶段 | 步骤 | 内容 |
 |------|------|------|
-| 1 | 后端 | `api/main.py` 添加 subtitle 事件路由 |
-| 1 | 后端 | `core/llm/multi_agent_orchestrator.py` emit subtitle |
-| 2 | 前端基础 | `useAgentStore.ts` — Zustand store |
-| 2 | 前端基础 | `api.ts` — SSE 事件扩展 |
-| 2 | 前端基础 | `index.css` — Apple 动画变量 |
-| 3 | 组件 | `CollapsedCardsView.tsx` — 收起状态扑克牌 |
-| 3 | 组件 | `OrchestratorOrb.tsx` — 协调者呼吸圆标 |
-| 3 | 组件 | `PokerExpertCard.tsx` — K/J/Q 扑克牌 + 动画 |
-| 3 | 组件 | `AgentCardStack.tsx` — 收牌→合并→变形时序 |
-| 3 | 组件 | `ThinkingStreamView.tsx` — 协调者+连接线+三专家流 |
-| 3 | 组件 | `AgentThinkingPanel.tsx` — 主面板 |
-| 4 | 集成 | `App.tsx` — 渲染新面板 |
-| 4 | 验证 | `pytest -q` 确认无回归 |
+| 1 | 基础 | 清理现有 `AgentCardFlip.tsx` 中的旧动画逻辑 |
+| 1 | 基础 | 明确发牌后的最终布局（三专家左 + 协调者右） |
+| 1 | 基础 | 确认后端 SSE 事件类型：小标题事件格式 |
+| 2 | 球 | 实现"收缩变形为球"动画（阶段一） |
+| 3 | 球 | 实现"曲线路径滑动"动画（阶段二） |
+| 4 | 发牌 | 实现"macOS 最小化拉伸发牌"（阶段二） |
+| 5 | 落位 | 实现"三张落地 + 边缘流光"（阶段三） |
+| 6 | 落位 | 实现"三专家 hover 弹出隐藏信息"（ExpertGlassPanel 复用） |
+| 7 | 协调者 | 实现"协调者球固定右上角 + 思维流"（阶段四） |
+| 8 | 协调者 | 实现"小标题逐个生长"动画（打字机效果） |
+| 9 | 整合 | 端到端串联 + SSE 数据接入，确认每阶段衔接流畅 |
 
 ---
 
 ## 验证方案
 
-1. 启动后端：`python -m uvicorn api.main:app --port 8003`
-2. 启动前端：`cd frontend && npm run dev`
-3. **收起状态验证**：深度分析 Tab 内显示 K/J/Q 三张散开扑克牌 + "三位专家·待命中"文字
-4. **扩张动画验证**：点击"开始深度分析"后
-   - ✅ 三张牌收成一叠
-   - ✅ 叠卡变形为金色协调者呼吸圆标
-   - ✅ 圆标展开，三张牌飞出到左侧
-   - ✅ 每张牌翻面揭示内容
-   - ✅ 协调者图标移至右侧思考流顶部
-   - ✅ 思维连接线（金色）从顶部延伸
-   - ✅ 右侧出现带**动态副标题**的思考流
-5. DevTools Network → SSE 事件包含 `subtitle` 类型
-6. `pytest -q` 确认无回归
+1. 启动前端：`cd frontend && npm run dev`
+2. 点击"开始深度分析"，观察翻面后的动画
+3. 验证清单：
+   - [ ] 变形无停顿，从翻面完成瞬间开始
+   - [ ] 变形过程流畅，有呼吸感
+   - [ ] 球沿曲线路径滑动到右上角，速度有曲线感
+   - [ ] 发牌过程有 macOS 最小化拉伸感
+   - [ ] 三张牌落地后整体居中，不偏上不偏下
+   - [ ] 落地后三张正面有磨砂质感，边缘有彩色流光
+   - [ ] 球到达右上角后持续呼吸，不消失
+   - [ ] 思维流从球底部生长，金色细线延伸
+   - [ ] 小标题逐个出现，有打字机效果
+   - [ ] hover 三张牌的任意一张，弹出该专家隐藏信息（工具调用、阶段、原始思考）
+   - [ ] 整体动画是"一个连贯叙事"，不是"五段硬串"
+4. `pytest -q` 确认无回归
 
 ---
 
@@ -297,27 +331,20 @@ elif event["type"] == "subtitle":
 
 - [x] 构思中
 - [x] 验证中
-- [x] 准备实现
-- [x] 已实现（前端部分）
+- [ ] 准备实现
+- [ ] 已实现
+
+---
 
 ## 实现记录
 
-### 2026-03-22 前端实现
+### 2026-03-23 Bug 修复
+- 修复 J 卡正面彩色问题：原因为背面 opacity 未在 idle 状态归零，导致彩虹流光透出。解决方案：正面/背面各用独立的 `motion.div`，背面在 `!isFlipped` 时 `opacity: 0`，并用 `zIndex` 确保正面在上。
 
-**已完成：**
-- `frontend/src/store/useAgentStore.ts` — Zustand store，管理 7 个动画阶段 + 三专家状态 + 协调者状态
-- `frontend/src/components/CollapsedCardsView.tsx` — 收起状态三张散开扑克牌
-- `frontend/src/components/OrchestratorOrb.tsx` — Claude 风格金色呼吸圆标
-- `frontend/src/components/PokerExpertCard.tsx` — K/J/Q 扑克牌组件（支持发牌+翻牌动画）
-- `frontend/src/components/AgentCardStack.tsx` — 发牌容器，管理叠卡→圆标→发牌→翻牌时序
-- `frontend/src/components/ThinkingStreamView.tsx` — 右侧 Claude 风格思考流
-- `frontend/src/components/AgentThinkingPanel.tsx` — 主面板，根据 phase 渲染收起/扩张状态
-- `frontend/src/components/DeepAnalysisPanel.tsx` — 集成新面板，触发动画序列
-- `frontend/src/index.css` — Apple Spring curves + 扑克牌样式 + orchestrator orb 动画
-
-**后端待做（不阻塞前端验证）：**
-- `api/main.py` — 添加 `subtitle` 事件路由
-- `core/llm/multi_agent_orchestrator.py` — emit subtitle 事件
-
-**动画时序（已实现）：**
-- `collapsed` → `merging` (0ms) → `orb` (400ms) → `dealing` (800ms) → `flipping` (1100ms) → `streaming` (1700ms)
+### 2026-03-23 系统设计澄清（v2）
+- 三专家 agent 各自有 LLM 思考输出，**对用户隐藏**
+- hover 扑克牌 → 弹出 `ExpertGlassPanel` 显示该专家实时隐藏信息
+- 协调者 agent（主）实时读取三专家隐藏输出，**实时生成小标题**，展示在右侧思维流
+- 小标题**不是写死的**，是协调者观察到专家动态后动态生成的
+- 协调者思维流 = 协调者实时汇报 + 最终讲解
+- 球登场后持续呼吸不消失，思维流从球底金色细线向下生长

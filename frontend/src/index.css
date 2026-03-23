@@ -449,16 +449,189 @@ a:hover {
 
 .expand-btn {
   font-size: 10px;
-  color: rgba(96, 165, 250, 0.8);
-  background: none;
-  border: none;
+  color: rgba(37, 99, 235, 0.85);
+  background: rgba(96, 165, 250, 0.15);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(96, 165, 250, 0.30);
+  border-top-color: rgba(147, 197, 253, 0.60);
+  border-radius: 6px;
   cursor: pointer;
-  padding: 2px 0;
+  padding: 3px 10px;
   margin-top: 3px;
-  transition: color 0.18s;
+  transition: all 0.2s ease-out;
+  position: relative;
+  overflow: hidden;
+  font-family: inherit;
 }
+
+.expand-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 60% 45% at 12% 15%,
+    rgba(147, 197, 253, 0.35) 0%,
+    rgba(96, 165, 250, 0.10) 40%,
+    transparent 70%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
 .expand-btn:hover {
-  color: rgba(96, 165, 250, 1);
+  color: rgba(37, 99, 235, 1);
+  background: rgba(96, 165, 250, 0.25);
+  border-color: rgba(96, 165, 250, 0.45);
+  border-top-color: rgba(147, 197, 253, 0.75);
+  box-shadow:
+    0 2px 8px rgba(96, 165, 250, 0.12),
+    inset 0 1px 0px rgba(255, 255, 255, 0.50),
+    inset 0 -1px 0px rgba(0, 0, 0, 0.04);
+  transform: scale(1.02);
+}
+
+.expand-btn:hover::before {
+  opacity: 1;
+}
+
+.expand-btn:active {
+  transform: scale(0.98);
+}
+
+/* ============================================================
+   Apple Liquid Glass 按钮 — 水滴边缘反光悬停效果
+   ============================================================ */
+
+/* ============================================================
+   Apple Liquid Glass 按钮 — 玻璃高光 + 暖色适配
+   ============================================================ */
+
+/* 基础液态玻璃按钮 */
+.liquid-glass-btn {
+  position: relative;
+  background: rgba(255, 255, 255, 0.40);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+
+  /* 玻璃边缘高光 */
+  box-shadow:
+    0 3px 12px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0px rgba(255, 255, 255, 0.80),
+    inset 0 2px 4px rgba(255, 255, 255, 0.20),
+    inset 0 -1px 0px rgba(0, 0, 0, 0.04);
+
+  border: 1px solid rgba(255, 255, 255, 0.40);
+  border-top-color: rgba(255, 255, 255, 0.70);
+  border-radius: 10px;
+
+  color: rgba(80, 60, 40, 0.90);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 7px 16px;
+  overflow: hidden;
+  transition: all 0.20s ease-out;
+}
+
+/* 左上角光晕 — 模拟光穿透玻璃的折射感 */
+.liquid-glass-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse 70% 55% at 12% 18%,
+    rgba(255, 255, 255, 0.40) 0%,
+    rgba(255, 255, 255, 0.12) 35%,
+    transparent 65%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 0.20s ease-out;
+}
+
+/* 悬停状态 */
+.liquid-glass-btn:hover {
+  background: rgba(255, 255, 255, 0.52);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  box-shadow:
+    0 5px 20px rgba(0, 0, 0, 0.08),
+    0 0 20px rgba(255, 255, 255, 0.08),
+    inset 0 1.5px 0px rgba(255, 255, 255, 0.90),
+    inset 0 3px 8px rgba(255, 255, 255, 0.20),
+    inset 0 -1px 0px rgba(0, 0, 0, 0.04);
+  border-color: rgba(255, 255, 255, 0.55);
+  border-top-color: rgba(255, 255, 255, 0.85);
+  transform: scale(1.03);
+  color: rgba(60, 45, 30, 0.95);
+}
+
+.liquid-glass-btn:hover::before {
+  opacity: 1;
+}
+
+/* 按下状态 */
+.liquid-glass-btn:active {
+  transform: scale(0.97);
+  background: rgba(255, 255, 255, 0.60);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.06),
+    inset 0 1.5px 4px rgba(255, 255, 255, 0.50),
+    inset 0 -0.5px 0px rgba(0, 0, 0, 0.03);
+  transition: all 0.08s ease-out;
+}
+
+/* 禁用状态 */
+.liquid-glass-btn:disabled {
+  opacity: 0.40;
+  cursor: not-allowed;
+  transform: none !important;
+}
+.liquid-glass-btn:disabled:hover {
+  background: rgba(255, 255, 255, 0.40);
+  box-shadow:
+    0 3px 12px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0px rgba(255, 255, 255, 0.80),
+    inset 0 -1px 0px rgba(0, 0, 0, 0.04);
+  border-color: rgba(255, 255, 255, 0.40);
+  border-top-color: rgba(255, 255, 255, 0.70);
+  transform: none !important;
+}
+.liquid-glass-btn:disabled::before {
+  opacity: 0 !important;
+}
+
+/* 小尺寸变体 */
+.liquid-glass-btn.sm {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 8px;
+}
+
+/* 金色主题变体 */
+.liquid-glass-btn.primary {
+  background: rgba(212, 175, 55, 0.22);
+  border-color: rgba(212, 175, 55, 0.45);
+  border-top-color: rgba(255, 220, 120, 0.70);
+  color: rgba(140, 100, 20, 0.95);
+}
+
+.liquid-glass-btn.primary:hover {
+  background: rgba(212, 175, 55, 0.35);
+  border-color: rgba(212, 175, 55, 0.60);
+  border-top-color: rgba(255, 230, 140, 0.85);
+  box-shadow:
+    0 5px 20px rgba(212, 175, 55, 0.15),
+    0 0 24px rgba(212, 175, 55, 0.08),
+    inset 0 1.5px 0px rgba(255, 255, 255, 0.70),
+    inset 0 3px 8px rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0px rgba(0, 0, 0, 0.04);
 }
 
 .result-data {
@@ -552,6 +725,102 @@ a:hover {
   100% { filter: hue-rotate(360deg) brightness(1); }
 }
 
+/* ── 呼吸球动画 ── */
+@keyframes orb-breathe {
+  0%, 100% { transform: scale(0.9); }
+  50% { transform: scale(1.05); }
+}
+@keyframes orb-hue-rotate {
+  from { filter: hue-rotate(0deg) brightness(1.1); }
+  to { filter: hue-rotate(360deg) brightness(1.1); }
+}
+@keyframes orb-body-rotate {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+@keyframes orb-inner-cw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes orb-inner-ccw {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+@keyframes orb-aura-pulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+/* ── 流动彩边动画（Apple Liquid Glass 光效）── */
+@keyframes glow-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 100% 50%; }
+}
+@keyframes glow-flow-shadow {
+  0% { box-shadow: 0 0 12px rgba(96,165,250,0.5), 0 0 24px rgba(167,139,250,0.3); }
+  33% { box-shadow: 0 0 12px rgba(167,139,250,0.5), 0 0 24px rgba(244,114,182,0.3); }
+  66% { box-shadow: 0 0 12px rgba(244,114,182,0.5), 0 0 24px rgba(251,191,36,0.3); }
+  100% { box-shadow: 0 0 12px rgba(96,165,250,0.5), 0 0 24px rgba(167,139,250,0.3); }
+}
+
+/* ── 多层呼吸球复合质感 ── */
+.breathing-orb {
+  position: relative;
+  filter: drop-shadow(0 0 20px rgba(167,139,250,0.6))
+          drop-shadow(0 0 40px rgba(96,165,250,0.4));
+  animation: orb-breathe 2s ease-in-out infinite;
+}
+.orb-aura {
+  position: absolute;
+  inset: -20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(167,139,250,0.25) 0%, transparent 70%);
+  filter: blur(8px);
+  animation: orb-aura-pulse 2s ease-in-out infinite;
+  pointer-events: none;
+}
+.orb-body {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, #60a5fa, #a78bfa, #f472b6, #fbbf24, #60a5fa);
+  animation: orb-body-rotate 8s linear infinite;
+  box-shadow:
+    inset -8px -8px 20px rgba(0,0,0,0.3),
+    inset 8px 8px 20px rgba(255,255,255,0.15);
+  pointer-events: none;
+}
+.orb-inner-1 {
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  background: conic-gradient(from 180deg, transparent 30%, rgba(255,255,255,0.3) 50%, transparent 70%);
+  animation: orb-inner-cw 4s linear infinite;
+  pointer-events: none;
+}
+.orb-inner-2 {
+  position: absolute;
+  inset: 16px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 40%, rgba(167,139,250,0.4) 55%, transparent 70%);
+  animation: orb-inner-ccw 6s linear infinite;
+  pointer-events: none;
+}
+.orb-core {
+  position: absolute;
+  inset: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.3) 50%, transparent 70%);
+  pointer-events: none;
+}
+.orb-edge {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 40%);
+  pointer-events: none;
+}
+
 /* ============================================================
    全局装饰层（已精简，仅保留必要的顶级光晕）
    ============================================================ */
@@ -592,6 +861,104 @@ a:hover {
 .orchestrator-orb {
   animation: orb-breathe 2.5s ease-in-out infinite, orb-glow 2.5s ease-in-out infinite;
 }
+
+/* ── Card edge glow — 落地后边缘彩虹流光 ── */
+@keyframes card-edge-glow {
+  0% {
+    filter: hue-rotate(0deg) brightness(1);
+    background-size: 200% 200%;
+  }
+  50% {
+    filter: hue-rotate(180deg) brightness(1.15);
+    background-size: 300% 300%;
+  }
+  100% {
+    filter: hue-rotate(360deg) brightness(1);
+    background-size: 200% 200%;
+  }
+}
+
+/* ── 球沿曲线路径滑动到右上角（orbMoving 阶段）── */
+/* morphing 容器整体滑动：从中心 → 右上角 */
+@keyframes morphing-slide {
+  0% {
+    transform: translate(0px, 0px) scale(0.72);
+    opacity: 1;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(280px, -260px) scale(0.72);
+    opacity: 1;
+  }
+}
+
+.orb-slide-container {
+  animation: morphing-slide 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 球层呼吸（持续循环，在 morphing 容器内） */
+@keyframes orb-breathe-morphing {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+/* ── 飞行扑克牌：从球位置飞向左侧（macOS最小化拉伸感）── */
+@keyframes flying-card-0 {
+  0% { transform: translate(0px, 0px) scaleX(0.1) scaleY(2.5) rotate(-30deg); opacity: 0; }
+  20% { transform: translate(15px, -20px) scaleX(1.15) scaleY(0.82) rotate(-5deg); opacity: 1; }
+  50% { transform: translate(40px, 10px) scaleX(0.95) scaleY(1.08) rotate(2deg); opacity: 1; }
+  75% { transform: translate(20px, -5px) scaleX(1.03) scaleY(0.98) rotate(-1deg); opacity: 1; }
+  100% { transform: translate(0px, -187px) scaleX(1) scaleY(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes flying-card-1 {
+  0% { transform: translate(0px, 0px) scaleX(0.1) scaleY(2.5) rotate(-20deg); opacity: 0; }
+  20% { transform: translate(15px, -15px) scaleX(1.12) scaleY(0.85) rotate(-3deg); opacity: 1; }
+  50% { transform: translate(40px, 8px) scaleX(0.96) scaleY(1.06) rotate(1deg); opacity: 1; }
+  75% { transform: translate(20px, -3px) scaleX(1.02) scaleY(0.98) rotate(-0.5deg); opacity: 1; }
+  100% { transform: translate(0px, 0px) scaleX(1) scaleY(1) rotate(0deg); opacity: 1; }
+}
+
+@keyframes flying-card-2 {
+  0% { transform: translate(0px, 0px) scaleX(0.1) scaleY(2.5) rotate(-10deg); opacity: 0; }
+  20% { transform: translate(12px, -10px) scaleX(1.1) scaleY(0.88) rotate(-2deg); opacity: 1; }
+  50% { transform: translate(35px, 5px) scaleX(0.97) scaleY(1.05) rotate(0.5deg); opacity: 1; }
+  75% { transform: translate(15px, -2px) scaleX(1.02) scaleY(0.98) rotate(-0.5deg); opacity: 1; }
+  100% { transform: translate(0px, 187px) scaleX(1) scaleY(1) rotate(0deg); opacity: 1; }
+}
+
+.flying-card { display: block; }
+.flying-card-0 { animation: flying-card-0 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+.flying-card-1 { animation: flying-card-1 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+.flying-card-2 { animation: flying-card-2 0.7s cubic-bezier(0.16,1,0.3,1) forwards; }
+
+/* ── 落地扑克牌：弹性入场动画 ── */
+@keyframes landed-card-0 {
+  0% { transform: translate(0px, -187px) scale(0.7); opacity: 0; }
+  50% { transform: translate(0px, -183px) scale(1.04); opacity: 1; }
+  75% { transform: translate(0px, -189px) scale(0.97); }
+  100% { transform: translate(0px, -187px) scale(1); opacity: 1; }
+}
+
+@keyframes landed-card-1 {
+  0% { transform: translate(0px, 0px) scale(0.7); opacity: 0; }
+  50% { transform: translate(0px, 4px) scale(1.04); opacity: 1; }
+  75% { transform: translate(0px, -2px) scale(0.97); }
+  100% { transform: translate(0px, 0px) scale(1); opacity: 1; }
+}
+
+@keyframes landed-card-2 {
+  0% { transform: translate(0px, 187px) scale(0.7); opacity: 0; }
+  50% { transform: translate(0px, 191px) scale(1.04); opacity: 1; }
+  75% { transform: translate(0px, 185px) scale(0.97); }
+  100% { transform: translate(0px, 187px) scale(1); opacity: 1; }
+}
+
+.landed-card-0 { animation: landed-card-0 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+.landed-card-1 { animation: landed-card-1 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+.landed-card-2 { animation: landed-card-2 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
 
 /* ── Card dealing animation ── */
 @keyframes card-deal-left {

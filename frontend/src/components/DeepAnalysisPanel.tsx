@@ -1,7 +1,11 @@
 import { useState, useEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { useGameStore } from '../store/useGameStore';
+import { useAgentStore } from '../store/useAgentStore';
 import { api } from '../services/api';
+import { AgentThinkingPanel } from './AgentThinkingPanel';
+import type { ExpertType } from './CardContent';
+import type { ExpertStatus } from './ExpertCard';
 
 interface ThinkingMessage {
   type: string;
@@ -9,6 +13,7 @@ interface ThinkingMessage {
   message?: string;
   tool?: string;
   finding?: string;
+  expert?: string; // 'tactics' | 'strategy' | 'engine'
 }
 
 // ============================================
@@ -166,11 +171,15 @@ const AnalysisTimeline: React.FC<AnalysisTimelineProps> = ({ thinkingLog, isAnal
 
 export default function DeepAnalysisPanel() {
   const { fen, previousFen, lastMove, setBoardCollapsed } = useGameStore();
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { isPanelActive, setPanelActive, setAnalyzing, resetAll } = useAgentStore();
+  const [isAnalyzingLocal, setIsAnalyzingLocal] = useState(false);
   const [thinkingLog, setThinkingLog] = useState<ThinkingMessage[]>([]);
   const [result, setResult] = useState<{ explanation: string; confidence: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<'quick' | 'deep'>('deep');
+
+  // 当收起状态时，显示新面板
+  const showPokerPanel = isPanelActive;
 
   const lastMoveUci = lastMove
     ? `${String.fromCharCode(97 + lastMove.from.col)}${9 - lastMove.from.row}${String.fromCharCode(97 + lastMove.to.col)}${9 - lastMove.to.row}`
@@ -181,7 +190,11 @@ export default function DeepAnalysisPanel() {
 
     console.log('[DEBUG] 点击按钮，开始分析', performance.now());
     setBoardCollapsed(true); // 触发动画
-    setIsAnalyzing(true);
+
+    // 触发 AgentThinkingPanel 动画序列
+    setPanelActive(true);
+    setAnalyzing(true);
+    setIsAnalyzingLocal(true);
     setThinkingLog([]);
     setResult(null);
     setError(null);
@@ -200,6 +213,48 @@ export default function DeepAnalysisPanel() {
       },
       (msg) => {
         console.log('[DEBUG] 收到消息', performance.now(), msg.type, msg.message?.slice(0, 20));
+
+        // ── 同步更新 useAgentStore（驱动扑克牌动画 + 思维流）─────────────────
+        const store = useAgentStore.getState();
+        const expertType = msg.expert as ExpertType | undefined;
+
+        // 专家归属事件 → 更新对应专家状态
+        if (expertType && ['tactics', 'strategy', 'engine'].includes(expertType)) {
+          if (msg.type === 'expert_start') {
+            store.updateExpert(expertType, { status: 'thinking' as ExpertStatus });
+          } else if (msg.type === 'expert_result') {
+            try {
+              const data = typeof msg.message === 'string' ? JSON.parse(msg.message) : msg.message;
+              store.updateExpert(expertType, {
+                status: 'done' as any,
+                finding: data.finding || '',
+              });
+            } catch {
+              store.updateExpert(expertType, { status: 'completed' as any });
+            }
+          } else if (msg.type === `expert_${expertType}_thinking`) {
+            // 专家思考内容（流式）
+            store.appendExpertThinking(expertType, msg.message || '');
+          } else if (msg.type === `expert_${expertType}_chunk`) {
+            // 专家 chunk → 追加到 thinking
+            store.appendExpertThinking(expertType, msg.message || '');
+          } else if (msg.type === `expert_${expertType}_tool`) {
+            // 工具调用（显示工具名即可）
+            store.addExpertToolCall(expertType, {
+              id: Date.now().toString(),
+              toolName: msg.message || 'tool',
+              params: '',
+              result: '',
+            });
+          }
+        }
+
+        // 协调者小标题事件（目前后端用 synthesis_chunk 代替）
+        if (msg.type === 'orchestrator_subtitle' || msg.type === 'synthesis_chunk') {
+          store.appendOrchestratorContent(msg.message || '');
+        }
+
+        // ── 原有 thinkingLog 更新逻辑 ──────────────────────────────────────
         flushSync(() => {
           setThinkingLog(prev => {
             // 流式内容片段：累积到最后一个thinking节点
@@ -218,20 +273,52 @@ export default function DeepAnalysisPanel() {
               }
             }
             // 其他类型：新增节点
-            return [...prev, msg];
+            return [...prev, { ...msg, expert: msg.expert }];
           });
         });
       },
       (res) => {
         setResult(res);
-        setIsAnalyzing(false);
+        setIsAnalyzingLocal(false);
+        setAnalyzing(false);
       },
       (err) => {
         setError(err);
-        setIsAnalyzing(false);
+        setIsAnalyzingLocal(false);
+        setAnalyzing(false);
       }
     );
   };
+
+  // 当分析激活时，显示新的扑克牌面板
+  if (showPokerPanel) {
+    return (
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* 关闭按钮 */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'flex-end',
+          padding: '4px 0 8px',
+          borderBottom: '1px solid rgba(212,175,55,0.12)',
+          marginBottom: 8,
+        }}>
+          <button
+            className="liquid-glass-btn sm"
+            onClick={() => {
+              setPanelActive(false);
+              setAnalyzing(false);
+              resetAll();
+              setBoardCollapsed(false);
+            }}
+          >
+            收起
+          </button>
+        </div>
+        {/* 新面板 */}
+        <AgentThinkingPanel />
+      </div>
+    );
+  }
 
   return (
     <div style={styles.container}>
@@ -239,13 +326,15 @@ export default function DeepAnalysisPanel() {
         <h3 style={styles.title}>🔍 深度分析</h3>
         <div style={styles.modeToggle}>
           <button
-            style={{ ...styles.modeBtn, ...(mode === 'quick' ? styles.modeBtnActive : {}) }}
+            className={`liquid-glass-btn sm${mode === 'quick' ? ' primary' : ''}`}
+            style={mode === 'quick' ? {} : {}}
             onClick={() => setMode('quick')}
           >
             快速
           </button>
           <button
-            style={{ ...styles.modeBtn, ...(mode === 'deep' ? styles.modeBtnActive : {}) }}
+            className={`liquid-glass-btn sm${mode === 'deep' ? ' primary' : ''}`}
+            style={mode === 'deep' ? {} : {}}
             onClick={() => setMode('deep')}
           >
             深度
@@ -254,18 +343,16 @@ export default function DeepAnalysisPanel() {
       </div>
 
       <button
-        style={{
-          ...styles.analyzeBtn,
-          ...(isAnalyzing ? styles.analyzeBtnDisabled : {})
-        }}
+        className="liquid-glass-btn primary"
+        style={{ width: '100%' }}
         onClick={handleDeepAnalysis}
-        disabled={isAnalyzing || !fen}
+        disabled={isAnalyzingLocal || !fen}
       >
-        {isAnalyzing ? '🔄 分析中...' : '🧠 开始深度分析'}
+        {isAnalyzingLocal ? '🔄 分析中...' : '🧠 开始深度分析'}
       </button>
 
       {thinkingLog.length > 0 && (
-        <AnalysisTimeline thinkingLog={thinkingLog} isAnalyzing={isAnalyzing} />
+        <AnalysisTimeline thinkingLog={thinkingLog} isAnalyzing={isAnalyzingLocal} />
       )}
 
       {error && (
@@ -293,7 +380,7 @@ export default function DeepAnalysisPanel() {
         </div>
       )}
 
-      {!isAnalyzing && !result && thinkingLog.length === 0 && (
+      {!isAnalyzingLocal && !result && thinkingLog.length === 0 && (
         <div style={styles.emptyState}>
           <div style={styles.emptyIcon}>🧠</div>
           <div style={styles.emptyText}>

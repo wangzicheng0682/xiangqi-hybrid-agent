@@ -9,6 +9,7 @@ export type ExpertType = 'tactics' | 'strategy' | 'engine';
 export type ExpertStatus = 'idle' | 'thinking' | 'completed' | 'failed';
 
 export interface ToolCall {
+  id: string;
   toolName: string;
   params: string;
   result: string;
@@ -156,7 +157,7 @@ const ToolCallBubble: React.FC<{ toolCall: ToolCall; accentColor: string }> = ({
       )}
       {toolCall.result.length > 40 && (
         <button
-          style={toolBubbleStyles.expandBtn}
+          className="liquid-glass-btn sm"
           onClick={() => setExpanded(!expanded)}
         >
           {expanded ? '收起' : '展开详情'}

@@ -159,11 +159,8 @@ export default function PositionAnalysisPanel() {
         {(['overview', 'pieces', 'tags'] as const).map(tab => (
           <button
             key={tab}
+            className={`liquid-glass-btn sm${activeTab === tab ? ' primary' : ''}`}
             onClick={() => setActiveTab(tab)}
-            style={{
-              ...styles.tab,
-              ...(activeTab === tab ? styles.tabActive : {})
-            }}
           >
             {tab === 'overview' ? '摘要' : tab === 'pieces' ? '棋子' : '标签'}
           </button>

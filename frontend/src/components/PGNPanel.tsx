@@ -80,20 +80,10 @@ export default function PGNPanel() {
       />
 
       <button
+        className="liquid-glass-btn primary"
+        style={{ width: '100%', marginTop: 10 }}
         onClick={handleLoadPGN}
         disabled={!pgnText.trim() || loading}
-        style={{
-          width: '100%',
-          marginTop: 10,
-          padding: '10px',
-          borderRadius: 6,
-          border: 'none',
-          background: pgnText.trim() && !loading ? '#D4AF37' : '#ccc',
-          color: '#fff',
-          fontWeight: 'bold',
-          cursor: pgnText.trim() && !loading ? 'pointer' : 'not-allowed',
-          fontSize: 13
-        }}
       >
         {loading ? '加载中...' : '加载棋谱'}
       </button>
