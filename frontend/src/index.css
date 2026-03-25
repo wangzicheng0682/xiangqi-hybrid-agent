@@ -9,26 +9,40 @@
    ============================================================ */
 
 :root {
+  /* ── 墨韵青灯 · 色彩系统 ── */
+  --ink-deep:    #0B132B;   /* 最深墨蓝 */
+  --ink-mid:     #1C2541;   /* 深海蓝 */
+  --ink-fog:     #3A506B;   /* 雾蓝 */
+  --ink-dark:    #0d1628;   /* 深底 */
+
+  --copper:      #B87333;   /* 铜金——暖 */
+  --cyan-gold:   #5BC0BE;   /* 青金——冷 */
+
   /* ── 设计调色板 ── */
-  --apple-bg: #E0DBD1;
-  --apple-bg-gradient: radial-gradient(circle at 50% 0%, rgba(255,252,248,0.95) 0%, #E0DBD1 100%);
-  --apple-glass: rgba(255, 255, 255, 0.35);
-  --apple-glass-hover: rgba(255, 255, 255, 0.45);
-  --apple-glass-deep: rgba(255, 255, 255, 0.25);
-  --apple-border: rgba(255, 255, 255, 0.3);
-  --apple-border-top: rgba(255, 255, 255, 0.55);
-  --apple-border-subtle: rgba(255, 255, 255, 0.15);
-  --apple-text: #1D1D1F;
-  --apple-text-secondary: #86868B;
-  --apple-text-tertiary: #A1A1A6;
-  --gold-accent: rgba(212, 175, 55, 0.75);
-  --gold-accent-light: rgba(212, 175, 55, 0.15);
-  --gold-glow: rgba(212, 175, 55, 0.3);
+  --apple-bg: #0B132B;
+  --apple-bg-gradient: linear-gradient(160deg, #0B132B 0%, #1C2541 50%, #0d1628 100%);
+  --apple-glass: rgba(255, 255, 255, 0.07);
+  --apple-glass-hover: rgba(255, 255, 255, 0.11);
+  --apple-glass-deep: rgba(255, 255, 255, 0.05);
+  --apple-border: rgba(255, 255, 255, 0.14);
+  --apple-border-top: rgba(255, 255, 255, 0.22);
+  --apple-border-subtle: rgba(255, 255, 255, 0.08);
+  --apple-text: #F4F1DE;              /* 象牙暖白 */
+  --apple-text-secondary: rgba(244, 241, 222, 0.60);
+  --apple-text-tertiary: rgba(244, 241, 222, 0.35);
+  --gold-accent: #B87333;             /* 铜金 */
+  --gold-accent-light: rgba(184, 115, 51, 0.15);
+  --gold-glow: rgba(184, 115, 51, 0.25);
+
+  /* ── 铜金系统 ── */
+  --copper-border: rgba(184, 115, 51, 0.25);
+  --copper-glow: rgba(184, 115, 51, 0.12);
+  --copper-strong: rgba(184, 115, 51, 0.45);
 
   /* ── 物理光学阴影 ── */
-  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.02);
-  --shadow-glass-hover: 0 12px 40px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.03);
-  --shadow-glass-inset: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  --shadow-glass: 0 8px 32px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.20);
+  --shadow-glass-hover: 0 12px 40px rgba(0, 0, 0, 0.40), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-glass-inset: inset 0 1px 0 rgba(184, 115, 51, 0.20);
 
   /* ── 物理弹簧参数 ── */
   --apple-ease: cubic-bezier(0.16, 1, 0.3, 1);
@@ -59,14 +73,23 @@
   --sidebar-glass-glow: rgba(255, 255, 255, 0.12);
 }
 
-/* ── 侧边栏 Liquid Glass（暗色模式）── */
-[data-theme="dark"] {
-  --sidebar-glass-bg: rgba(20, 15, 10, 0.32);
-  --sidebar-glass-border: rgba(255, 255, 255, 0.14);
-  --sidebar-glass-border-top: rgba(255, 255, 255, 0.3);
-  --sidebar-glass-inset-light: rgba(255, 255, 255, 0.18);
-  --sidebar-glass-shadow: rgba(0, 0, 0, 0.2);
-  --sidebar-glass-glow: rgba(180, 150, 100, 0.08);
+/* ── 侧边栏 Liquid Glass（墨韵青灯版）── */
+:root {
+  --sidebar-glass-bg: rgba(255, 255, 255, 0.05);
+  --sidebar-glass-border: rgba(255, 255, 255, 0.12);
+  --sidebar-glass-border-top: rgba(184, 115, 51, 0.18);
+  --sidebar-glass-inset-light: rgba(184, 115, 51, 0.15);
+  --sidebar-glass-shadow: rgba(0, 0, 0, 0.30);
+  --sidebar-glass-glow: rgba(184, 115, 51, 0.08);
+}
+
+[data-theme="light"] {
+  --sidebar-glass-bg: rgba(255, 255, 255, 0.18);
+  --sidebar-glass-border: rgba(255, 255, 255, 0.28);
+  --sidebar-glass-border-top: rgba(255, 255, 255, 0.6);
+  --sidebar-glass-inset-light: rgba(255, 255, 255, 0.5);
+  --sidebar-glass-shadow: rgba(0, 0, 0, 0.07);
+  --sidebar-glass-glow: rgba(255, 255, 255, 0.12);
 }
 
 /* ── Liquid Glass 扑克牌基础样式 ── */
@@ -86,25 +109,30 @@ body {
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
-  /* 高级通透背景 — 强颗粒质感 + 清晰棋盘格 + 中式纸纹 */
+  /* 墨韵青灯 v3 — 打破数字化平滑，引入材质厚重感 */
   background:
-    /* 第0层：强颗粒噪点 — 材质感核心 */
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.80' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)' opacity='0.10'/%3E%3C/svg%3E"),
-    /* 第1层：顶部深墨晕染 — 压顶感 */
-    linear-gradient(180deg, rgba(110,100,88,0.28) 0%, rgba(110,100,88,0.10) 20%, transparent 42%),
-    /* 第2层：左上角自然光晕 */
-    radial-gradient(ellipse 50% 50% at 15% 15%, rgba(255,252,248,0.45) 0%, transparent 55%),
-    /* 第3层：右侧反光 — 平衡左侧光感 */
-    radial-gradient(ellipse 35% 50% at 85% 30%, rgba(255,252,248,0.20) 0%, transparent 60%),
-    /* 第4层：强棋盘格纹理 — 清晰可见 */
-    repeating-linear-gradient(0deg, transparent, transparent 54px, rgba(110,100,88,0.18) 54px, rgba(110,100,88,0.18) 55px),
-    repeating-linear-gradient(90deg, transparent, transparent 54px, rgba(110,100,88,0.18) 54px, rgba(110,100,88,0.18) 55px),
-    /* 第5层：垂直纸纹 — 宣纸拉丝感 */
-    repeating-linear-gradient(90deg, transparent, transparent 13px, rgba(110,100,88,0.04) 13px, rgba(110,100,88,0.04) 14px),
-    /* 第6层：水平版式线 */
-    repeating-linear-gradient(180deg, transparent, transparent 89px, rgba(110,100,88,0.06) 89px, rgba(110,100,88,0.06) 90px),
-    /* 第7层：暖灰宣纸底 */
-    #E0DBD1;
+
+    /* 层0：极淡纸纹（墨晕感）——低频湍流，模拟水墨在生宣上洇开的纤维感 */
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeGaussianBlur stdDeviation='1.5'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"),
+
+    /* 层1：顶部天光——墨从上方洇下来，有重量感 */
+    radial-gradient(ellipse at 50% 0%, rgba(28,37,65,0.60) 0%, transparent 48%),
+
+    /* 层2：底部沉墨——墨往下沉 */
+    radial-gradient(ellipse at 50% 100%, rgba(5,8,18,0.55) 0%, transparent 42%),
+
+    /* 层3：左侧铜金暖光——棋盘区被灯照亮，呼应棋盘在屏幕中部的重心 */
+    radial-gradient(ellipse at 20% 55%, rgba(184,115,51,0.18) 0%, transparent 50%),
+
+    /* 层4：右侧青金冷光——AI区，暗示传统艺术与算力的碰撞 */
+    radial-gradient(ellipse at 80% 40%, rgba(91,192,190,0.15) 0%, transparent 45%),
+
+    /* 层5：中央墨浓度微波动——手工研墨不均匀感，打破"代码生成"的完美感 */
+    radial-gradient(ellipse at 45% 50%, rgba(27,37,65,0.12) 0%, transparent 55%),
+
+    /* 层6：底色——深墨蓝 */
+    #0B132B;
+
   background-attachment: fixed;
   color: var(--apple-text);
   -webkit-font-smoothing: antialiased;
@@ -112,157 +140,404 @@ body {
   overflow-x: hidden;
 }
 
-/* ── Apple Liquid Glass 侧边栏 ── */
+/* ── Apple Liquid Glass 侧边栏（墨韵青灯版 + iOS 26 液态玻璃）── */
 .lg-sidebar {
-  background: var(--sidebar-glass-bg);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border: 1px solid var(--sidebar-glass-border);
-  border-top-color: var(--sidebar-glass-border-top);
-  box-shadow:
-    0 8px 32px var(--sidebar-glass-shadow),
-    0 2px 8px var(--sidebar-glass-shadow),
-    0 0 0 1px var(--sidebar-glass-glow),
-    inset 0 1px 0 var(--sidebar-glass-inset-light),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06),
-    inset 1px 0 0 rgba(255, 255, 255, 0.15),
-    inset -1px 0 0 rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-xl);
+  position: relative;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(48px) saturate(200%);
+  -webkit-backdrop-filter: blur(48px) saturate(200%);
+  border: none;
+  border-radius: 28px;
   overflow: hidden;
   transition: background 0.3s ease, box-shadow 0.3s ease;
+
+  /* iOS 26 液态玻璃：彩虹边缘折射 + 湿润光晕 */
+  box-shadow:
+    /* 外层：彩虹光晕扩散 */
+    0 0 0 1px rgba(255, 255, 255, 0.20),
+    0 0 15px 2px rgba(180, 200, 255, 0.25),
+    0 0 30px 4px rgba(200, 180, 255, 0.15),
+    0 0 50px 8px rgba(255, 200, 220, 0.10),
+    /* 深度阴影 */
+    0 20px 60px rgba(0, 0, 0, 0.45),
+    /* 内层：湿润高光 */
+    inset 0  1.5px 0 rgba(255, 255, 255, 0.60),
+    inset 0  3px 6px rgba(200, 220, 255, 0.15),
+    inset 1px 0 2px rgba(255, 255, 255, 0.25),
+    /* 内层：底部暗边 */
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* iOS 26 彩虹渐变边框 - 水珠折射感 */
+.lg-sidebar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.70) 0%,
+    rgba(200, 220, 255, 0.50) 20%,
+    rgba(220, 200, 255, 0.40) 40%,
+    rgba(255, 200, 220, 0.35) 60%,
+    rgba(200, 255, 240, 0.40) 80%,
+    rgba(255, 255, 255, 0.60) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 /* 侧边栏悬浮态 */
 .lg-sidebar:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(184, 115, 51, 0.28);
+}
+
+[data-theme="light"] .lg-sidebar:hover {
   background: rgba(255, 255, 255, 0.22);
 }
 
-[data-theme="dark"] .lg-sidebar:hover {
-  background: rgba(30, 22, 14, 0.38);
-}
-
-/* 左侧栏专属：左白边 */
+/* 左侧栏专属：铜金顶光 + 左边微亮 */
 .lg-sidebar-left {
-  border-left: 1px solid rgba(255, 255, 255, 0.25);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0  1px 0 rgba(184, 115, 51, 0.22),
+    inset 1px 0 0 rgba(255, 255, 255, 0.08),
+    0 20px 60px rgba(0, 0, 0, 0.40);
 }
 
-/* 右侧栏专属：右白边 */
+/* 右侧栏专属：青金冷调 + 右边微暗 */
 .lg-sidebar-right {
-  border-right: 1px solid rgba(255, 255, 255, 0.25);
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0  1px 0 rgba(91, 192, 190, 0.18),
+    inset -1px 0 0 rgba(91, 192, 190, 0.06),
+    0 20px 60px rgba(0, 0, 0, 0.40);
 }
 
-/* ── 核心材质：Liquid Glass 2.0 毛玻璃面板 ── */
+/* ── 核心材质：Liquid Glass 毛玻璃面板（iOS 26 液态玻璃）── */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.35);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-top-color: rgba(255, 255, 255, 0.6);
-  box-shadow: var(--shadow-glass), var(--shadow-glass-inset);
-  border-radius: var(--radius-lg);
+  position: relative;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(48px) saturate(200%);
+  -webkit-backdrop-filter: blur(48px) saturate(200%);
+  border: none;
+  border-radius: 20px;
   transition: background 0.2s var(--apple-ease), box-shadow 0.2s var(--apple-ease);
+
+  /* iOS 26 液态玻璃：彩虹边缘折射 + 湿润光晕 */
+  box-shadow:
+    /* 外层：彩虹光晕扩散 */
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 0 12px 2px rgba(180, 200, 255, 0.22),
+    0 0 25px 5px rgba(200, 180, 255, 0.12),
+    0 0 40px 8px rgba(255, 200, 220, 0.08),
+    /* 深度阴影 */
+    0 24px 64px rgba(0, 0, 0, 0.45),
+    /* 内层：湿润高光 */
+    inset 0  1.5px 0 rgba(255, 255, 255, 0.55),
+    inset 0  3px 6px rgba(200, 220, 255, 0.12),
+    inset 1px 0 2px rgba(255, 255, 255, 0.20),
+    /* 内层：底部暗边 */
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+}
+
+/* iOS 26 彩虹渐变边框 */
+.glass-panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.65) 0%,
+    rgba(200, 220, 255, 0.45) 20%,
+    rgba(220, 200, 255, 0.35) 40%,
+    rgba(255, 200, 220, 0.30) 60%,
+    rgba(200, 255, 240, 0.35) 80%,
+    rgba(255, 255, 255, 0.55) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 .glass-panel:hover {
-  background: rgba(255, 255, 255, 0.45);
-  box-shadow: var(--shadow-glass-hover), var(--shadow-glass-inset);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow:
+    /* 悬停时彩虹光晕更强 */
+    0 0 0 1px rgba(255, 255, 255, 0.25),
+    0 0 18px 4px rgba(180, 200, 255, 0.30),
+    0 0 35px 8px rgba(200, 180, 255, 0.18),
+    0 0 55px 12px rgba(255, 200, 220, 0.12),
+    /* 深度阴影 */
+    0 30px 80px rgba(0, 0, 0, 0.50),
+    /* 内层湿润高光 */
+    inset 0  2px 0 rgba(255, 255, 255, 0.65),
+    inset 0  4px 8px rgba(200, 220, 255, 0.18),
+    inset 1px 0 2px rgba(255, 255, 255, 0.30),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
 }
 
+/* 二级面板——比一级亮 8% */
 .glass-panel-sm {
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(8px) saturate(150%);
-  -webkit-backdrop-filter: blur(8px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-top-color: rgba(255, 255, 255, 0.45);
-  box-shadow: var(--shadow-glass);
-  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0 1px 0 rgba(184, 115, 51, 0.12),   /* 铜金高光 */
+    0 8px 24px rgba(0, 0, 0, 0.30);
+  border-radius: 12px;
 }
 
 .glass-panel-deep {
-  background: rgba(255, 255, 255, 0.25);
-  backdrop-filter: blur(12px) saturate(180%);
-  -webkit-backdrop-filter: blur(12px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-top-color: rgba(255, 255, 255, 0.5);
-  box-shadow: var(--shadow-glass), var(--shadow-glass-inset);
-  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(32px) saturate(200%);
+  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    inset 0  1px 0 rgba(184, 115, 51, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.20),
+    0 8px 32px rgba(0, 0, 0, 0.25);
+  border-radius: 20px;
   overflow: visible;
 }
 
 /* ── 毛玻璃悬停态（保留给独立使用） ── */
 .glass-panel-hover:hover {
-  background: rgba(255, 255, 255, 0.45);
-  box-shadow: var(--shadow-glass-hover), var(--shadow-glass-inset);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow:
+    inset 0  1px 0 rgba(184, 115, 51, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.20),
+    0 12px 40px rgba(0, 0, 0, 0.35);
   transition: background 0.2s var(--apple-ease), box-shadow 0.2s var(--apple-ease);
 }
 
-/* ── Apple 按钮材质 ── */
+/* ── Apple 按钮材质（墨韵青灯版 + iOS 26 液态玻璃）── */
 .apple-btn {
-  background: var(--apple-glass);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid var(--apple-border);
-  border-top-color: var(--apple-border-top);
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.08) 40%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  backdrop-filter: blur(20px) saturate(200%);
+  -webkit-backdrop-filter: blur(20px) saturate(200%);
+  border: none;
   border-radius: var(--radius-md);
   color: var(--apple-text);
   cursor: pointer;
   transition: all 0.18s var(--apple-ease);
-  box-shadow: var(--shadow-glass);
+
+  /* iOS 26 液态玻璃：多层湿润高光 + 彩虹折射 */
+  box-shadow:
+    /* 外层：彩虹光晕 */
+    0 0 0 0.8px rgba(255, 255, 255, 0.35),
+    0 0 6px 1px rgba(180, 210, 255, 0.30),
+    0 0 14px 3px rgba(200, 180, 255, 0.18),
+    0 0 24px 5px rgba(255, 180, 200, 0.10),
+    /* 基础阴影 */
+    0 4px 16px rgba(0, 0, 0, 0.25),
+    /* 内层湿润高光 */
+    inset 0  1.5px 0 rgba(255, 255, 255, 0.65),
+    inset 0  3px 6px rgba(200, 220, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15);
+}
+
+/* 彩虹边框 */
+.apple-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.80) 0%,
+    rgba(180, 210, 255, 0.60) 20%,
+    rgba(210, 180, 255, 0.50) 40%,
+    rgba(255, 180, 210, 0.45) 60%,
+    rgba(180, 255, 230, 0.50) 80%,
+    rgba(255, 255, 255, 0.70) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* 光斑 */
+.apple-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 40%;
+  height: 50%;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse 80% 100% at 20% 0%,
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(200, 220, 255, 0.12) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
 .apple-btn:hover {
-  background: var(--apple-glass-hover);
-  box-shadow: var(--shadow-glass-hover);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.20) 0%,
+    rgba(255, 255, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  box-shadow:
+    0 0 0 1.5px rgba(255, 255, 255, 0.45),
+    0 0 8px 2px rgba(180, 210, 255, 0.40),
+    0 0 16px 4px rgba(200, 180, 255, 0.25),
+    0 0 28px 7px rgba(255, 180, 200, 0.15),
+    0 6px 24px rgba(0, 0, 0, 0.28),
+    inset 0  2px 0 rgba(255, 255, 255, 0.75),
+    inset 0  5px 10px rgba(200, 230, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10);
 }
 
 .apple-btn:active {
   transform: scale(0.98);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.25),
+    0 0 5px 1px rgba(180, 200, 255, 0.20),
+    inset 0  2px 4px rgba(0, 0, 0, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
-/* ── 胶囊药丸按钮 ── */
+/* ── 胶囊药丸按钮（深色水墨版）── */
 .apple-btn-pill {
-  background: var(--apple-glass);
+  background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid var(--apple-border);
-  border-top-color: var(--apple-border-top);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.22);
   border-radius: var(--radius-full);
   color: var(--apple-text);
   cursor: pointer;
   transition: all 0.18s var(--apple-ease);
-  box-shadow: var(--shadow-glass);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
 .apple-btn-pill:hover {
-  background: var(--apple-glass-hover);
-  box-shadow: var(--shadow-glass-hover);
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.20);
 }
 
 .apple-btn-pill:active {
   transform: scale(0.97);
 }
 
-/* ── 金色强调胶囊 ── */
+/* ── 金色强调胶囊（深色水墨版 + iOS 26 液态玻璃）── */
 .apple-btn-gold {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2), rgba(212, 175, 55, 0.12));
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
-  border: 1px solid rgba(212, 175, 55, 0.35);
-  border-top-color: rgba(212, 175, 55, 0.5);
+  position: relative;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 210, 120, 0.20) 0%,
+    rgba(212, 160, 48, 0.14) 50%,
+    rgba(184, 115, 51, 0.08) 100%
+  );
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: none;
   border-radius: var(--radius-full);
-  color: #8B6914;
+  color: #e8c56a;
   cursor: pointer;
   transition: all 0.18s var(--apple-ease);
-  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.12);
+  padding: 8px 18px;
+
+  /* iOS 26 液态玻璃：暖色光晕 + 湿润高光 */
+  box-shadow:
+    /* 外层：暖色光晕 */
+    0 0 0 0.8px rgba(255, 200, 100, 0.40),
+    0 0 6px 1px rgba(255, 180, 80, 0.35),
+    0 0 14px 3px rgba(255, 160, 60, 0.20),
+    0 0 24px 5px rgba(255, 140, 40, 0.10),
+    /* 基础阴影 */
+    0 4px 16px rgba(184, 115, 51, 0.20),
+    /* 内层湿润高光 */
+    inset 0  1.5px 0 rgba(255, 230, 170, 0.70),
+    inset 0  3px 6px rgba(255, 210, 140, 0.18),
+    inset 0 -1px 0 rgba(140, 80, 30, 0.20);
+}
+
+/* 彩虹边框 - 暖色调 */
+.apple-btn-gold::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 240, 180, 0.85) 0%,
+    rgba(255, 200, 100, 0.65) 25%,
+    rgba(255, 180, 80, 0.50) 50%,
+    rgba(255, 220, 140, 0.55) 75%,
+    rgba(255, 250, 200, 0.75) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* 光斑 */
+.apple-btn-gold::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 40%;
+  height: 50%;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse 80% 100% at 20% 0%,
+    rgba(255, 250, 200, 0.35) 0%,
+    rgba(255, 220, 140, 0.15) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
 .apple-btn-gold:hover {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.3), rgba(212, 175, 55, 0.18));
-  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.18);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 220, 140, 0.28) 0%,
+    rgba(212, 160, 48, 0.20) 50%,
+    rgba(184, 115, 51, 0.12) 100%
+  );
+  color: #f0c870;
+  box-shadow:
+    0 0 0 1.5px rgba(255, 200, 100, 0.55),
+    0 0 10px 2px rgba(255, 180, 80, 0.45),
+    0 0 20px 5px rgba(255, 160, 60, 0.28),
+    0 0 35px 10px rgba(255, 140, 40, 0.15),
+    0 6px 24px rgba(184, 115, 51, 0.28),
+    inset 0  2px 0 rgba(255, 240, 180, 0.80),
+    inset 0  5px 10px rgba(255, 220, 160, 0.22),
+    inset 0 -1px 0 rgba(140, 80, 30, 0.12);
 }
 
-/* ── 滚动条 ── */
+/* ── 滚动条（深色水墨版）── */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -271,27 +546,27 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(180, 160, 140, 0.25);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(180, 160, 140, 0.4);
+  background: rgba(255, 255, 255, 0.22);
 }
 
-/* ── 链接 ── */
+/* ── 链接（深色水墨版）── */
 a {
-  color: rgba(212, 175, 55, 0.8);
+  color: rgba(212, 160, 48, 0.85);
   text-decoration: none;
   transition: color 0.18s var(--apple-ease);
 }
 a:hover {
-  color: rgba(212, 175, 55, 1);
+  color: rgba(212, 160, 48, 1);
 }
 
-/* ── 选中文本 ── */
+/* ── 选中文本（深色水墨版）── */
 ::selection {
-  background: rgba(212, 175, 55, 0.2);
-  color: var(--apple-text);
+  background: rgba(212, 160, 48, 0.25);
+  color: rgba(255, 245, 220, 0.95);
 }
 
 /* ── 响应式调整 ── */
@@ -339,15 +614,15 @@ a:hover {
   transform: scale(0.95);
 }
 
-/* 分析模式棋盘外框光晕 */
+/* 分析模式棋盘外框光晕（深色水墨版） */
 .board-container-analysis {
   transition: box-shadow 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 .board-container-analysis.is-collapsed {
   box-shadow:
-    0 0 0 3px rgba(212, 175, 55, 0.15),
-    0 0 40px rgba(212, 175, 55, 0.08),
-    0 8px 32px rgba(0, 0, 0, 0.04);
+    0 0 0 3px rgba(212, 160, 48, 0.20),
+    0 0 48px rgba(212, 160, 48, 0.12),
+    0 8px 32px rgba(0, 0, 0, 0.25);
 }
 
 /* ============================================================
@@ -369,7 +644,7 @@ a:hover {
 .timeline-line {
   width: 2px;
   min-height: 12px;
-  background: linear-gradient(180deg, rgba(212, 175, 55, 0.25), rgba(212, 175, 55, 0.4));
+  background: linear-gradient(180deg, rgba(212, 160, 48, 0.30), rgba(212, 160, 48, 0.50));
   margin-left: 5px;
   flex-shrink: 0;
   border-radius: 1px;
@@ -383,7 +658,7 @@ a:hover {
   margin-right: 10px;
   margin-top: 2px;
   flex-shrink: 0;
-  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
 }
 
 .dot-thinking {
@@ -411,26 +686,26 @@ a:hover {
   box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
 }
 
-/* Primary Contradiction Card — 金色毛玻璃 */
+/* Primary Contradiction Card — 金色毛玻璃（深色水墨版） */
 .primary-contradiction-card {
   width: calc(100% + 12px);
   margin-left: -6px;
   padding: 12px 14px;
   margin-top: 6px;
-  background: rgba(212, 175, 55, 0.08);
-  backdrop-filter: blur(12px) saturate(150%);
-  -webkit-backdrop-filter: blur(12px) saturate(150%);
-  border: 1px solid rgba(212, 175, 55, 0.3);
-  border-top-color: rgba(212, 175, 55, 0.5);
+  background: rgba(212, 160, 48, 0.12);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(212, 160, 48, 0.35);
+  border-top-color: rgba(255, 220, 120, 0.45);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 16px rgba(212, 175, 55, 0.08);
+  box-shadow: 0 4px 16px rgba(212, 160, 48, 0.12);
   animation: slideInFromTop 0.4s var(--apple-ease);
 }
 
 .contradiction-first-line {
   font-size: 13px;
   font-weight: 600;
-  color: rgba(160, 120, 20, 0.9);
+  color: rgba(212, 160, 48, 0.95);
   margin-bottom: 6px;
 }
 
@@ -443,18 +718,18 @@ a:hover {
 
 .result-summary {
   font-size: 11px;
-  color: rgba(22, 101, 52, 0.85);
+  color: rgba(74, 222, 128, 0.85);
   line-height: 1.4;
 }
 
 .expand-btn {
   font-size: 10px;
-  color: rgba(37, 99, 235, 0.85);
-  background: rgba(96, 165, 250, 0.15);
+  color: rgba(96, 165, 250, 0.90);
+  background: rgba(96, 165, 250, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(96, 165, 250, 0.30);
-  border-top-color: rgba(147, 197, 253, 0.60);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  border-top-color: rgba(147, 197, 253, 0.35);
   border-radius: 6px;
   cursor: pointer;
   padding: 3px 10px;
@@ -471,8 +746,8 @@ a:hover {
   inset: 0;
   background: radial-gradient(
     ellipse 60% 45% at 12% 15%,
-    rgba(147, 197, 253, 0.35) 0%,
-    rgba(96, 165, 250, 0.10) 40%,
+    rgba(96, 165, 250, 0.20) 0%,
+    rgba(96, 165, 250, 0.08) 40%,
     transparent 70%
   );
   border-radius: inherit;
@@ -483,14 +758,14 @@ a:hover {
 }
 
 .expand-btn:hover {
-  color: rgba(37, 99, 235, 1);
-  background: rgba(96, 165, 250, 0.25);
-  border-color: rgba(96, 165, 250, 0.45);
-  border-top-color: rgba(147, 197, 253, 0.75);
+  color: rgba(96, 165, 250, 1);
+  background: rgba(96, 165, 250, 0.22);
+  border-color: rgba(96, 165, 250, 0.40);
+  border-top-color: rgba(147, 197, 253, 0.55);
   box-shadow:
-    0 2px 8px rgba(96, 165, 250, 0.12),
-    inset 0 1px 0px rgba(255, 255, 255, 0.50),
-    inset 0 -1px 0px rgba(0, 0, 0, 0.04);
+    0 2px 8px rgba(96, 165, 250, 0.15),
+    inset 0 1px 0px rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0px rgba(0, 0, 0, 0.06);
   transform: scale(1.02);
 }
 
@@ -510,31 +785,84 @@ a:hover {
    Apple Liquid Glass 按钮 — 玻璃高光 + 暖色适配
    ============================================================ */
 
-/* 基础液态玻璃按钮 */
+/* 基础液态玻璃按钮（深色水墨版 + iOS 26 液态玻璃） */
 .liquid-glass-btn {
   position: relative;
-  background: rgba(255, 255, 255, 0.40);
-  backdrop-filter: blur(14px) saturate(160%);
-  -webkit-backdrop-filter: blur(14px) saturate(160%);
-
-  /* 玻璃边缘高光 */
-  box-shadow:
-    0 3px 12px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0px rgba(255, 255, 255, 0.80),
-    inset 0 2px 4px rgba(255, 255, 255, 0.20),
-    inset 0 -1px 0px rgba(0, 0, 0, 0.04);
-
-  border: 1px solid rgba(255, 255, 255, 0.40);
-  border-top-color: rgba(255, 255, 255, 0.70);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.18) 0%,
+    rgba(255, 255, 255, 0.08) 40%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border: none;
   border-radius: 10px;
-
-  color: rgba(80, 60, 40, 0.90);
+  color: var(--text-primary);
   font-size: 13px;
   font-family: inherit;
   cursor: pointer;
   padding: 7px 16px;
-  overflow: hidden;
   transition: all 0.20s ease-out;
+
+  /* iOS 26 液态玻璃：多层湿润高光 + 彩虹折射 */
+  box-shadow:
+    /* 外层：彩虹光晕扩散 - 4层 */
+    0 0 0 0.8px rgba(255, 255, 255, 0.40),
+    0 0 8px  1px rgba(180, 210, 255, 0.35),
+    0 0 16px 3px rgba(200, 180, 255, 0.22),
+    0 0 28px 6px rgba(255, 180, 200, 0.12),
+    /* 基础阴影 */
+    0 5px 18px rgba(0, 0, 0, 0.28),
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    /* 内层：湿润高光系统 - 3层 */
+    inset 0  1px 0   rgba(255, 255, 255, 0.70),
+    inset 0  2px 4px rgba(200, 220, 255, 0.20),
+    inset 0  4px 10px rgba(180, 200, 255, 0.08),
+    /* 内层：底部暗边 */
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.06);
+}
+
+/* iOS 26 彩虹渐变边框 - 高饱和度 */
+.liquid-glass-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.85) 0%,
+    rgba(180, 210, 255, 0.65) 20%,
+    rgba(210, 180, 255, 0.55) 40%,
+    rgba(255, 180, 210, 0.50) 60%,
+    rgba(180, 255, 230, 0.55) 80%,
+    rgba(255, 255, 255, 0.75) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* 左上角光斑 - 模拟光源照射 */
+.liquid-glass-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 40%;
+  height: 50%;
+  border-radius: inherit;
+  background: radial-gradient(
+    ellipse 80% 100% at 20% 0%,
+    rgba(255, 255, 255, 0.30) 0%,
+    rgba(200, 220, 255, 0.15) 40%,
+    transparent 70%
+  );
+  pointer-events: none;
 }
 
 /* 左上角光晕 — 模拟光穿透玻璃的折射感 */
@@ -544,8 +872,8 @@ a:hover {
   inset: 0;
   background: radial-gradient(
     ellipse 70% 55% at 12% 18%,
-    rgba(255, 255, 255, 0.40) 0%,
-    rgba(255, 255, 255, 0.12) 35%,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.04) 35%,
     transparent 65%
   );
   border-radius: inherit;
@@ -557,19 +885,37 @@ a:hover {
 
 /* 悬停状态 */
 .liquid-glass-btn:hover {
-  background: rgba(255, 255, 255, 0.52);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  box-shadow:
-    0 5px 20px rgba(0, 0, 0, 0.08),
-    0 0 20px rgba(255, 255, 255, 0.08),
-    inset 0 1.5px 0px rgba(255, 255, 255, 0.90),
-    inset 0 3px 8px rgba(255, 255, 255, 0.20),
-    inset 0 -1px 0px rgba(0, 0, 0, 0.04);
-  border-color: rgba(255, 255, 255, 0.55);
-  border-top-color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px) saturate(220%);
+  -webkit-backdrop-filter: blur(24px) saturate(220%);
   transform: scale(1.03);
-  color: rgba(60, 45, 30, 0.95);
+  color: var(--text-primary);
+
+  /* 悬停时：更透亮 + 层次感更强 */
+  box-shadow:
+    /* 外层：彩虹光晕 - 更亮更扩散 */
+    0 0 0 1.5px rgba(255, 255, 255, 0.45),
+    0 0 6px 1px rgba(200, 230, 255, 0.50),
+    0 0 14px 3px rgba(180, 210, 255, 0.40),
+    0 0 25px 6px rgba(220, 190, 255, 0.25),
+    0 0 40px 10px rgba(255, 190, 220, 0.15),
+    /* 基础阴影 */
+    0 8px 28px rgba(0, 0, 0, 0.32),
+    /* 内层：湿润高光增强 */
+    inset 0  2.5px 0 rgba(255, 255, 255, 0.80),
+    inset 0  5px 10px rgba(200, 230, 255, 0.20),
+    inset 0  8px 20px rgba(180, 200, 255, 0.08),
+    inset 0 -1.5px 0 rgba(0, 0, 0, 0.10);
+}
+
+/* 悬停时光斑更亮 */
+.liquid-glass-btn:hover::after {
+  background: radial-gradient(
+    ellipse 90% 120% at 15% 0%,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(200, 230, 255, 0.25) 35%,
+    transparent 70%
+  );
 }
 
 .liquid-glass-btn:hover::before {
@@ -579,11 +925,15 @@ a:hover {
 /* 按下状态 */
 .liquid-glass-btn:active {
   transform: scale(0.97);
-  background: rgba(255, 255, 255, 0.60);
+  background: rgba(255, 255, 255, 0.14);
   box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.06),
-    inset 0 1.5px 4px rgba(255, 255, 255, 0.50),
-    inset 0 -0.5px 0px rgba(0, 0, 0, 0.03);
+    /* 按下时光晕收缩 */
+    0 0 0 1px rgba(255, 255, 255, 0.25),
+    0 0 6px 1px rgba(180, 200, 255, 0.20),
+    /* 内凹感 */
+    inset 0  2px 4px rgba(0, 0, 0, 0.25),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.20),
+    0 2px 6px rgba(0, 0, 0, 0.20);
   transition: all 0.08s ease-out;
 }
 
@@ -594,13 +944,13 @@ a:hover {
   transform: none !important;
 }
 .liquid-glass-btn:disabled:hover {
-  background: rgba(255, 255, 255, 0.40);
+  background: rgba(255, 255, 255, 0.08);
   box-shadow:
-    0 3px 12px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0px rgba(255, 255, 255, 0.80),
-    inset 0 -1px 0px rgba(0, 0, 0, 0.04);
-  border-color: rgba(255, 255, 255, 0.40);
-  border-top-color: rgba(255, 255, 255, 0.70);
+    0 3px 12px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0px rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0px rgba(0, 0, 0, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  border-top-color: rgba(255, 255, 255, 0.22);
   transform: none !important;
 }
 .liquid-glass-btn:disabled::before {
@@ -614,30 +964,60 @@ a:hover {
   border-radius: 8px;
 }
 
-/* 金色主题变体 */
+/* 铜金主题变体——暖调强调按钮 + iOS 26 液态玻璃 */
 .liquid-glass-btn.primary {
-  background: rgba(212, 175, 55, 0.22);
-  border-color: rgba(212, 175, 55, 0.45);
-  border-top-color: rgba(255, 220, 120, 0.70);
-  color: rgba(140, 100, 20, 0.95);
+  background: linear-gradient(135deg, rgba(184, 115, 51, 0.28), rgba(212, 160, 48, 0.18));
+  color: #e8c56a;
+  box-shadow:
+    /* 外层：暖色光晕 */
+    0 0 0 1.5px rgba(255, 200, 120, 0.35),
+    0 0 8px 2px rgba(255, 180, 100, 0.30),
+    0 0 16px 4px rgba(255, 160, 80, 0.15),
+    /* 基础阴影 */
+    0 4px 16px rgba(184, 115, 51, 0.20),
+    /* 内层湿润高光 */
+    inset 0  2px 0 rgba(255, 220, 160, 0.60),
+    inset 0  4px 8px rgba(255, 200, 140, 0.18),
+    inset 0 -1px 0 rgba(100, 60, 20, 0.25);
+}
+
+.liquid-glass-btn.primary::before {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 220, 160, 0.80) 0%,
+    rgba(255, 180, 100, 0.60) 30%,
+    rgba(255, 200, 140, 0.45) 60%,
+    rgba(255, 240, 200, 0.70) 100%
+  );
+}
+
+.liquid-glass-btn.primary::after {
+  background: radial-gradient(
+    ellipse 80% 100% at 20% 0%,
+    rgba(255, 240, 200, 0.35) 0%,
+    rgba(255, 200, 140, 0.15) 40%,
+    transparent 70%
+  );
 }
 
 .liquid-glass-btn.primary:hover {
-  background: rgba(212, 175, 55, 0.35);
-  border-color: rgba(212, 175, 55, 0.60);
-  border-top-color: rgba(255, 230, 140, 0.85);
+  background: linear-gradient(135deg, rgba(212, 160, 48, 0.35), rgba(184, 115, 51, 0.22));
+  color: #f0c060;
   box-shadow:
-    0 5px 20px rgba(212, 175, 55, 0.15),
-    0 0 24px rgba(212, 175, 55, 0.08),
-    inset 0 1.5px 0px rgba(255, 255, 255, 0.70),
-    inset 0 3px 8px rgba(255, 255, 255, 0.15),
-    inset 0 -1px 0px rgba(0, 0, 0, 0.04);
+    0 0 0 2px rgba(255, 200, 120, 0.50),
+    0 0 10px 2px rgba(255, 180, 100, 0.40),
+    0 0 20px 5px rgba(255, 160, 80, 0.25),
+    0 0 35px 10px rgba(255, 140, 60, 0.12),
+    0 6px 24px rgba(184, 115, 51, 0.28),
+    inset 0  3px 0 rgba(255, 240, 180, 0.75),
+    inset 0  6px 12px rgba(255, 220, 160, 0.22),
+    inset 0 -1px 0 rgba(100, 60, 20, 0.15);
 }
 
 .result-data {
   font-size: 10px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(8px);
   padding: 6px 8px;
   border-radius: var(--radius-sm);
@@ -646,7 +1026,7 @@ a:hover {
   max-height: 120px;
   overflow: auto;
   white-space: pre-wrap;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 /* Typing Indicator */
@@ -662,14 +1042,14 @@ a:hover {
   animation: pulse 1.5s ease-in-out infinite;
 }
 
-/* Timeline Content */
+/* Timeline Content（深色水墨版） */
 .timeline-content {
   flex: 1;
   padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.025);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: var(--radius-sm);
   margin-bottom: 4px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .timeline-title {
@@ -751,31 +1131,31 @@ a:hover {
   50% { opacity: 1; transform: scale(1.15); }
 }
 
-/* ── 流动彩边动画（Apple Liquid Glass 光效）── */
+/* ── 流动彩边动画（深色水墨版）── */
 @keyframes glow-flow {
   0% { background-position: 0% 50%; }
   100% { background-position: 100% 50%; }
 }
 @keyframes glow-flow-shadow {
-  0% { box-shadow: 0 0 12px rgba(96,165,250,0.5), 0 0 24px rgba(167,139,250,0.3); }
-  33% { box-shadow: 0 0 12px rgba(167,139,250,0.5), 0 0 24px rgba(244,114,182,0.3); }
-  66% { box-shadow: 0 0 12px rgba(244,114,182,0.5), 0 0 24px rgba(251,191,36,0.3); }
-  100% { box-shadow: 0 0 12px rgba(96,165,250,0.5), 0 0 24px rgba(167,139,250,0.3); }
+  0% { box-shadow: 0 0 16px rgba(96,165,250,0.45), 0 0 32px rgba(167,139,250,0.28); }
+  33% { box-shadow: 0 0 16px rgba(167,139,250,0.45), 0 0 32px rgba(244,114,182,0.28); }
+  66% { box-shadow: 0 0 16px rgba(244,114,182,0.45), 0 0 32px rgba(212,160,48,0.28); }
+  100% { box-shadow: 0 0 16px rgba(96,165,250,0.45), 0 0 32px rgba(167,139,250,0.28); }
 }
 
-/* ── 多层呼吸球复合质感 ── */
+/* ── 多层呼吸球复合质感（深色水墨版）── */
 .breathing-orb {
   position: relative;
-  filter: drop-shadow(0 0 20px rgba(167,139,250,0.6))
-          drop-shadow(0 0 40px rgba(96,165,250,0.4));
+  filter: drop-shadow(0 0 24px rgba(212,160,48,0.55))
+          drop-shadow(0 0 48px rgba(96,165,250,0.35));
   animation: orb-breathe 2s ease-in-out infinite;
 }
 .orb-aura {
   position: absolute;
   inset: -20px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(167,139,250,0.25) 0%, transparent 70%);
-  filter: blur(8px);
+  background: radial-gradient(circle, rgba(212,160,48,0.20) 0%, transparent 70%);
+  filter: blur(10px);
   animation: orb-aura-pulse 2s ease-in-out infinite;
   pointer-events: none;
 }
@@ -851,10 +1231,10 @@ a:hover {
 
 @keyframes orb-glow {
   0%, 100% {
-    box-shadow: 0 0 12px rgba(212,175,55,0.4), 0 0 24px rgba(212,175,55,0.2);
+    box-shadow: 0 0 16px rgba(212,160,48,0.45), 0 0 32px rgba(212,160,48,0.25);
   }
   50% {
-    box-shadow: 0 0 20px rgba(212,175,55,0.6), 0 0 40px rgba(212,175,55,0.3);
+    box-shadow: 0 0 28px rgba(212,160,48,0.65), 0 0 56px rgba(212,160,48,0.35);
   }
 }
 
@@ -1046,24 +1426,67 @@ a:hover {
 }
 
 /* ── K/J/Q Poker Card Styles ── */
+/* ── K/J/Q Poker Card Styles + iOS 26 液态玻璃 ── */
 .poker-card {
   width: 52px;
   height: 72px;
   border-radius: 8px;
-  border: 1px solid rgba(0,0,0,0.15);
-  box-shadow: 2px 3px 8px rgba(0,0,0,0.2);
+  border: none;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   font-family: 'Noto Serif SC', serif;
-  position: relative;
   cursor: default;
   transition: box-shadow 0.2s ease;
+
+  /* iOS 26 液态玻璃：彩虹边缘折射 + 湿润光晕 */
+  box-shadow:
+    /* 外层：彩虹光晕 */
+    0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 0 8px 2px rgba(200, 220, 255, 0.30),
+    0 0 16px 4px rgba(220, 200, 255, 0.15),
+    /* 基础阴影 */
+    2px 3px 8px rgba(0,0,0,0.2),
+    /* 内层湿润高光 */
+    inset 0  1.5px 0 rgba(255, 255, 255, 0.65),
+    inset 0  3px 5px rgba(200, 220, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10);
+}
+
+/* 彩虹渐变边框 */
+.poker-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.75) 0%,
+    rgba(200, 220, 255, 0.55) 25%,
+    rgba(255, 200, 220, 0.45) 50%,
+    rgba(200, 255, 240, 0.50) 75%,
+    rgba(255, 255, 255, 0.65) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 .poker-card:hover {
-  box-shadow: 3px 5px 14px rgba(0,0,0,0.3);
+  box-shadow:
+    /* 悬停时彩虹光晕更强 */
+    0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 0 12px 3px rgba(200, 220, 255, 0.35),
+    0 0 24px 6px rgba(220, 200, 255, 0.20),
+    3px 5px 14px rgba(0,0,0,0.3),
+    inset 0  2px 0 rgba(255, 255, 255, 0.75),
+    inset 0  4px 8px rgba(200, 220, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.06);
 }
 
 /* King (Tactics) — 红心 ♥ */
@@ -1115,7 +1538,7 @@ a:hover {
   opacity: 0.65;
 }
 
-/* ── Thinking Stream Styles ── */
+/* ── Thinking Stream Styles（深色水墨版）── */
 .thinking-stream {
   display: flex;
   flex-direction: column;
@@ -1127,7 +1550,7 @@ a:hover {
   align-items: flex-start;
   gap: 8px;
   padding: 6px 10px;
-  background: rgba(0, 0, 0, 0.04);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: var(--radius-sm);
   border-left: 2px solid;
   animation: fadeInUp 0.25s var(--apple-spring-smooth);
@@ -1146,14 +1569,15 @@ a:hover {
 }
 
 .thinking-stream-item.orchestrator {
-  border-color: rgba(212, 175, 55, 0.75);
-  background: rgba(212, 175, 55, 0.05);
+  border-color: rgba(212, 160, 48, 0.85);
+  background: rgba(212, 160, 48, 0.08);
 }
 
 .stream-subtitle {
   font-size: 13px;
   font-weight: 700;
   margin-bottom: 4px;
+  color: rgba(212, 160, 48, 0.95);
   animation: slideInFromTop 0.2s var(--apple-spring-smooth);
 }
 
@@ -1166,7 +1590,7 @@ a:hover {
 }
 
 .stream-cursor {
-  color: rgba(212, 175, 55, 0.85);
+  color: rgba(212, 160, 48, 0.90);
   font-weight: bold;
   animation: blink 1s step-end infinite;
 }
@@ -1176,7 +1600,7 @@ a:hover {
   50% { opacity: 0; }
 }
 
-/* ── Tool call in stream ── */
+/* ── Tool call in stream（深色水墨版）── */
 .stream-tool-call {
   display: flex;
   align-items: center;
@@ -1184,28 +1608,38 @@ a:hover {
   font-size: 10px;
   font-family: 'JetBrains Mono', monospace;
   padding: 3px 6px;
-  background: rgba(96, 165, 250, 0.08);
+  background: rgba(96, 165, 250, 0.12);
   border-radius: 4px;
   margin-top: 4px;
+  color: rgba(96, 165, 250, 0.90);
 }
 
-/* ── Timeline connection line ── */
+/* ── Timeline connection line（深色水墨版）── */
 .timeline-connector {
   width: 2px;
   height: 16px;
   background: linear-gradient(
     180deg,
-    rgba(212, 175, 55, 0.5),
-    rgba(212, 175, 55, 0.15)
+    rgba(212, 160, 48, 0.55),
+    rgba(212, 160, 48, 0.20)
   );
   margin: 0 auto;
   border-radius: 1px;
 }
 
-/* ── Card back (face down) ── */
+/* ── Card back (face down)（深色水墨版 + iOS 26 液态玻璃）── */
 .poker-card-back {
-  background: linear-gradient(145deg, #2d2d3a, #1a1a24);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(145deg, #1a1a24, #0e0c14);
+  box-shadow:
+    /* 彩虹光晕 */
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 0 8px 2px rgba(180, 200, 255, 0.20),
+    0 0 16px 4px rgba(200, 180, 255, 0.10),
+    /* 基础阴影 */
+    2px 3px 8px rgba(0,0,0,0.2),
+    /* 内层高光 */
+    inset 0  1.5px 0 rgba(255, 255, 255, 0.40),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.20);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1214,7 +1648,8 @@ a:hover {
 .poker-card-back .card-pattern {
   width: 36px;
   height: 52px;
-  border: 1px solid rgba(212, 175, 55, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-top-color: rgba(255, 255, 255, 0.35);
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -1223,89 +1658,123 @@ a:hover {
     45deg,
     transparent,
     transparent 3px,
-    rgba(212, 175, 55, 0.08) 3px,
-    rgba(212, 175, 55, 0.08) 6px
+    rgba(255, 255, 255, 0.06) 3px,
+    rgba(255, 255, 255, 0.06) 6px
   );
 }
 
-/* ── Liquid Glass Popup（Apple Liquid Glass 风格）── */
+/* ── Liquid Glass Popup（深色水墨版 + iOS 26 液态玻璃）── */
 /*
- * Apple Liquid Glass 核心原理：
- * - 大范围 blur (60px) 捕获周围扑克牌彩色背景，渗入玻璃内部
- * - 无色基底 + 边缘多层彩色 box-shadow 向内渗入
- * - 半透明暗底色消除暖黄色调
+ * Apple Liquid Glass 核心原理（深色版 + iOS 26 彩虹折射）：
+ * - 大范围 blur (60px) 捕获周围彩色光源
+ * - 彩虹渐变边缘模拟光线折射
+ * - 湿润高光系统模拟水珠感
  */
 
 /* 无色基准 */
 .liquid-glass-popup {
-  /* 暗底色消除暖黄，大范围 blur 捕获周围彩色 */
-  background: rgba(15, 15, 25, 0.45);
-  backdrop-filter: blur(60px) saturate(200%);
-  -webkit-backdrop-filter: blur(60px) saturate(200%);
-
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  position: relative;
+  background: rgba(12, 12, 18, 0.65);
+  backdrop-filter: blur(60px) saturate(180%);
+  -webkit-backdrop-filter: blur(60px) saturate(180%);
+  border: none;
   border-radius: 24px;
-
-  box-shadow:
-    /* 外层：底部深度阴影 */
-    0 20px 60px rgba(0, 0, 0, 0.15),
-    /* 外层：彩色边缘渗光 */
-    0 0 0 1px rgba(200, 210, 230, 0.08),
-    0 0 24px 4px rgba(200, 210, 240, 0.10),
-    0 0 12px 2px rgba(210, 220, 255, 0.15),
-    /* 内层：上左高光 */
-    inset 0 1px 1px rgba(255, 255, 255, 0.45),
-    inset 1px 0 1px rgba(255, 255, 255, 0.15),
-    /* 内层：下右暗边 */
-    inset 0 -1px 1px rgba(0, 0, 0, 0.08),
-    inset -1px 0 1px rgba(0, 0, 0, 0.05);
-
   overflow: visible;
+
+  box-shadow:
+    /* 外层：彩虹光晕扩散 */
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 0 15px 3px rgba(180, 200, 255, 0.22),
+    0 0 30px 6px rgba(200, 180, 255, 0.12),
+    0 0 50px 10px rgba(255, 200, 220, 0.08),
+    /* 深度阴影 */
+    0 20px 60px rgba(0, 0, 0, 0.35),
+    /* 内层：湿润高光 */
+    inset 0  1.5px 0 rgba(255, 255, 255, 0.50),
+    inset 0  3px 6px rgba(200, 220, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.20);
 }
 
-/* 战术专家：红色渗光 */
+/* 彩虹渐变边框 */
+.liquid-glass-popup::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.65) 0%,
+    rgba(200, 220, 255, 0.50) 20%,
+    rgba(220, 200, 255, 0.40) 40%,
+    rgba(255, 200, 220, 0.35) 60%,
+    rgba(200, 255, 240, 0.40) 80%,
+    rgba(255, 255, 255, 0.55) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* 战术专家：红色主题 + 彩虹边缘 */
 .liquid-glass-popup.tactics {
-  background: rgba(20, 10, 10, 0.50);
-  border-color: rgba(255, 180, 180, 0.20);
+  background: rgba(20, 8, 8, 0.70);
   box-shadow:
-    0 20px 60px rgba(180, 20, 20, 0.12),
-    0 0 0 1px rgba(220, 38, 38, 0.08),
-    0 0 24px 5px rgba(220, 38, 38, 0.12),
-    0 0 12px 3px rgba(255, 100, 100, 0.18),
-    inset 0 1px 1px rgba(255, 200, 200, 0.50),
-    inset 1px 0 1px rgba(255, 180, 180, 0.20),
-    inset 0 -1px 1px rgba(120, 10, 10, 0.10),
-    inset -1px 0 1px rgba(120, 10, 10, 0.05);
+    0 20px 60px rgba(180, 20, 20, 0.18),
+    0 0 0 1px rgba(255, 100, 100, 0.25),
+    0 0 15px 3px rgba(255, 150, 150, 0.20),
+    0 0 30px 6px rgba(255, 100, 120, 0.12),
+    inset 0  1.5px 0 rgba(255, 200, 200, 0.55),
+    inset 0  3px 6px rgba(255, 150, 150, 0.15),
+    inset 0 -1px 0 rgba(120, 10, 10, 0.20);
+}
+.liquid-glass-popup.tactics::before {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 200, 200, 0.70) 0%,
+    rgba(255, 150, 150, 0.50) 25%,
+    rgba(255, 100, 120, 0.40) 50%,
+    rgba(255, 180, 200, 0.45) 75%,
+    rgba(255, 220, 220, 0.60) 100%
+  );
 }
 
-/* 战略专家：灰白渗光 */
+/* 战略专家：白色主题 + 彩虹边缘 */
 .liquid-glass-popup.strategy {
-  background: rgba(12, 12, 18, 0.50);
-  border-color: rgba(220, 220, 220, 0.18);
+  background: rgba(10, 10, 14, 0.70);
   box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.12),
-    0 0 0 1px rgba(200, 200, 200, 0.06),
-    0 0 24px 5px rgba(200, 200, 200, 0.10),
-    0 0 12px 3px rgba(230, 230, 230, 0.12),
-    inset 0 1px 1px rgba(255, 255, 255, 0.45),
-    inset 1px 0 1px rgba(220, 220, 220, 0.15),
-    inset 0 -1px 1px rgba(0, 0, 0, 0.08),
-    inset -1px 0 1px rgba(0, 0, 0, 0.05);
+    0 20px 60px rgba(0, 0, 0, 0.20),
+    0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 15px 3px rgba(200, 220, 255, 0.18),
+    0 0 30px 6px rgba(220, 200, 255, 0.10),
+    inset 0  1.5px 0 rgba(255, 255, 255, 0.55),
+    inset 0  3px 6px rgba(200, 220, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18);
 }
 
-/* 引擎专家：蓝色渗光 */
+/* 引擎专家：蓝色主题 + 彩虹边缘 */
 .liquid-glass-popup.engine {
-  background: rgba(10, 15, 25, 0.50);
-  border-color: rgba(180, 210, 255, 0.20);
+  background: rgba(8, 12, 22, 0.70);
   box-shadow:
-    0 20px 60px rgba(20, 50, 150, 0.12),
-    0 0 0 1px rgba(37, 99, 235, 0.08),
-    0 0 24px 5px rgba(37, 99, 235, 0.12),
-    0 0 12px 3px rgba(100, 160, 255, 0.18),
-    inset 0 1px 1px rgba(220, 235, 255, 0.50),
-    inset 1px 0 1px rgba(180, 210, 255, 0.20),
-    inset 0 -1px 1px rgba(10, 40, 120, 0.10),
-    inset -1px 0 1px rgba(10, 40, 120, 0.05);
+    0 20px 60px rgba(20, 50, 150, 0.18),
+    0 0 0 1px rgba(100, 160, 255, 0.25),
+    0 0 15px 3px rgba(150, 180, 255, 0.20),
+    0 0 30px 6px rgba(100, 150, 255, 0.12),
+    inset 0  1.5px 0 rgba(200, 220, 255, 0.55),
+    inset 0  3px 6px rgba(150, 180, 255, 0.15),
+    inset 0 -1px 0 rgba(10, 40, 120, 0.20);
+}
+.liquid-glass-popup.engine::before {
+  background: linear-gradient(
+    135deg,
+    rgba(200, 220, 255, 0.70) 0%,
+    rgba(150, 180, 255, 0.50) 25%,
+    rgba(100, 160, 255, 0.40) 50%,
+    rgba(180, 200, 255, 0.45) 75%,
+    rgba(220, 230, 255, 0.60) 100%
+  );
 }
 
 /* ── Card stack (collapsed) ── */

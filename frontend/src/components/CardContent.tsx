@@ -78,9 +78,16 @@ export const ExpertGlassPanel: React.FC<{ expert: ExpertType; cardRect: DOMRect 
   return createPortal(content, document.body);
 };
 
-/** 单张扑克牌正面内容 — 一字不改，严格复制自 CollapsedCardsView */
+/** 单张扑克牌正面内容 — iOS 26 液态玻璃风格 */
 export const CardContent: React.FC<{ type: ExpertType; isHovered: boolean; enable3D?: boolean }> = ({ type, isHovered, enable3D }) => {
   const d = EXPERT_DETAILS[type];
+
+  // iOS 26 彩虹光晕颜色
+  const rainbowGlow = {
+    tactics:  { inner: 'rgba(255,100,120,0.45)', mid: 'rgba(255,140,80,0.30)', outer: 'rgba(255,180,180,0.18)' },
+    strategy: { inner: 'rgba(180,160,255,0.45)', mid: 'rgba(200,180,255,0.30)', outer: 'rgba(220,200,255,0.18)' },
+    engine:   { inner: 'rgba(80,160,255,0.45)', mid: 'rgba(64,200,192,0.30)', outer: 'rgba(100,180,255,0.18)' },
+  }[type];
 
   return (
     <div
@@ -91,29 +98,88 @@ export const CardContent: React.FC<{ type: ExpertType; isHovered: boolean; enabl
         borderRadius: 16,
         position: 'relative',
         overflow: 'hidden',
-        background: `linear-gradient(145deg, ${d.gradientFrom}, ${d.gradientTo})`,
-        outline: `1px solid rgba(255,255,255,0.15)`,
-        outlineOffset: -1,
+        background: `linear-gradient(180deg,
+          rgba(255,255,255,0.16) 0%,
+          ${d.gradientFrom} 30%,
+          ${d.gradientTo} 70%,
+          rgba(0,0,0,0.08) 100%
+        )`,
+        border: 'none',
         boxShadow: isHovered
-          ? `0 16px 40px rgba(0,0,0,0.3), 0 6px 16px rgba(0,0,0,0.15), 0 0 32px ${d.glowColor}, inset 0 1px 0 rgba(255,255,255,0.25), inset 0 -1px 0 rgba(0,0,0,0.1)`
-          : `0 8px 24px rgba(0,0,0,0.22), 0 3px 8px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.2), inset 0 -1px 0 rgba(0,0,0,0.08)`,
-        backdropFilter: 'blur(12px) saturate(150%)',
-        WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+          ? /* 悬停时：4层彩虹光晕 */
+            `0 0 0 1.5px rgba(255,255,255,0.50),
+             0 0 10px 2px ${rainbowGlow.inner},
+             0 0 22px 5px ${rainbowGlow.mid},
+             0 0 38px 10px ${rainbowGlow.outer},
+             0 0 60px 18px rgba(200,200,255,0.10),
+             0 16px 40px rgba(0,0,0,0.32),
+             /* 内层湿润高光 */
+             inset 0  2px 0 rgba(255,255,255,0.70),
+             inset 0  5px 10px rgba(255,255,255,0.15),
+             inset 0 -1.5px 0 rgba(0,0,0,0.18)`
+          : /* 普通：3层彩虹光晕 */
+            `0 0 0 1px rgba(255,255,255,0.35),
+             0 0 6px 1px ${rainbowGlow.inner},
+             0 0 14px 3px ${rainbowGlow.mid},
+             0 0 28px 7px ${rainbowGlow.outer},
+             0 8px 24px rgba(0,0,0,0.25),
+             /* 内层湿润高光 */
+             inset 0  1.5px 0 rgba(255,255,255,0.55),
+             inset 0  3px 6px rgba(255,255,255,0.10),
+             inset 0 -1px 0 rgba(0,0,0,0.15)`,
+        backdropFilter: 'blur(20px) saturate(200%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(200%)',
         display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center',
         padding: 0, gap: 0,
       }}
     >
-      {/* 顶层高光渐变 */}
+      {/* iOS 26 彩虹渐变边框 */}
       <div style={{
         position: 'absolute', inset: 0, borderRadius: 16,
-        background: `radial-gradient(ellipse at 30% 20%, rgba(255,255,255,0.22) 0%, transparent 60%)`,
+        padding: '1.5px',
+        background: `linear-gradient(135deg,
+          rgba(255,255,255,0.75) 0%,
+          rgba(200,220,255,0.55) 20%,
+          rgba(220,200,255,0.45) 40%,
+          rgba(255,200,220,0.40) 60%,
+          rgba(200,255,240,0.45) 80%,
+          rgba(255,255,255,0.65) 100%
+        )`,
+        WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        WebkitMaskComposite: 'xor',
+        maskComposite: 'exclude',
         pointerEvents: 'none', zIndex: 1,
       }} />
+
+      {/* 左上角光源光斑 */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, width: '65%', height: '50%',
+        background: `radial-gradient(ellipse 80% 100% at 15% 0%,
+          rgba(255,255,255,0.38) 0%,
+          rgba(200,220,255,0.18) 40%,
+          transparent 70%
+        )`,
+        pointerEvents: 'none', zIndex: 1,
+      }} />
+
+      {/* 顶部折射高光 */}
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, height: '55%',
+        background: `linear-gradient(180deg,
+          rgba(255,255,255,0.28) 0%,
+          rgba(200,220,255,0.12) 40%,
+          transparent 100%
+        )`,
+        borderRadius: '15px 15px 60% 60% / 15px 15px 30% 30%',
+        pointerEvents: 'none', zIndex: 1,
+      }} />
+
       {/* 底层暗角 */}
       <div style={{
         position: 'absolute', inset: 0, borderRadius: 16,
-        background: `radial-gradient(ellipse at 70% 80%, rgba(0,0,0,0.12) 0%, transparent 50%)`,
+        background: `radial-gradient(ellipse at 70% 85%, rgba(0,0,0,0.18) 0%, transparent 50%)`,
         pointerEvents: 'none', zIndex: 1,
       }} />
 

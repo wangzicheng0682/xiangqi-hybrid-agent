@@ -231,21 +231,22 @@ export default function ChessBoard() {
         {/* 内框 */}
         <div style={styles.innerFrame}>
           <svg width={W} height={H} style={styles.boardSvg}>
-            {/* 棋盘背景 */}
+            {/* 棋盘背景（墨韵青灯版） */}
             <defs>
               <linearGradient id="boardGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#E8D4A8" />
-                <stop offset="100%" stopColor="#D4C090" />
+                <stop offset="0%" stopColor="#1a1410" />
+                <stop offset="50%" stopColor="#15100a" />
+                <stop offset="100%" stopColor="#1a1410" />
               </linearGradient>
               <filter id="boardShadow">
-                <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.3"/>
+                <feDropShadow dx="0" dy="4" stdDeviation="8" floodOpacity="0.5"/>
               </filter>
             </defs>
 
             {/* 主背景 */}
-            <rect x={0} y={0} width={W} height={H} fill="#2a2a2a" rx={4} />
+            <rect x={0} y={0} width={W} height={H} fill="#0B132B" rx={4} />
             <rect x={PAD - 8} y={PAD - 8} width={W - PAD * 2 + 16} height={H - PAD * 2 + 16}
-              fill="url(#boardGradient)" stroke="#8B7355" strokeWidth="3" rx={2} filter="url(#boardShadow)" />
+              fill="url(#boardGradient)" stroke="#B87333" strokeWidth="2" rx={2} filter="url(#boardShadow)" />
 
             {/* 横线 */}
             {[...Array(ROWS)].map((_, i) => (
@@ -253,7 +254,7 @@ export default function ChessBoard() {
                 key={`h${i}`}
                 x1={PAD} y1={PAD + i * CELL}
                 x2={W - PAD} y2={PAD + i * CELL}
-                stroke="#6B5344"
+                stroke="rgba(184,115,51,0.40)"
                 strokeWidth="1.5"
               />
             ))}
@@ -261,22 +262,22 @@ export default function ChessBoard() {
             {/* 竖线（注意楚河汉界断开） */}
             {[...Array(COLS)].map((_, i) => (
               <React.Fragment key={`v${i}`}>
-                <line x1={PAD + i * CELL} y1={PAD} x2={PAD + i * CELL} y2={PAD + 4 * CELL} stroke="#6B5344" strokeWidth="1.5" />
-                <line x1={PAD + i * CELL} y1={PAD + 5 * CELL} x2={PAD + i * CELL} y2={H - PAD} stroke="#6B5344" strokeWidth="1.5" />
+                <line x1={PAD + i * CELL} y1={PAD} x2={PAD + i * CELL} y2={PAD + 4 * CELL} stroke="rgba(184,115,51,0.40)" strokeWidth="1.5" />
+                <line x1={PAD + i * CELL} y1={PAD + 5 * CELL} x2={PAD + i * CELL} y2={H - PAD} stroke="rgba(184,115,51,0.40)" strokeWidth="1.5" />
               </React.Fragment>
             ))}
 
             {/* 九宫格斜线 */}
-            <line x1={PAD + 3 * CELL} y1={PAD} x2={PAD + 5 * CELL} y2={PAD + 2 * CELL} stroke="#6B5344" strokeWidth="1.5" />
-            <line x1={PAD + 5 * CELL} y1={PAD} x2={PAD + 3 * CELL} y2={PAD + 2 * CELL} stroke="#6B5344" strokeWidth="1.5" />
-            <line x1={PAD + 3 * CELL} y1={PAD + 7 * CELL} x2={PAD + 5 * CELL} y2={PAD + 9 * CELL} stroke="#6B5344" strokeWidth="1.5" />
-            <line x1={PAD + 5 * CELL} y1={PAD + 7 * CELL} x2={PAD + 3 * CELL} y2={PAD + 9 * CELL} stroke="#6B5344" strokeWidth="1.5" />
+            <line x1={PAD + 3 * CELL} y1={PAD} x2={PAD + 5 * CELL} y2={PAD + 2 * CELL} stroke="rgba(184,115,51,0.40)" strokeWidth="1.5" />
+            <line x1={PAD + 5 * CELL} y1={PAD} x2={PAD + 3 * CELL} y2={PAD + 2 * CELL} stroke="rgba(184,115,51,0.40)" strokeWidth="1.5" />
+            <line x1={PAD + 3 * CELL} y1={PAD + 7 * CELL} x2={PAD + 5 * CELL} y2={PAD + 9 * CELL} stroke="rgba(184,115,51,0.40)" strokeWidth="1.5" />
+            <line x1={PAD + 5 * CELL} y1={PAD + 7 * CELL} x2={PAD + 3 * CELL} y2={PAD + 9 * CELL} stroke="rgba(184,115,51,0.40)" strokeWidth="1.5" />
 
             {/* 楚河汉界 */}
-            <text x={PAD + 1.5 * CELL} y={PAD + 4.6 * CELL} textAnchor="middle" fill="#6B5344" fontSize="22" fontFamily="'KaiTi', 'STKaiti', serif" fontWeight="bold">
+            <text x={PAD + 1.5 * CELL} y={PAD + 4.6 * CELL} textAnchor="middle" fill="rgba(184,115,51,0.60)" fontSize="22" fontFamily="'KaiTi', 'STKaiti', serif" fontWeight="bold">
               {flipped ? '汉 界' : '楚 河'}
             </text>
-            <text x={PAD + 6.5 * CELL} y={PAD + 4.6 * CELL} textAnchor="middle" fill="#6B5344" fontSize="22" fontFamily="'KaiTi', 'STKaiti', serif" fontWeight="bold">
+            <text x={PAD + 6.5 * CELL} y={PAD + 4.6 * CELL} textAnchor="middle" fill="rgba(184,115,51,0.60)" fontSize="22" fontFamily="'KaiTi', 'STKaiti', serif" fontWeight="bold">
               {flipped ? '楚 河' : '汉 界'}
             </text>
 
@@ -381,13 +382,13 @@ export default function ChessBoard() {
                         height: CELL * 0.84,
                         fontSize: CELL * 0.33,
                         background: piece === piece.toUpperCase()
-                          ? 'linear-gradient(145deg, #fff, #f0e6d3)'
-                          : 'linear-gradient(145deg, #4a4a4a, #2a2a2a)',
-                        color: piece === piece.toUpperCase() ? '#C41E3A' : '#fff',
-                        border: `3px solid ${piece === piece.toUpperCase() ? '#C41E3A' : '#333'}`,
+                          ? 'linear-gradient(145deg, #2a1a12, #1a1008)'
+                          : 'linear-gradient(145deg, #1a1a1a, #0a0a0a)',
+                        color: piece === piece.toUpperCase() ? '#e53935' : '#e0e0e0',
+                        border: `3px solid ${piece === piece.toUpperCase() ? '#B87333' : '#888'}`,
                         boxShadow: sel
-                          ? '0 0 0 4px #D4AF37, 0 8px 20px rgba(0,0,0,0.4)'
-                          : '0 4px 8px rgba(0,0,0,0.3)',
+                          ? '0 0 0 4px rgba(184,115,51,0.50), 0 8px 20px rgba(0,0,0,0.5)'
+                          : '0 4px 12px rgba(0,0,0,0.4)',
                         transform: sel ? 'scale(1.12)' : 'scale(1)',
                       }}
                     >
@@ -431,18 +432,26 @@ const styles: Record<string, React.CSSProperties> = {
   },
   outerFrame: {
     padding: 12,
-    background: 'linear-gradient(145deg, #3a3a3a, #2a2a2a)',
+    background: 'linear-gradient(145deg, #1a1410, #0e0c14)',
     borderRadius: 12,
-    boxShadow: '0 10px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1)',
+    boxShadow: `
+      0 0 0 1px rgba(184,115,51,0.20),
+      0 0 60px rgba(184,115,51,0.08),
+      inset 0 0 40px rgba(0,0,0,0.30),
+      0 20px 60px rgba(0,0,0,0.50),
+      inset 0 1px 0 rgba(184,115,51,0.15)
+    `,
+    border: '1px solid rgba(184,115,51,0.18)',
   },
   innerFrame: {
     padding: 4,
-    background: '#1a1a1a',
+    background: '#0a0a0f',
     borderRadius: 8,
+    border: '1px solid rgba(255,255,255,0.05)',
   },
   boardSvg: {
     display: 'block',
-    background: '#2a2a2a',
+    background: '#0B132B',
     borderRadius: 4,
   },
   piecesLayer: {

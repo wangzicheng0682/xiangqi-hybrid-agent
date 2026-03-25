@@ -48,22 +48,22 @@ const ANIMATION_STYLES = `
 @keyframes orb-inner-ccw { from{transform:rotate(0deg)}  to{transform:rotate(-360deg)} }
 
 @keyframes card-aura-tactics {
-  0%   { box-shadow: 0 0 8px 2px rgba(255,64,96,0.55),  0 0 20px 6px rgba(255,144,32,0.30), 0 0 40px 10px rgba(255,64,96,0.15);  }
-  33%  { box-shadow: 0 0 12px 4px rgba(255,144,32,0.70), 0 0 28px 8px rgba(255,221,0,0.35),  0 0 50px 14px rgba(255,144,32,0.18); }
-  66%  { box-shadow: 0 0 10px 3px rgba(255,221,0,0.60),  0 0 24px 7px rgba(255,64,96,0.32),  0 0 44px 12px rgba(255,221,0,0.16); }
-  100% { box-shadow: 0 0 8px 2px rgba(255,64,96,0.55),  0 0 20px 6px rgba(255,144,32,0.30), 0 0 40px 10px rgba(255,64,96,0.15);  }
+  0%   { box-shadow: 0 0 8px 2px rgba(255,64,96,0.60),  0 0 18px 5px rgba(255,144,32,0.40), 0 0 35px 10px rgba(255,200,200,0.22), 0 0 55px 18px rgba(255,64,96,0.12);  }
+  33%  { box-shadow: 0 0 10px 3px rgba(255,144,32,0.75), 0 0 24px 7px rgba(255,221,0,0.45),  0 0 45px 14px rgba(255,180,180,0.28), 0 0 70px 22px rgba(255,144,32,0.15); }
+  66%  { box-shadow: 0 0 9px 2px rgba(255,221,0,0.65),   0 0 20px 6px rgba(255,64,96,0.42),  0 0 40px 12px rgba(255,200,200,0.25), 0 0 62px 20px rgba(255,64,96,0.13); }
+  100% { box-shadow: 0 0 8px 2px rgba(255,64,96,0.60),  0 0 18px 5px rgba(255,144,32,0.40), 0 0 35px 10px rgba(255,200,200,0.22), 0 0 55px 18px rgba(255,64,96,0.12);  }
 }
 @keyframes card-aura-strategy {
-  0%   { box-shadow: 0 0 8px 2px rgba(160,144,255,0.55), 0 0 20px 6px rgba(200,216,255,0.30), 0 0 40px 10px rgba(160,144,255,0.15); }
-  33%  { box-shadow: 0 0 12px 4px rgba(200,216,255,0.65),0 0 28px 8px rgba(232,200,255,0.35), 0 0 50px 14px rgba(200,216,255,0.18);}
-  66%  { box-shadow: 0 0 10px 3px rgba(232,200,255,0.60),0 0 24px 7px rgba(160,144,255,0.32), 0 0 44px 12px rgba(232,200,255,0.16);}
-  100% { box-shadow: 0 0 8px 2px rgba(160,144,255,0.55), 0 0 20px 6px rgba(200,216,255,0.30), 0 0 40px 10px rgba(160,144,255,0.15); }
+  0%   { box-shadow: 0 0 8px 2px rgba(160,144,255,0.60), 0 0 18px 5px rgba(200,216,255,0.40), 0 0 35px 10px rgba(200,180,255,0.22), 0 0 55px 18px rgba(160,144,255,0.12); }
+  33%  { box-shadow: 0 0 10px 3px rgba(200,216,255,0.70), 0 0 24px 7px rgba(232,200,255,0.45), 0 0 45px 14px rgba(180,160,255,0.28), 0 0 70px 22px rgba(200,216,255,0.15); }
+  66%  { box-shadow: 0 0 9px 2px rgba(232,200,255,0.65),  0 0 20px 6px rgba(160,144,255,0.42), 0 0 40px 12px rgba(200,180,255,0.25), 0 0 62px 20px rgba(160,144,255,0.13); }
+  100% { box-shadow: 0 0 8px 2px rgba(160,144,255,0.60), 0 0 18px 5px rgba(200,216,255,0.40), 0 0 35px 10px rgba(200,180,255,0.22), 0 0 55px 18px rgba(160,144,255,0.12); }
 }
 @keyframes card-aura-engine {
-  0%   { box-shadow: 0 0 8px 2px rgba(64,176,255,0.55),  0 0 20px 6px rgba(64,224,192,0.30), 0 0 40px 10px rgba(64,176,255,0.15);  }
-  33%  { box-shadow: 0 0 12px 4px rgba(64,224,192,0.65), 0 0 28px 8px rgba(80,96,255,0.35),  0 0 50px 14px rgba(64,224,192,0.18); }
-  66%  { box-shadow: 0 0 10px 3px rgba(80,96,255,0.60),  0 0 24px 7px rgba(64,176,255,0.32), 0 0 44px 12px rgba(80,96,255,0.16);  }
-  100% { box-shadow: 0 0 8px 2px rgba(64,176,255,0.55),  0 0 20px 6px rgba(64,224,192,0.30), 0 0 40px 10px rgba(64,176,255,0.15);  }
+  0%   { box-shadow: 0 0 8px 2px rgba(64,176,255,0.60),  0 0 18px 5px rgba(64,224,192,0.40), 0 0 35px 10px rgba(100,180,255,0.22), 0 0 55px 18px rgba(64,176,255,0.12);  }
+  33%  { box-shadow: 0 0 10px 3px rgba(64,224,192,0.70), 0 0 24px 7px rgba(80,96,255,0.45),  0 0 45px 14px rgba(80,200,255,0.28), 0 0 70px 22px rgba(64,224,192,0.15); }
+  66%  { box-shadow: 0 0 9px 2px rgba(80,96,255,0.65),   0 0 20px 6px rgba(64,176,255,0.42), 0 0 40px 12px rgba(100,180,255,0.25), 0 0 62px 20px rgba(64,176,255,0.13); }
+  100% { box-shadow: 0 0 8px 2px rgba(64,176,255,0.60),  0 0 18px 5px rgba(64,224,192,0.40), 0 0 35px 10px rgba(100,180,255,0.22), 0 0 55px 18px rgba(64,176,255,0.12);  }
 }
 
 @keyframes border-spin {
@@ -261,34 +261,76 @@ const CardVisual: React.FC<{ type: ExpertType; isHovered?: boolean }> = ({ type,
       filter: isHovered ? 'brightness(1.15)' : 'brightness(1)',
     }}>
 
+      {/* iOS 26 液态玻璃：彩虹边缘折射光 */}
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        borderRadius: 16,
+        padding: '1.5px',
+        background: `linear-gradient(135deg,
+          rgba(255,255,255,0.70) 0%,
+          rgba(200,220,255,0.55) 20%,
+          rgba(220,200,255,0.45) 40%,
+          rgba(255,200,220,0.40) 60%,
+          rgba(200,255,240,0.45) 80%,
+          rgba(255,255,255,0.60) 100%
+        )`,
+        WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+        WebkitMaskComposite: 'xor',
+        maskComposite: 'exclude',
+        pointerEvents: 'none',
+        zIndex: 1,
+      }} />
+
       {/* 玻璃主体 */}
       <div style={{
         position: 'absolute',
         inset: '2px',
         borderRadius: '14px',
-        background: `linear-gradient(148deg,
-          rgba(255,255,255,0.13) 0%,
-          rgba(255,255,255,0.04) 40%,
-          rgba(0,0,0,0.04) 65%,
-          rgba(0,0,0,0.12) 100%
+        background: `linear-gradient(180deg,
+          rgba(255,255,255,0.18) 0%,
+          rgba(255,255,255,0.08) 30%,
+          rgba(255,255,255,0.04) 60%,
+          rgba(0,0,0,0.06) 100%
         )`,
-        backdropFilter: 'blur(24px) saturate(180%)',
-        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+        backdropFilter: 'blur(24px) saturate(200%)',
+        WebkitBackdropFilter: 'blur(24px) saturate(200%)',
         boxShadow: `
-          inset 0  1px 0 rgba(255,255,255,0.28),
-          inset 0 -1px 0 rgba(0,0,0,0.18),
-          inset  1px 0 0 rgba(255,255,255,0.12),
-          inset -1px 0 0 rgba(0,0,0,0.10)
+          /* 内层湿润高光 - 3层 */
+          inset 0  2px 0 rgba(255,255,255,0.65),
+          inset 0  4px 8px rgba(200,220,255,0.18),
+          inset 0  8px 16px rgba(180,200,255,0.08),
+          /* 边缘 */
+          inset 0 -1.5px 0 rgba(0,0,0,0.20),
+          inset  1px 0 0 rgba(255,255,255,0.20),
+          inset -1px 0 0 rgba(0,0,0,0.12)
         `,
         zIndex: 2,
         overflow: 'hidden',
       }}>
 
-        {/* 顶部折射高光 */}
+        {/* 顶部折射高光 - 更亮更润 */}
         <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, height: '50%',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.03) 55%, transparent 100%)',
+          position: 'absolute', top: 0, left: 0, right: 0, height: '55%',
+          background: `linear-gradient(180deg,
+            rgba(255,255,255,0.32) 0%,
+            rgba(200,220,255,0.18) 30%,
+            rgba(255,255,255,0.05) 60%,
+            transparent 100%
+          )`,
           borderRadius: '13px 13px 60% 60% / 13px 13px 30% 30%',
+          pointerEvents: 'none',
+        }} />
+
+        {/* 左上角光源光斑 */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, width: '60%', height: '45%',
+          background: `radial-gradient(ellipse 80% 100% at 15% 0%,
+            rgba(255,255,255,0.35) 0%,
+            rgba(200,220,255,0.15) 40%,
+            transparent 70%
+          )`,
           pointerEvents: 'none',
         }} />
 
