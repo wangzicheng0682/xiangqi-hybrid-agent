@@ -96,17 +96,31 @@ class AgentTools:
                 else:
                     attack_list.append(f"空位({ac+1},{10-ar})")
 
+            # 分离敌方棋子和空位
+            enemy_targets = [a for a in attack_list if not a.startswith("空位")]
+            empty_targets = [a for a in attack_list if a.startswith("空位")]
+
+            # 构建精确的message
+            if enemy_targets:
+                target_detail = f"攻击敌方: {', '.join(enemy_targets[:5])}"
+                if len(enemy_targets) > 5:
+                    target_detail += f"等{len(enemy_targets)}子"
+            else:
+                target_detail = f"攻击{len(empty_targets)}个空位，无敌方目标"
+
             return ToolResult(
                 success=True,
                 data={
                     "piece": f"{piece_name}({col+1},{10-row})",
                     "attacks": attack_list,
+                    "enemy_targets": enemy_targets,
+                    "empty_targets": empty_targets,
                     "attack_count": len(attacks),
                     "attack_value": total_value,
                     "has_valuable_target": total_value > 0
                 },
-                message=f"{piece_name}攻击{len(attacks)}个位置",
-                thinking_hint=f"分析{piece_name}的攻击范围，发现{len(attacks)}个目标"
+                message=f"{piece_name}: {target_detail}",
+                thinking_hint=f"分析{piece_name}的攻击范围，发现{len(enemy_targets)}个敌方目标"
             )
 
         except Exception as e:
@@ -278,22 +292,33 @@ class AgentTools:
             defenders_result = self.get_piece_defenders(fen, piece)
             threats_result = self.get_threats_to_piece(fen, piece)
 
-            # 生成摘要
+            # 生成精确摘要 - 包含具体威胁来源
             summary_parts = []
-            if attacks_result.success and attacks_result.data.get("has_valuable_target"):
-                summary_parts.append(f"攻击价值{attacks_result.data['attack_value']}分的棋子")
-            if threats_result.success and threats_result.data.get("threat_count", 0) > 0:
-                summary_parts.append(f"受到{threats_result.data['threat_count']}个威胁")
-            if defenders_result.success and defenders_result.data.get("is_unprotected"):
-                summary_parts.append("处于无根状态")
 
-            summary = "，".join(summary_parts) if summary_parts else "位置安全，无明显威胁"
+            # 攻击信息：包含具体目标
+            if attacks_result.success and attacks_result.data.get("enemy_targets"):
+                targets = attacks_result.data["enemy_targets"][:3]
+                summary_parts.append(f"可攻击: {', '.join(targets)}")
+
+            # 威胁信息：包含具体威胁来源
+            if threats_result.success and threats_result.data.get("threat_count", 0) > 0:
+                threat_names = [t["attacker"] for t in threats_result.data.get("threats", [])[:3]]
+                summary_parts.append(f"被威胁: {', '.join(threat_names)}")
+
+            # 保护信息
+            if defenders_result.success and defenders_result.data.get("is_unprotected"):
+                summary_parts.append("无根(无保护)")
+            elif defenders_result.success and defenders_result.data.get("defender_count", 0) > 0:
+                summary_parts.append(f"有{defenders_result.data['defender_count']}子保护")
+
+            summary = " | ".join(summary_parts) if summary_parts else "位置安全，无明显威胁"
 
             return ToolResult(
                 success=True,
                 data={
                     "piece": attacks_result.data.get("piece", piece),
                     "attacks": attacks_result.data.get("attacks", []),
+                    "enemy_targets": attacks_result.data.get("enemy_targets", []),
                     "attack_value": attacks_result.data.get("attack_value", 0),
                     "defended_by": defenders_result.data.get("defenders", []),
                     "defender_count": defenders_result.data.get("defender_count", 0),
@@ -303,7 +328,7 @@ class AgentTools:
                     "is_unprotected": defenders_result.data.get("is_unprotected", False),
                     "summary": summary
                 },
-                message=f"综合分析完成: {summary}",
+                message=f"综合分析: {summary}",
                 thinking_hint=f"综合分析{piece}的关系网络"
             )
 

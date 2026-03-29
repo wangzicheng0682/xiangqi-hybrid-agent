@@ -54,7 +54,7 @@ from core.rules.tension_detector import (
 @dataclass
 class CoachConfig:
     api_key: str = ""
-    base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    base_url: str = "https://open.bigmodel.cn/api/paas/v4/"
     model: str = "glm-5"
     max_rounds: int = 3
     max_tools_per_round: int = 3
@@ -946,9 +946,9 @@ class XiangqiCoachAgent:
 
             if primary_tension:
                 user_content += f"""【张力检测 - 已自动识别】
-⚡ 主要张力：{primary_tension['tension_type']}（优先级：{primary_tension['priority']}）
-❓ 核心问题：{primary_tension['question']}
-💡 初始假设：{primary_tension['hypothesis']}
+[张力] 主要张力：{primary_tension['tension_type']}（优先级：{primary_tension['priority']}）
+[问题] 核心问题：{primary_tension['question']}
+[假设] 初始假设：{primary_tension['hypothesis']}
 📋 支持证据：{', '.join(primary_tension['evidence'])}
 🔧 建议工具：{', '.join(primary_tension['suggested_tools']) if primary_tension['suggested_tools'] else '根据情况选择'}
 

@@ -140,6 +140,18 @@ body {
   overflow-x: hidden;
 }
 
+/* ── 图片背景层 ── */
+.bg-image-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background-image: url('/bg.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  pointer-events: none;
+}
+
 /* ── Apple Liquid Glass 侧边栏（墨韵青灯版 + iOS 26 液态玻璃）── */
 .lg-sidebar {
   position: relative;

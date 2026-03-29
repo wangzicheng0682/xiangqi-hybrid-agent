@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <defs>
+    <!--
+      Liquid Glass Filter — 边缘折射效果
+      基于 kube.io 和 LogRocket 的深度分析
+
+      核心原理：
+      1. feDisplacementMap — 让背景沿边缘弯曲
+      2. feSpecularLighting — 边缘高光
+      3. feComposite — 混合层叠
+
+      注意：作为 backdrop-filter 仅 Chrome 支持
+    -->
+    <filter id="liquid-glass-filter" x="-20%" y="-20%" width="140%" height="140%">
+      <!-- 1. 轻微模糊源 -->
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur"/>
+
+      <!-- 2. 边缘折射位移贴图 -->
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency="0.02"
+        numOctaves="2"
+        seed="1"
+        result="turbulence"
+      />
+
+      <!-- 3. 位移扭曲（边缘卷曲效果） -->
+      <feDisplacementMap
+        in="blur"
+        in2="turbulence"
+        scale="8"
+        xChannelSelector="R"
+        yChannelSelector="G"
+        result="displaced"
+      />
+
+      <!-- 4. 边缘高光（模拟光源） -->
+      <feSpecularLighting
+        in="turbulence"
+        surfaceScale="1.5"
+        specularConstant="0.8"
+        specularExponent="20"
+        lighting-color="rgba(255,255,255,0.6)"
+        result="specular"
+      >
+        <fePointLight x="-5000" y="-10000" z="20000"/>
+      </feSpecularLighting>
+
+      <!-- 5. 合并折射 + 高光 -->
+      <feComposite in="displaced" in2="specular" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" result="lit"/>
+    </filter>
+
+    <!-- 强烈版本（用于侧边栏） -->
+    <filter id="liquid-glass-strong-filter" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1" result="blur"/>
+
+      <feTurbulence
+        type="fractalNoise"
+        baseFrequency="0.015"
+        numOctaves="3"
+        seed="42"
+        result="turbulence"
+      />
+
+      <feDisplacementMap
+        in="blur"
+        in2="turbulence"
+        scale="15"
+        xChannelSelector="R"
+        yChannelSelector="G"
+        result="displaced"
+      />
+
+      <feSpecularLighting
+        in="turbulence"
+        surfaceScale="2"
+        specularConstant="1"
+        specularExponent="25"
+        lighting-color="rgba(255,255,255,0.8)"
+        result="specular"
+      >
+        <fePointLight x="-8000" y="-12000" z="25000"/>
+      </feSpecularLighting>
+
+      <feComposite in="displaced" in2="specular" operator="arithmetic" k1="0" k2="1" k3="1.2" k4="0"/>
+    </filter>
+  </defs>
+</svg>

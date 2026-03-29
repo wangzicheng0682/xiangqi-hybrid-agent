@@ -7,7 +7,7 @@ import AgentThinkingPanel from './components/AgentThinkingPanel';
 import ReplayNavigator from './components/ReplayNavigator';
 import EngineChart from './components/EngineChart';
 
-type GameMode = 'analysis' | 'pvp' | 'pve_red' | 'pve_black' | 'replay';
+type GameMode = 'pvp' | 'pve_red' | 'pve_black' | 'replay';
 type InputMode = 'online' | 'camera';
 
 export default function App() {
@@ -21,15 +21,29 @@ export default function App() {
   const { setPanelActive, setAnalyzing } = useAgentStore();
 
   const [inputMode, setInputMode] = useState<InputMode>('online');
-  const [isDark, setIsDark] = useState(() =>
-    document.documentElement.getAttribute('data-theme') === 'dark'
-  );
+  const [isDark, setIsDark] = useState(() => {
+    const theme = document.documentElement.getAttribute('data-theme');
+    // 默认深色，只有明确设置为 light 才是浅色
+    return theme !== 'light';
+  });
+
+  const [glassBlur, setGlassBlur] = useState(4); // 液态玻璃模糊度 px
 
   const toggleTheme = () => {
     const next = !isDark;
     setIsDark(next);
-    document.documentElement.setAttribute('data-theme', next ? 'dark' : '');
+    // 浅色模式：data-theme="light"，深色模式：移除属性
+    if (next) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
   };
+
+  // 更新液态玻璃模糊度
+  useEffect(() => {
+    document.documentElement.style.setProperty('--glass-blur', `${glassBlur}px`);
+  }, [glassBlur]);
 
   // 测量棋盘高度，用于计算引擎图的 top 位置
   const boardRef = useRef<HTMLDivElement>(null);
@@ -61,17 +75,17 @@ export default function App() {
       }
       setGameMode(mode);
     }
-    if (mode === 'analysis') {
-      // 触发分析模式：启动扑克牌动画（棋盘收缩由 handleToggleBoard 处理）
-      setPanelActive(true);
-      setAnalyzing(true);
-    } else {
+    // 切换模式时收起分析面板
+    if (isBoardCollapsed) {
       setBoardCollapsed(false);
     }
   };
 
-  const handleToggleBoard = () => {
-    toggleBoardCollapsed();
+  // 深度分析触发（独立功能，任何模式下都可用）
+  const triggerDeepAnalysis = () => {
+    setPanelActive(true);
+    setAnalyzing(true);
+    toggleBoardCollapsed(); // 触发棋盘收缩 + 右侧栏扩张
   };
 
   const handleInputModeChange = (mode: InputMode) => {
@@ -82,9 +96,14 @@ export default function App() {
   };
 
   return (
-    <div
-      style={{
-        display: 'grid',
+    <>
+      {/* 图片背景层 */}
+      <div className="bg-image-layer" />
+      <div className="bg-overlay-noise" />
+
+      <div
+        style={{
+          display: 'grid',
         gridTemplateColumns: `220px 1fr ${isBoardCollapsed ? '620px' : '260px'}`,
         height: '100vh',
         color: 'var(--apple-text)',
@@ -93,7 +112,10 @@ export default function App() {
       }}
     >
       {/* ── 左侧边栏 ── */}
-      <aside className="lg-sidebar lg-sidebar-left" style={S.leftSidebar}>
+      <aside
+        className="lg-sidebar liquid-glass"
+        style={S.leftSidebar}
+      >
         {/* Logo区域 */}
         <div style={S.logoSection}>
           <div style={S.logoIcon}>♕</div>
@@ -109,6 +131,30 @@ export default function App() {
           >
             {isDark ? '☀️' : '🌙'}
           </button>
+        </div>
+
+        {/* 液态玻璃模糊度调节 */}
+        <div style={S.section}>
+          <div style={{ ...S.sectionLabel, display: 'flex', justifyContent: 'space-between' }}>
+            <span>玻璃模糊度</span>
+            <span style={{ color: 'var(--apple-text-tertiary)' }}>{glassBlur}px</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="20"
+            step="1"
+            value={glassBlur}
+            onChange={(e) => setGlassBlur(parseInt(e.target.value))}
+            style={{
+              width: '100%',
+              height: 4,
+              borderRadius: 2,
+              background: 'rgba(255,255,255,0.15)',
+              outline: 'none',
+              cursor: 'pointer',
+            }}
+          />
         </div>
 
         {/* 输入局面 */}
@@ -140,15 +186,15 @@ export default function App() {
         <div style={S.section}>
           <div style={S.sectionLabel}>对局模式</div>
           <div style={S.modeGrid}>
-            {(['analysis', 'pve_red', 'pvp'] as GameMode[]).map(mode => (
+            {(['pve_red', 'pvp'] as GameMode[]).map(mode => (
               <button
                 key={mode}
                 className="apple-btn"
-                style={{ ...S.modeButton }}
-                onClick={() => { handleModeChange(mode); if (mode === 'analysis') handleToggleBoard(); }}
+                style={{ ...S.modeButton, flex: 1 }}
+                onClick={() => handleModeChange(mode)}
               >
-                <div style={S.modeIcon}>{mode === 'analysis' ? '◈' : mode === 'pve_red' ? '◉' : '◎'}</div>
-                <div>{mode === 'analysis' ? '分析' : mode === 'pve_red' ? '人机' : '双人'}</div>
+                <div style={S.modeIcon}>{mode === 'pve_red' ? '◉' : '◎'}</div>
+                <div>{mode === 'pve_red' ? '人机' : '双人'}</div>
               </button>
             ))}
           </div>
@@ -296,17 +342,32 @@ export default function App() {
 
       {/* ── 右侧分析面板 ── */}
       <motion.aside
-        className="lg-sidebar lg-sidebar-right"
+        className="lg-sidebar liquid-glass-strong lg-sidebar-right"
         style={S.rightSidebar}
         layout
         transition={{ type: 'spring', stiffness: 280, damping: 24 }}
       >
+        {/* 顶部：深度分析触发按钮（收起状态时显示） */}
+        {!isBoardCollapsed && (
+          <div style={S.analysisTrigger}>
+            <button
+              className="apple-btn-gold"
+              style={S.analysisBtn}
+              onClick={triggerDeepAnalysis}
+            >
+              <span style={S.analysisBtnIcon}>◈</span>
+              <span>深度分析</span>
+            </button>
+          </div>
+        )}
+
         {/* 分析栏内部：直接渲染 AgentThinkingPanel */}
         <div style={{ height: '100%', overflow: 'visible' }}>
           <AgentThinkingPanel />
         </div>
       </motion.aside>
     </div>
+    </>
   );
 }
 
@@ -553,6 +614,27 @@ const S: Record<string, React.CSSProperties> = {
     display: 'flex',
     flexDirection: 'column' as const,
     overflow: 'visible',
+  },
+
+  // 深度分析触发按钮区域
+  analysisTrigger: {
+    padding: '12px 14px',
+    flexShrink: 0,
+  },
+  analysisBtn: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: '10px 16px',
+    borderRadius: 'var(--radius-md)',
+    fontSize: 13,
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  analysisBtnIcon: {
+    fontSize: 16,
   },
 
   tabHeader: {

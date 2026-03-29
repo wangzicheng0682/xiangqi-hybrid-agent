@@ -17,10 +17,10 @@ import io
 
 @dataclass
 class VisionConfig:
-    provider: str = "aliyun"
+    provider: str = "zhipu"
     api_key: str = ""
-    base_url: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-    model: str = "qwen-vl-max"
+    base_url: str = "https://open.bigmodel.cn/api/paas/v4/"
+    model: str = "glm-4v-flash"
 
 
 @dataclass

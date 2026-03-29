@@ -1489,18 +1489,25 @@ async def analyze_deep_stream(
     fen: str,
     move: Optional[str] = None,
     question: str = "请分析当前局面",
-    show_thinking: bool = True
+    show_thinking: bool = True,
+    debug: bool = False  # 新增：是否返回调试日志
 ):
     """
     GET 版本的深度分析端点 - 避免 CORS preflight 延迟
     SSE 流式返回分析结果
+
+    参数:
+        debug: 如果为True，在流结束时返回完整的调试日志
     """
     import asyncio
     import threading
     import queue
     import time
 
+    from core.llm.debug_logger import AgentDebugLogger
+
     request_start = time.time()
+    debug_logger = AgentDebugLogger(enabled=debug)  # 创建调试日志记录器
 
     async def generate():
         # 立即发送初始提示
@@ -1574,7 +1581,7 @@ async def analyze_deep_stream(
 
             def run_agent():
                 try:
-                    orchestrator = MultiAgentOrchestrator()
+                    orchestrator = MultiAgentOrchestrator(debug_logger=debug_logger)
                     actual_question = question
                     if move and "走" not in question:
                         actual_question = f"分析走法 {move} 的质量"
@@ -1662,6 +1669,11 @@ async def analyze_deep_stream(
                 yield f"data: {json.dumps({'type': 'error', 'message': result_holder['error']}, ensure_ascii=False)}\n\n"
             elif result_holder['result']:
                 yield f"data: {json.dumps({'type': 'result', 'explanation': result_holder['result'], 'confidence': 'high'}, ensure_ascii=False)}\n\n"
+
+            # 发送调试日志（如果启用）
+            if debug and debug_logger.current_session:
+                debug_log = debug_logger.export_readable()
+                yield f"data: {json.dumps({'type': 'debug_log', 'log': debug_log}, ensure_ascii=False)}\n\n"
 
         except Exception as e:
             import traceback

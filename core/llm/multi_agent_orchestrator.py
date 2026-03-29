@@ -15,7 +15,7 @@ SSE事件类型：
 
 import json
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Any, Callable, Optional
 
 import requests
@@ -33,6 +33,7 @@ from core.rules.tension_detector import (
     detect_tensions, get_primary_tension,
     Tension, TensionPriority,
 )
+from core.llm.debug_logger import AgentDebugLogger, get_debug_logger
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -93,7 +94,7 @@ SYNTHESIZER_SYSTEM_PROMPT = """# 你是谁
 """
 
 SYNTHESIZER_MODEL = "glm-5"
-SYNTHESIZER_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+SYNTHESIZER_BASE_URL = "https://open.bigmodel.cn/api/paas/v4/"
 
 
 class Synthesizer:
@@ -233,10 +234,11 @@ class MultiAgentOrchestrator:
     - 复杂局面：并行调用三个专家，然后合成
     """
 
-    def __init__(self, api_key: str = None):
-        self.tactics_expert = TacticsExpert(api_key=api_key)
-        self.strategy_expert = StrategyExpert(api_key=api_key)
-        self.engine_expert = EngineExpert(api_key=api_key)
+    def __init__(self, api_key: str = None, debug_logger: AgentDebugLogger = None):
+        self.debug_logger = debug_logger
+        self.tactics_expert = TacticsExpert(api_key=api_key, debug_logger=debug_logger)
+        self.strategy_expert = StrategyExpert(api_key=api_key, debug_logger=debug_logger)
+        self.engine_expert = EngineExpert(api_key=api_key, debug_logger=debug_logger)
         self.synthesizer = Synthesizer(api_key=api_key)
         self._tool_functions = {
             "get_piece_attacks": AgentTools().get_piece_attacks,
@@ -297,15 +299,28 @@ class MultiAgentOrchestrator:
         Returns:
             统一讲解文本
         """
+        # ===== 开始调试会话 =====
+        if self.debug_logger:
+            self.debug_logger.start_session(fen, question)
+
         # ===== 1. 预检测 =====
         phase_info = self._detect_phase(fen, move_count)
         tensions, primary_tension = self._detect_tensions(
             evidence_map or {}, engine_eval or {}, phase_info.phase_name
         )
 
+        # 记录预检测结果
+        if self.debug_logger:
+            self.debug_logger.log_thinking("orchestrator", f"阶段: {phase_info.phase_name}, 张力数: {len(tensions)}")
+
         tag_list = tag_summary if isinstance(tag_summary, list) else []
         # get_primary_tension already returns Dict, not Tension object
         primary_tension_dict = primary_tension if primary_tension else {}
+
+        # ===== 元叙事：推主线 headline =====
+        if on_thinking and primary_tension_dict:
+            core_question = primary_tension_dict.get("question", "关键问题")
+            on_thinking("headline", f"正在围绕「{core_question[:30]}」展开分析…")
 
         # ===== 2. 并行调用三位专家 =====
         def call_tactics():
@@ -369,27 +384,45 @@ class MultiAgentOrchestrator:
                 }, ensure_ascii=False))
             return result
 
-        # 并行执行
+        # 串行执行（避免API并发限流）
+        import time
         results = {}
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = {
-                executor.submit(call_tactics): "tactics",
-                executor.submit(call_strategy): "strategy",
-                executor.submit(call_engine): "engine",
-            }
 
-            for future in as_completed(futures):
-                name = futures[future]
-                try:
-                    results[name] = future.result()
-                except Exception as e:
-                    results[name] = ExpertResult(
-                        expert_name=name,
-                        finding="执行失败",
-                        details=str(e),
-                        success=False,
-                        error=str(e),
-                    )
+        # 依次调用三个专家，每个专家之间间隔1秒
+        try:
+            results["tactics"] = call_tactics()
+            time.sleep(1)
+        except Exception as e:
+            results["tactics"] = ExpertResult(
+                expert_name="tactics",
+                finding="执行失败",
+                details=str(e),
+                success=False,
+                error=str(e),
+            )
+
+        try:
+            results["strategy"] = call_strategy()
+            time.sleep(1)
+        except Exception as e:
+            results["strategy"] = ExpertResult(
+                expert_name="strategy",
+                finding="执行失败",
+                details=str(e),
+                success=False,
+                error=str(e),
+            )
+
+        try:
+            results["engine"] = call_engine()
+        except Exception as e:
+            results["engine"] = ExpertResult(
+                expert_name="engine",
+                finding="执行失败",
+                details=str(e),
+                success=False,
+                error=str(e),
+            )
 
         # ===== 3. 合成结果 =====
         def on_synthesis_chunk(chunk: str):
@@ -411,6 +444,11 @@ class MultiAgentOrchestrator:
         )
 
         # synthesis 事件由 orchestrator.analyze() 返回后，在 API 层统一发送
+
+        # 结束调试日志会话
+        if self.debug_logger:
+            self.debug_logger.end_session()
+
         return synthesis
 
     def analyze_single(
