@@ -1922,3 +1922,53 @@ def _generate_template_explanation(evidence_map: dict, move_analysis) -> str:
         parts.append(f"\n【战术要点】{'；'.join(tag_descs)}。")
 
     return "\n".join(parts)
+
+
+# ============================================================================
+# 液态玻璃预设端点
+# ============================================================================
+
+class GlassPresetSaveRequest(BaseModel):
+    name: str
+    component: str
+    params: Dict[str, Any]
+
+
+@app.post("/api/glass-preset/save")
+async def save_glass_preset(request: GlassPresetSaveRequest):
+    """
+    保存液态玻璃预设参数到 default.json
+
+    前端调参完成后点击"保存为默认"，调用此接口写入
+    frontend/public/presets/default.json
+    """
+    try:
+        preset_path = project_root / "frontend" / "public" / "presets" / "default.json"
+        preset_path.parent.mkdir(parents=True, exist_ok=True)
+
+        import json as _json
+        with open(preset_path, "w", encoding="utf-8") as f:
+            _json.dump(request.dict(), f, indent=2, ensure_ascii=False)
+
+        return {"success": True, "path": str(preset_path)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/glass-preset/load")
+async def load_glass_preset():
+    """
+    读取当前默认预设（供前端验证用）
+    """
+    try:
+        preset_path = project_root / "frontend" / "public" / "presets" / "default.json"
+        if not preset_path.exists():
+            return {"exists": False}
+
+        import json as _json
+        with open(preset_path, "r", encoding="utf-8") as f:
+            data = _json.load(f)
+
+        return {"exists": True, "data": data}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

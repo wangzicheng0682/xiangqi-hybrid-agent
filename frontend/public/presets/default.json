@@ -1,0 +1,29 @@
+{
+  "name": "default",
+  "component": "liquid-glass",
+  "params": {
+    "shapeWidth": 236,
+    "shapeHeight": 859,
+    "shapeRadius": 50.5,
+    "shapeRoundness": 2.7800000000000002,
+    "mergeRate": 0.1,
+    "blurRadius": 6,
+    "refThickness": 30.34,
+    "refFactor": 1.4,
+    "refDispersion": 36.43,
+    "refFresnelRange": 11.93,
+    "refFresnelHardness": 12,
+    "refFresnelFactor": 51.28,
+    "glareRange": 85.67,
+    "glareFactor": 90,
+    "glareAngle": -47.17,
+    "glareHardness": 0,
+    "glareConvergence": 66.23,
+    "glareOppositeFactor": 92.49,
+    "shadowExpand": 48.2,
+    "shadowFactor": 21.85,
+    "blurEdge": true,
+    "shapePosX": 125,
+    "shapePosY": 458
+  }
+}

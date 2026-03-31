@@ -9,8 +9,8 @@
  * Shader 逻辑、渲染管线、uniform 名字：零改动
  */
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
-import { useControls } from 'leva';
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
+import { useControls, levaStore } from 'leva';
 import {
   MultiPassRenderer,
   loadTextureFromURL,
@@ -60,29 +60,29 @@ interface Controls {
   shapePosY: number;  // 玻璃区域固定位置 Y（像素）
 }
 
-// 参考项目 liquid-glass-studio 的原始默认值
+// 参考项目 liquid-glass-studio 的原始默认值（fallback）
 const DEFAULT_CONTROLS: Controls = {
   bgType: 11,              // 自定义图片
   shapeWidth: 220,         // 左侧栏宽度
-  shapeHeight: window.innerHeight,
+  shapeHeight: 800,
   shapeRadius: 40,
   shapeRoundness: 2.0,
   mergeRate: 0.05,
   showShape1: false,
-  blurRadius: 1,           // ⚠️ 参考项目默认值是 1，不是 80
+  blurRadius: 1,
   shadowExpand: 25,
   shadowFactor: 15,        // shader 中 /100
   shadowPosition: { x: 0, y: -10 },
   tint: { r: 255, g: 255, b: 255, a: 0 },
-  refThickness: 20,        // ⚠️ 参考项目默认值是 20，不是 80
-  refFactor: 1.4,          // ⚠️ 参考项目默认值是 1.4
+  refThickness: 20,
+  refFactor: 1.4,
   refDispersion: 0.6,
   refFresnelRange: 30,
   refFresnelHardness: 12,
   refFresnelFactor: 60,
   glareRange: 250,
-  glareFactor: 90,         // ⚠️ 参考项目默认是 90
-  glareAngle: -45,         // ⚠️ 参考项目默认是 -45
+  glareFactor: 90,
+  glareAngle: -45,
   glareHardness: 8,
   glareConvergence: 60,
   glareOppositeFactor: 90,
@@ -90,7 +90,7 @@ const DEFAULT_CONTROLS: Controls = {
   step: 9,
   springSizeFactor: 0,
   shapePosX: 110,
-  shapePosY: window.innerHeight / 2,
+  shapePosY: 450,
 };
 export interface LiquidGlassAppProps {
   bgImage?: string;
@@ -105,6 +105,8 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<MultiPassRenderer | null>(null);
   const rafRef = useRef<number>(0);
+  const [presetLoading, setPresetLoading] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const stateRef = useRef<{
     canvasInfo: { width: number; height: number; dpr: number };
     blurWeights: number[];
@@ -158,6 +160,105 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
     shapePosX: { value: DEFAULT_CONTROLS.shapePosX, min: 0, max: 800, step: 1 },
     shapePosY: { value: DEFAULT_CONTROLS.shapePosY, min: 0, max: 1200, step: 1 },
   });
+
+  // 启动时从 /presets/default.json 读取默认参数
+  useEffect(() => {
+    setPresetLoading(true);
+    fetch('/presets/default.json')
+      .then(r => r.json())
+      .then(preset => {
+        const p = preset.params;
+        // Leva 内部用 '.' 做路径分隔符，如 '液态玻璃参数.shapeWidth'
+        const prefix = '液态玻璃参数';
+        const overrides: [string, unknown][] = [
+          [`${prefix}.shapeWidth`, p.shapeWidth],
+          [`${prefix}.shapeHeight`, p.shapeHeight ?? 800],
+          [`${prefix}.shapeRadius`, p.shapeRadius],
+          [`${prefix}.shapeRoundness`, p.shapeRoundness],
+          [`${prefix}.mergeRate`, p.mergeRate],
+          [`${prefix}.blurRadius`, p.blurRadius],
+          [`${prefix}.refThickness`, p.refThickness],
+          [`${prefix}.refFactor`, p.refFactor],
+          [`${prefix}.refDispersion`, p.refDispersion],
+          [`${prefix}.refFresnelRange`, p.refFresnelRange],
+          [`${prefix}.refFresnelHardness`, p.refFresnelHardness],
+          [`${prefix}.refFresnelFactor`, p.refFresnelFactor],
+          [`${prefix}.glareRange`, p.glareRange],
+          [`${prefix}.glareFactor`, p.glareFactor],
+          [`${prefix}.glareAngle`, p.glareAngle],
+          [`${prefix}.glareHardness`, p.glareHardness],
+          [`${prefix}.glareConvergence`, p.glareConvergence],
+          [`${prefix}.glareOppositeFactor`, p.glareOppositeFactor],
+          [`${prefix}.shadowExpand`, p.shadowExpand],
+          [`${prefix}.shadowFactor`, p.shadowFactor],
+          [`${prefix}.blurEdge`, !!p.blurEdge],
+          [`${prefix}.step`, 9],
+          [`${prefix}.springSizeFactor`, 0],
+          [`${prefix}.shapePosX`, p.shapePosX ?? 110],
+          [`${prefix}.shapePosY`, p.shapePosY ?? 450],
+        ];
+        overrides.forEach(([k, v]) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          try { (levaStore as any).setValueAtPath(k, v, 0); } catch (e) { console.warn('setValueAtPath failed:', k, e); }
+        });
+      })
+      .catch(() => { /* 用 DEFAULT_CONTROLS */ })
+      .finally(() => setPresetLoading(false));
+  }, []);
+
+  // 保存当前参数到 default.json
+  const handleSavePreset = useCallback(async () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allData = (levaStore as any).getData() as Record<string, { value: unknown }>;
+    if (!allData) { setSaveMsg('❌ 读取失败'); setTimeout(() => setSaveMsg(null), 3000); return; }
+    // 提取所有 '液态玻璃参数.' 开头的路径值
+    const values: Record<string, unknown> = {};
+    const prefix = '液态玻璃参数.';
+    Object.entries(allData).forEach(([k, v]) => {
+      if (k.startsWith(prefix)) values[k.slice(prefix.length)] = v.value;
+    });
+    const preset = {
+      name: 'default',
+      component: 'liquid-glass',
+      params: {
+        shapeWidth: values.shapeWidth,
+        shapeHeight: values.shapeHeight,
+        shapeRadius: values.shapeRadius,
+        shapeRoundness: values.shapeRoundness,
+        mergeRate: values.mergeRate,
+        blurRadius: values.blurRadius,
+        refThickness: values.refThickness,
+        refFactor: values.refFactor,
+        refDispersion: values.refDispersion,
+        refFresnelRange: values.refFresnelRange,
+        refFresnelHardness: values.refFresnelHardness,
+        refFresnelFactor: values.refFresnelFactor,
+        glareRange: values.glareRange,
+        glareFactor: values.glareFactor,
+        glareAngle: values.glareAngle,
+        glareHardness: values.glareHardness,
+        glareConvergence: values.glareConvergence,
+        glareOppositeFactor: values.glareOppositeFactor,
+        shadowExpand: values.shadowExpand,
+        shadowFactor: values.shadowFactor,
+        blurEdge: values.blurEdge,
+        shapePosX: values.shapePosX,
+        shapePosY: values.shapePosY,
+      },
+    };
+    try {
+      const res = await fetch('http://localhost:8002/api/glass-preset/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(preset),
+      });
+      const result = await res.json();
+      setSaveMsg(result.success ? '✅ 已保存' : '❌ 保存失败');
+    } catch {
+      setSaveMsg('❌ 保存失败');
+    }
+    setTimeout(() => setSaveMsg(null), 3000);
+  }, []);
 
   // Init canvas size
   useLayoutEffect(() => {
@@ -362,18 +463,57 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
   }, [levaControls]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
+    <>
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'fixed',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          display: 'block',
+        }}
+      />
+      {/* 保存按钮 */}
+      <div style={{
         position: 'fixed',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        display: 'block',
-        // DEBUG: 临时加个半透明背景，看 WebGL 层有没有在渲染
-        // background: 'rgba(255,0,0,0.3)',
-      }}
-    />
+        top: 12,
+        right: 12,
+        zIndex: 9999,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+        gap: 8,
+      }}>
+        <button
+          onClick={handleSavePreset}
+          disabled={presetLoading}
+          style={{
+            padding: '8px 16px',
+            background: '#1a1a2e',
+            color: '#fff',
+            border: '1px solid #4a4a6a',
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontSize: 13,
+            opacity: presetLoading ? 0.5 : 1,
+          }}
+        >
+          {presetLoading ? '加载中…' : '💾 保存为默认'}
+        </button>
+        {saveMsg && (
+          <span style={{
+            color: saveMsg.includes('✅') ? '#4ade80' : '#f87171',
+            fontSize: 12,
+            background: 'rgba(0,0,0,0.7)',
+            padding: '4px 10px',
+            borderRadius: 4,
+          }}>
+            {saveMsg}
+          </span>
+        )}
+      </div>
+    </>
   );
 };
 
