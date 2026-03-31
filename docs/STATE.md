@@ -2,8 +2,8 @@
 
 > 本文档记录当前开发进度，架构详情请阅读 [DNA.md](DNA.md)
 
-**版本**: v3.29
-**最后更新**: 2026-03-24
+**版本**: v3.30
+**最后更新**: 2026-03-31
 
 ---
 
@@ -51,6 +51,41 @@
 ---
 
 ## 最近更新
+
+### 2026-03-31 💾 液态玻璃参数持久化：启动读JSON + 一键保存
+
+#### 核心改动
+
+调参 → 保存 → 下次刷新生效，完整闭环：
+
+**后端**（`api/main.py`）：
+- `POST /api/glass-preset/save` — 接收前端参数，写入 `frontend/public/presets/default.json`
+- `GET /api/glass-preset/load` — 读取当前预设（验证用）
+
+**前端**（`LiquidGlassApp.tsx`）：
+- 启动时 `fetch('/presets/default.json')` 读取 JSON
+- 用 `levaStore.setValueAtPath('液态玻璃参数.key', value)` 批量注入 Leva 面板初始值
+  - 注意：Leva 内部用 `.` 分隔符（不是 `/`）
+- 右上角新增 **💾 保存为默认** 按钮
+- 点击后用 `levaStore.getData()` 获取所有当前值，POST 到后端
+
+**默认配置**：`frontend/public/presets/default.json`
+
+**工作流程**：
+```
+Leva 调参 → 点"保存为默认" → POST /api/glass-preset/save
+                                      ↓
+                            后端写入 default.json
+                                      ↓
+                          刷新页面 → fetch 读取新参数
+                                      ↓
+                          levaStore.setValueAtPath 注入面板
+```
+
+**文件变更**：
+- `api/main.py` — 新增 glass-preset 端点
+- `frontend/src/components/LiquidGlassApp.tsx` — 读取/保存逻辑
+- `frontend/public/presets/default.json` — 默认配置文件
 
 ### 2026-03-29 🔧 前端分析入口重构：深度分析改为全局功能
 
@@ -654,7 +689,7 @@ damping = 1 - 4π × bounce / duration
 |------|------|------|
 | Neo4j | 7687 | ⚪ 待启动 |
 | 后端API | 8002 | 🟢 运行中 |
-| 前端 | 3007 | 🟢 运行中 |
+| 前端 | 3001 | 🟢 运行中 |
 
 ---
 
@@ -662,11 +697,11 @@ damping = 1 - 4π × bounce / duration
 
 ```bash
 # 后端
-python -m uvicorn api.main:app --host 0.0.0.0 --port 8003
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8002
 
 # 前端
 cd frontend && npm run dev
-# 访问 http://127.0.0.1:3000
+# 访问 http://127.0.0.1:3001（端口可能被占用，自动顺延）
 ```
 
 ---
