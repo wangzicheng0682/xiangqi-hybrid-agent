@@ -52,6 +52,16 @@
 
 ## 最近更新
 
+### 2026-03-31 🔧 前端清理：删除左侧栏冗余 DOM
+
+**问题**：左侧栏 `<aside>` 完全冗余 — Grid 列宽硬编码，不依赖 DOM；棋盘/引擎图动画使用独立 ref，与 aside 无关。
+
+**改动**：
+- 删除 `App.tsx` 中的 `<aside className="lg-sidebar lg-sidebar-webgl">` 及 `S.leftSidebar` 样式
+- 删除 `index.css` 中 `.lg-sidebar-webgl` / `.lg-sidebar-left` 死代码
+
+**效果**：WebGL canvas 全屏穿透，左侧 220px 区域交给 WebGL 渲染，为未来 WebGL 按钮铺路。
+
 ### 2026-03-31 💾 液态玻璃参数持久化：启动读JSON + 一键保存
 
 #### 核心改动

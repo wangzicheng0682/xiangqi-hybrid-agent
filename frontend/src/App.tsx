@@ -65,11 +65,11 @@ export default function App() {
           zIndex: 1,
         }}
       >
-        {/* ── 左侧边栏（空的，WebGL 覆盖，禁用 CSS backdrop-filter） */}
-        <aside className="lg-sidebar lg-sidebar-webgl" style={S.leftSidebar} />
+        {/* ── 左侧栏占位（WebGL 渲染，DOM 透明不拦截）── */}
+        <div style={{ gridColumn: 1, background: 'transparent', pointerEvents: 'none' }} />
 
         {/* ── 中央棋盘区域 ── */}
-        <main ref={boardAreaRef} style={S.boardArea}>
+        <main ref={boardAreaRef} style={{ ...S.boardArea, gridColumn: 2 }}>
           <motion.div
             ref={boardRef}
             animate={{
@@ -111,7 +111,7 @@ export default function App() {
         {/* ── 右侧分析面板 ── */}
         <motion.aside
           className="lg-sidebar liquid-glass-strong lg-sidebar-right"
-          style={S.rightSidebar}
+          style={{ ...S.rightSidebar, gridColumn: 3 }}
           layout
           transition={{ type: 'spring', stiffness: 280, damping: 24 }}
         >
@@ -138,16 +138,6 @@ export default function App() {
 }
 
 const S: Record<string, React.CSSProperties> = {
-  // ── 左侧边栏 ──────────────────────────
-  leftSidebar: {
-    padding: '20px 14px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 16,
-    overflowY: 'auto',
-    position: 'relative' as const,
-  } as React.CSSProperties,
-
   logoSection: {
     display: 'flex',
     alignItems: 'center',
