@@ -18,10 +18,19 @@
 | 布局动画 | 100% | ✅ 完成 | CSS Grid + Apple Spring |
 | 新组件 | 100% | ✅ 完成 | SynthesisPanel, ExpertCard, AgentDebutPanel, BottomTerminalPanel |
 | Agent扑克牌 | 100% | ✅ 完成 | AgentCardFlip.tsx - 呼吸光晕 + 立体浮雕 + 纯净液态玻璃 |
+| WebGL 液态玻璃 UI 层 | 20% | 🔄 进行中 | Phase 1 ✅，Phase 2 进行中 |
 
 ---
 
 ## 最近更新
+
+### 2026-03-30 - WebGL 液态玻璃 UI 层立项
+
+**核心决策**：
+- 推翻之前"重写渲染器"路线，改为**直接复制粘贴参考项目** `App.tsx` + `GLUtils.ts`
+- 架构确认为：全 WebGL UI 层（除棋盘和扑克牌外），DOM 只保留 ChessBoard + PokerCard
+- 详细方案见 `docs/frontend/plan/002-liquid-glass.md`
+- 待清理：之前重写的 `LiquidGlassRendererMini.tsx` 等废弃组件
 
 ### 2026-03-23 - Agent扑克牌视觉效果升级
 
@@ -119,4 +128,4 @@
 
 ---
 
-**最后更新**: 2026-03-23
+**最后更新**: 2026-03-30

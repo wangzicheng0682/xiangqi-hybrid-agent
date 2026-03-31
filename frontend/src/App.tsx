@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from './store/useGameStore';
 import { useAgentStore } from './store/useAgentStore';
@@ -6,44 +6,17 @@ import ChessBoard from './components/ChessBoard';
 import AgentThinkingPanel from './components/AgentThinkingPanel';
 import ReplayNavigator from './components/ReplayNavigator';
 import EngineChart from './components/EngineChart';
-
-type GameMode = 'pvp' | 'pve_red' | 'pve_black' | 'replay';
-type InputMode = 'online' | 'camera';
+import LiquidGlassApp from './components/LiquidGlassApp';
 
 export default function App() {
   const {
-    gameMode, setGameMode, resetGame, redToMove,
-    flipped, toggleFlip, showArrows, toggleShowArrows,
-    history, replayState,
-    isBoardCollapsed, setBoardCollapsed, toggleBoardCollapsed,
+    gameMode,
+    replayState,
+    isBoardCollapsed,
+    toggleBoardCollapsed,
   } = useGameStore();
 
   const { setPanelActive, setAnalyzing } = useAgentStore();
-
-  const [inputMode, setInputMode] = useState<InputMode>('online');
-  const [isDark, setIsDark] = useState(() => {
-    const theme = document.documentElement.getAttribute('data-theme');
-    // 默认深色，只有明确设置为 light 才是浅色
-    return theme !== 'light';
-  });
-
-  const [glassBlur, setGlassBlur] = useState(4); // 液态玻璃模糊度 px
-
-  const toggleTheme = () => {
-    const next = !isDark;
-    setIsDark(next);
-    // 浅色模式：data-theme="light"，深色模式：移除属性
-    if (next) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-    } else {
-      document.documentElement.setAttribute('data-theme', 'light');
-    }
-  };
-
-  // 更新液态玻璃模糊度
-  useEffect(() => {
-    document.documentElement.style.setProperty('--glass-blur', `${glassBlur}px`);
-  }, [glassBlur]);
 
   // 测量棋盘高度，用于计算引擎图的 top 位置
   const boardRef = useRef<HTMLDivElement>(null);
@@ -66,21 +39,6 @@ export default function App() {
     return () => ro.disconnect();
   }, [isBoardCollapsed]);
 
-  const handleModeChange = (mode: GameMode) => {
-    if (mode === 'replay') {
-      setGameMode(mode);
-    } else {
-      if (gameMode === 'replay') {
-        useGameStore.getState().exitReplay();
-      }
-      setGameMode(mode);
-    }
-    // 切换模式时收起分析面板
-    if (isBoardCollapsed) {
-      setBoardCollapsed(false);
-    }
-  };
-
   // 深度分析触发（独立功能，任何模式下都可用）
   const triggerDeepAnalysis = () => {
     setPanelActive(true);
@@ -88,285 +46,93 @@ export default function App() {
     toggleBoardCollapsed(); // 触发棋盘收缩 + 右侧栏扩张
   };
 
-  const handleInputModeChange = (mode: InputMode) => {
-    setInputMode(mode);
-    if (mode === 'camera') {
-      alert('拍照识别功能开发中，敬请期待！');
-    }
-  };
-
   return (
     <>
-      {/* 图片背景层 */}
-      <div className="bg-image-layer" />
-      <div className="bg-overlay-noise" />
+      {/* z=0: WebGL 背景层 */}
+      <LiquidGlassApp bgImage="/bg.jpg" />
 
+      {/* z=1: DOM 层 — 棋盘和扑克牌 */}
       <div
         style={{
+          position: 'fixed',
+          inset: 0,
           display: 'grid',
-        gridTemplateColumns: `220px 1fr ${isBoardCollapsed ? '620px' : '260px'}`,
-        height: '100vh',
-        color: 'var(--apple-text)',
-        overflow: 'hidden',
-        transition: 'grid-template-columns 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
-      }}
-    >
-      {/* ── 左侧边栏 ── */}
-      <aside
-        className="lg-sidebar liquid-glass"
-        style={S.leftSidebar}
+          gridTemplateColumns: `220px 1fr ${isBoardCollapsed ? '620px' : '260px'}`,
+          height: '100vh',
+          color: 'var(--apple-text)',
+          overflow: 'hidden',
+          transition: 'grid-template-columns 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
+          zIndex: 1,
+        }}
       >
-        {/* Logo区域 */}
-        <div style={S.logoSection}>
-          <div style={S.logoIcon}>♕</div>
-          <div>
-            <div style={S.logoTitle}>象棋AI教练</div>
-            <div style={S.logoSubtitle}>混合代理系统</div>
-          </div>
-          <button
-            className="apple-btn"
-            style={{ marginLeft: 'auto', padding: 0, width: 32, height: 32, flexShrink: 0 }}
-            onClick={toggleTheme}
-            title={isDark ? '浅色模式' : '深色模式'}
-          >
-            {isDark ? '☀️' : '🌙'}
-          </button>
-        </div>
+        {/* ── 左侧边栏（空的，WebGL 覆盖，禁用 CSS backdrop-filter） */}
+        <aside className="lg-sidebar lg-sidebar-webgl" style={S.leftSidebar} />
 
-        {/* 液态玻璃模糊度调节 */}
-        <div style={S.section}>
-          <div style={{ ...S.sectionLabel, display: 'flex', justifyContent: 'space-between' }}>
-            <span>玻璃模糊度</span>
-            <span style={{ color: 'var(--apple-text-tertiary)' }}>{glassBlur}px</span>
-          </div>
-          <input
-            type="range"
-            min="0"
-            max="20"
-            step="1"
-            value={glassBlur}
-            onChange={(e) => setGlassBlur(parseInt(e.target.value))}
-            style={{
-              width: '100%',
-              height: 4,
-              borderRadius: 2,
-              background: 'rgba(255,255,255,0.15)',
-              outline: 'none',
-              cursor: 'pointer',
+        {/* ── 中央棋盘区域 ── */}
+        <main ref={boardAreaRef} style={S.boardArea}>
+          <motion.div
+            ref={boardRef}
+            animate={{
+              scale: isBoardCollapsed ? 0.75 : 1,
+              x: isBoardCollapsed ? -120 : 0,
+              y: isBoardCollapsed ? -80 : 0,
             }}
-          />
-        </div>
-
-        {/* 输入局面 */}
-        <div style={S.section}>
-          <div style={S.sectionLabel}>输入局面</div>
-          <div style={S.inputModeGrid}>
-            <button
-              className={`apple-btn${inputMode === 'online' ? '' : ''}`}
-              style={{ ...S.inputModeBtn }}
-              onClick={() => handleInputModeChange('online')}
-            >
-              <div style={S.inputModeIcon}>◻</div>
-              <div style={S.inputModeLabel}>在线对局</div>
-              <div style={S.inputModeHint}>网页棋盘走棋</div>
-            </button>
-            <button
-              className={`apple-btn${inputMode === 'camera' ? '' : ''}`}
-              style={{ ...S.inputModeBtn }}
-              onClick={() => handleInputModeChange('camera')}
-            >
-              <div style={S.inputModeIcon}>◎</div>
-              <div style={S.inputModeLabel}>拍照识别</div>
-              <div style={S.inputModeHint}>拍现实棋盘识别</div>
-            </button>
-          </div>
-        </div>
-
-        {/* 对局模式 */}
-        <div style={S.section}>
-          <div style={S.sectionLabel}>对局模式</div>
-          <div style={S.modeGrid}>
-            {(['pve_red', 'pvp'] as GameMode[]).map(mode => (
-              <button
-                key={mode}
-                className="apple-btn"
-                style={{ ...S.modeButton, flex: 1 }}
-                onClick={() => handleModeChange(mode)}
-              >
-                <div style={S.modeIcon}>{mode === 'pve_red' ? '◉' : '◎'}</div>
-                <div>{mode === 'pve_red' ? '人机' : '双人'}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 学习模式 */}
-        <div style={S.section}>
-          <div style={S.sectionLabel}>学习模式</div>
-          <button
-            className="apple-btn"
-            style={{ ...S.modeButton, width: '100%' }}
-            onClick={() => handleModeChange('replay')}
+            transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+            style={{
+              transformOrigin: 'center center',
+              width: 'fit-content',
+              zIndex: 10,
+            }}
           >
-            <div style={S.modeIcon}>▣</div>
-            <div>打棋谱</div>
-          </button>
-        </div>
+            <ChessBoard />
+          </motion.div>
 
-        {/* 显示设置 */}
-        {gameMode !== 'replay' && (
-          <div style={S.section}>
-            <div style={S.sectionLabel}>显示设置</div>
-            <div style={S.settingList}>
-              <button
-                className="apple-btn"
-                style={{ ...S.settingButton }}
-                onClick={toggleFlip}
+          <AnimatePresence>
+            {isBoardCollapsed && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ delay: 0.15, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                style={{ ...S.engineAbs, top: engineTop }}
               >
-                <span>↺</span>
-                <span>翻转棋盘</span>
-                <span style={S.toggleIndicator}>{flipped ? '✓' : ''}</span>
-              </button>
-              <button
-                className="apple-btn"
-                style={{ ...S.settingButton }}
-                onClick={toggleShowArrows}
-              >
-                <span>→</span>
-                <span>显示提示</span>
-                <span style={S.toggleIndicator}>{showArrows ? '✓' : ''}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 当前状态 */}
-        <div style={S.section}>
-          <div style={S.sectionLabel}>当前状态</div>
-          <div className="glass-panel-sm" style={S.statusCard}>
-            <div style={S.statusRow}>
-              <span style={S.statusLabel}>回合</span>
-              <span style={{
-                ...S.statusBadge,
-                background: redToMove ? 'rgba(196,30,58,0.75)' : 'rgba(44,62,80,0.75)',
-              }}>
-                {redToMove ? '红方' : '黑方'}
-              </span>
-            </div>
-            <div style={S.statusRow}>
-              <span style={S.statusLabel}>步数</span>
-              <span style={S.statusValue}>{history.length} 步</span>
-            </div>
-            {gameMode === 'replay' && replayState.selectedGame && (
-              <>
-                <div style={S.divider} />
-                <div style={S.replayInfo}>
-                  <div style={S.replayTitle}>{replayState.selectedGame.red} vs {replayState.selectedGame.black}</div>
-                  <div style={S.replayMeta}>{replayState.currentIndex} / {replayState.totalMoves}</div>
-                </div>
-              </>
+                <EngineChart fluid={true} />
+              </motion.div>
             )}
-          </div>
-        </div>
+          </AnimatePresence>
 
-        {/* 走法记录 */}
-        {history.length > 0 && gameMode !== 'replay' && (
-          <div style={S.section}>
-            <div style={S.sectionLabel}>走法记录</div>
-            <div className="glass-panel-sm" style={S.moveList}>
-              {history.map((move, i) => (
-                <span
-                  key={i}
-                  style={{
-                    ...S.moveItem,
-                    background: i % 2 === 0 ? 'rgba(196,30,58,0.12)' : 'rgba(44,62,80,0.1)',
-                    color: i % 2 === 0 ? 'rgba(196,30,58,0.9)' : 'rgba(44,62,80,0.9)',
-                  }}
-                >
-                  {Math.floor(i/2) + 1}{i % 2 === 0 ? '.' : '..'} {move}
-                </span>
-              ))}
+          {gameMode === 'replay' && replayState.selectedGame && (
+            <div style={S.replayNavigator}>
+              <ReplayNavigator />
             </div>
-          </div>
-        )}
-
-        {/* 重置按钮 */}
-        {gameMode !== 'replay' && (
-          <button className="apple-btn-gold" style={S.resetButton} onClick={resetGame}>
-            ↺ 重新开始
-          </button>
-        )}
-      </aside>
-
-      {/* ── 中央棋盘区域 ── */}
-      <main ref={boardAreaRef} style={S.boardArea}>
-        {/* 棋盘 */}
-        <motion.div
-          ref={boardRef}
-          animate={{
-            scale: isBoardCollapsed ? 0.75 : 1,
-            x: isBoardCollapsed ? -120 : 0,
-            y: isBoardCollapsed ? -80 : 0,
-          }}
-          transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-          style={{
-            transformOrigin: 'center center',
-            width: 'fit-content',
-            zIndex: 10,
-          }}
-        >
-          <ChessBoard />
-        </motion.div>
-
-        {/* 引擎图 */}
-        <AnimatePresence>
-          {isBoardCollapsed && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ delay: 0.15, duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              style={{ ...S.engineAbs, top: engineTop }}
-            >
-              <EngineChart fluid={true} />
-            </motion.div>
           )}
-        </AnimatePresence>
+        </main>
 
-        {gameMode === 'replay' && replayState.selectedGame && (
-          <div style={S.replayNavigator}>
-            <ReplayNavigator />
+        {/* ── 右侧分析面板 ── */}
+        <motion.aside
+          className="lg-sidebar liquid-glass-strong lg-sidebar-right"
+          style={S.rightSidebar}
+          layout
+          transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+        >
+          {!isBoardCollapsed && (
+            <div style={S.analysisTrigger}>
+              <button
+                className="apple-btn-gold"
+                style={S.analysisBtn}
+                onClick={triggerDeepAnalysis}
+              >
+                <span style={S.analysisBtnIcon}>◈</span>
+                <span>深度分析</span>
+              </button>
+            </div>
+          )}
+
+          <div style={{ height: '100%', overflow: 'visible' }}>
+            <AgentThinkingPanel />
           </div>
-        )}
-      </main>
-
-      {/* ── 右侧分析面板 ── */}
-      <motion.aside
-        className="lg-sidebar liquid-glass-strong lg-sidebar-right"
-        style={S.rightSidebar}
-        layout
-        transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-      >
-        {/* 顶部：深度分析触发按钮（收起状态时显示） */}
-        {!isBoardCollapsed && (
-          <div style={S.analysisTrigger}>
-            <button
-              className="apple-btn-gold"
-              style={S.analysisBtn}
-              onClick={triggerDeepAnalysis}
-            >
-              <span style={S.analysisBtnIcon}>◈</span>
-              <span>深度分析</span>
-            </button>
-          </div>
-        )}
-
-        {/* 分析栏内部：直接渲染 AgentThinkingPanel */}
-        <div style={{ height: '100%', overflow: 'visible' }}>
-          <AgentThinkingPanel />
-        </div>
-      </motion.aside>
-    </div>
+        </motion.aside>
+      </div>
     </>
   );
 }

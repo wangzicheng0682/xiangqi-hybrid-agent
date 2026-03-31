@@ -109,31 +109,9 @@ body {
   margin: 0;
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
-  /* 墨韵青灯 v3 — 打破数字化平滑，引入材质厚重感 */
-  background:
-
-    /* 层0：极淡纸纹（墨晕感）——低频湍流，模拟水墨在生宣上洇开的纤维感 */
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeGaussianBlur stdDeviation='1.5'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"),
-
-    /* 层1：顶部天光——墨从上方洇下来，有重量感 */
-    radial-gradient(ellipse at 50% 0%, rgba(28,37,65,0.60) 0%, transparent 48%),
-
-    /* 层2：底部沉墨——墨往下沉 */
-    radial-gradient(ellipse at 50% 100%, rgba(5,8,18,0.55) 0%, transparent 42%),
-
-    /* 层3：左侧铜金暖光——棋盘区被灯照亮，呼应棋盘在屏幕中部的重心 */
-    radial-gradient(ellipse at 20% 55%, rgba(184,115,51,0.18) 0%, transparent 50%),
-
-    /* 层4：右侧青金冷光——AI区，暗示传统艺术与算力的碰撞 */
-    radial-gradient(ellipse at 80% 40%, rgba(91,192,190,0.15) 0%, transparent 45%),
-
-    /* 层5：中央墨浓度微波动——手工研墨不均匀感，打破"代码生成"的完美感 */
-    radial-gradient(ellipse at 45% 50%, rgba(27,37,65,0.12) 0%, transparent 55%),
-
-    /* 层6：底色——深墨蓝 */
-    #0B132B;
-
-  background-attachment: fixed;
+  /* Phase 1: 暂时禁用背景，让 WebGL canvas 可见 */
+  /* background: ... */
+  background: #000;
   color: var(--apple-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -178,6 +156,20 @@ body {
     inset 1px 0 2px rgba(255, 255, 255, 0.25),
     /* 内层：底部暗边 */
     inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+
+/* Phase 1: 左侧栏交给 WebGL 渲染，禁用 CSS backdrop-filter */
+.lg-sidebar-webgl {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+.lg-sidebar-webgl::before {
+  display: none !important;
+}
+.lg-sidebar-webgl::after {
+  display: none !important;
 }
 
 /* iOS 26 彩虹渐变边框 - 水珠折射感 */
