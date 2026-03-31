@@ -19,7 +19,7 @@
 | 新组件 | 100% | ✅ 完成 | SynthesisPanel, ExpertCard, AgentDebutPanel, BottomTerminalPanel |
 | Agent扑克牌 | 100% | ✅ 完成 | AgentCardFlip.tsx - 呼吸光晕 + 立体浮雕 + 纯净液态玻璃 |
 | 左侧栏 DOM 清理 | 100% | ✅ 完成 | 删除冗余 aside，WebGL canvas 全屏穿透 |
-| WebGL 液态玻璃 UI 层 | 20% | 🔄 进行中 | Phase 1 完成（左侧栏接管），Phase 2 进行中 |
+| WebGL 液态玻璃 UI 层 | 40% | 🔄 进行中 | Phase 1 完成（左右栏均接管），Phase 2 进行中 |
 
 ---
 

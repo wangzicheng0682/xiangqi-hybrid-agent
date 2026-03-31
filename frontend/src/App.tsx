@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from './store/useGameStore';
 import { useAgentStore } from './store/useAgentStore';
@@ -39,17 +39,40 @@ export default function App() {
     return () => ro.disconnect();
   }, [isBoardCollapsed]);
 
-  // 深度分析触发（独立功能，任何模式下都可用）
+  // 右侧栏 ref + 尺寸监听（WebGL shape3 同步）
+  const rightSidebarRef = useRef<HTMLElement>(null);
+  const [rightSidebarRect, setRightSidebarRect] = useState({ x: 0, y: 0, width: 0, height: 0 });
+
+  // 首次渲染前立即读取真实尺寸，避免第一帧 rect 为 0
+  useLayoutEffect(() => {
+    const el = rightSidebarRef.current;
+    if (el) setRightSidebarRect(el.getBoundingClientRect());
+  }, []);
+
+  useEffect(() => {
+    const el = rightSidebarRef.current;
+    if (!el) return;
+    const update = () => setRightSidebarRect(el.getBoundingClientRect());
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // 深度分析触发（移到 LiquidGlassApp 的 WebGL 按钮）
   const triggerDeepAnalysis = () => {
     setPanelActive(true);
     setAnalyzing(true);
-    toggleBoardCollapsed(); // 触发棋盘收缩 + 右侧栏扩张
+    toggleBoardCollapsed();
   };
 
   return (
     <>
       {/* z=0: WebGL 背景层 */}
-      <LiquidGlassApp bgImage="/bg.jpg" />
+      <LiquidGlassApp
+        bgImage="/bg.jpg"
+        rightSidebarRect={rightSidebarRect}
+        onDeepAnalysis={triggerDeepAnalysis}
+      />
 
       {/* z=1: DOM 层 — 棋盘和扑克牌 */}
       <div
@@ -108,26 +131,11 @@ export default function App() {
           )}
         </main>
 
-        {/* ── 右侧分析面板 ── */}
+        {/* ── 右侧透明占位（供 WebGL shape3 定位）── */}
         <motion.aside
-          className="lg-sidebar liquid-glass-strong lg-sidebar-right"
-          style={{ ...S.rightSidebar, gridColumn: 3 }}
-          layout
-          transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+          ref={rightSidebarRef}
+          style={{ ...S.rightSidebar, gridColumn: 3, background: 'transparent', boxShadow: 'none', borderRadius: 28 }}
         >
-          {!isBoardCollapsed && (
-            <div style={S.analysisTrigger}>
-              <button
-                className="apple-btn-gold"
-                style={S.analysisBtn}
-                onClick={triggerDeepAnalysis}
-              >
-                <span style={S.analysisBtnIcon}>◈</span>
-                <span>深度分析</span>
-              </button>
-            </div>
-          )}
-
           <div style={{ height: '100%', overflow: 'visible' }}>
             <AgentThinkingPanel />
           </div>

@@ -9,8 +9,9 @@
  * Shader 逻辑、渲染管线、uniform 名字：零改动
  */
 
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react';
-import { useControls, levaStore } from 'leva';
+import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useGameStore } from '../store/useGameStore';
+import { useControls } from 'leva';
 import {
   MultiPassRenderer,
   loadTextureFromURL,
@@ -94,6 +95,8 @@ const DEFAULT_CONTROLS: Controls = {
 };
 export interface LiquidGlassAppProps {
   bgImage?: string;
+  rightSidebarRect?: { x: number; y: number; width: number; height: number };
+  onDeepAnalysis?: () => void;
 }
 
 // ============================================
@@ -101,12 +104,21 @@ export interface LiquidGlassAppProps {
 // ============================================
 const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
   bgImage = '/bg.jpg',
+  rightSidebarRect,
+  onDeepAnalysis,
 }) => {
+  const { isBoardCollapsed } = useGameStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<MultiPassRenderer | null>(null);
+  // 始终保持最新 rect，RAF 用这个 ref 而不是闭包捕获的值
+  const rightSidebarRectRef = useRef(rightSidebarRect);
+  rightSidebarRectRef.current = rightSidebarRect;
   const rafRef = useRef<number>(0);
-  const [presetLoading, setPresetLoading] = useState(false);
-  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  // 当 isBoardCollapsed 变化时，更新 WebGL shape3 目标宽度
+  useEffect(() => {
+    stateRef.current.shape3WidthTarget = isBoardCollapsed ? 620 : 260;
+  }, [isBoardCollapsed]);
+
   const stateRef = useRef<{
     canvasInfo: { width: number; height: number; dpr: number };
     blurWeights: number[];
@@ -118,6 +130,9 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
     bgTexture: WebGLTexture | null;
     bgTextureRatio: number;
     bgTextureReady: boolean;
+    // WebGL 独立控制的 shape3 宽度（动画中）
+    shape3Width: number;
+    shape3WidthTarget: number;
   }>({
     canvasInfo: { width: window.innerWidth, height: window.innerHeight, dpr: window.devicePixelRatio || 1 },
     blurWeights: [],
@@ -129,6 +144,8 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
     bgTexture: null,
     bgTextureRatio: 1,
     bgTextureReady: false,
+    shape3Width: 260,
+    shape3WidthTarget: 260,
   });
 
   // Leva 实时参数调控 — useControls 返回稳定引用，直接在 RAF 中使用
@@ -160,105 +177,6 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
     shapePosX: { value: DEFAULT_CONTROLS.shapePosX, min: 0, max: 800, step: 1 },
     shapePosY: { value: DEFAULT_CONTROLS.shapePosY, min: 0, max: 1200, step: 1 },
   });
-
-  // 启动时从 /presets/default.json 读取默认参数
-  useEffect(() => {
-    setPresetLoading(true);
-    fetch('/presets/default.json')
-      .then(r => r.json())
-      .then(preset => {
-        const p = preset.params;
-        // Leva 内部用 '.' 做路径分隔符，如 '液态玻璃参数.shapeWidth'
-        const prefix = '液态玻璃参数';
-        const overrides: [string, unknown][] = [
-          [`${prefix}.shapeWidth`, p.shapeWidth],
-          [`${prefix}.shapeHeight`, p.shapeHeight ?? 800],
-          [`${prefix}.shapeRadius`, p.shapeRadius],
-          [`${prefix}.shapeRoundness`, p.shapeRoundness],
-          [`${prefix}.mergeRate`, p.mergeRate],
-          [`${prefix}.blurRadius`, p.blurRadius],
-          [`${prefix}.refThickness`, p.refThickness],
-          [`${prefix}.refFactor`, p.refFactor],
-          [`${prefix}.refDispersion`, p.refDispersion],
-          [`${prefix}.refFresnelRange`, p.refFresnelRange],
-          [`${prefix}.refFresnelHardness`, p.refFresnelHardness],
-          [`${prefix}.refFresnelFactor`, p.refFresnelFactor],
-          [`${prefix}.glareRange`, p.glareRange],
-          [`${prefix}.glareFactor`, p.glareFactor],
-          [`${prefix}.glareAngle`, p.glareAngle],
-          [`${prefix}.glareHardness`, p.glareHardness],
-          [`${prefix}.glareConvergence`, p.glareConvergence],
-          [`${prefix}.glareOppositeFactor`, p.glareOppositeFactor],
-          [`${prefix}.shadowExpand`, p.shadowExpand],
-          [`${prefix}.shadowFactor`, p.shadowFactor],
-          [`${prefix}.blurEdge`, !!p.blurEdge],
-          [`${prefix}.step`, 9],
-          [`${prefix}.springSizeFactor`, 0],
-          [`${prefix}.shapePosX`, p.shapePosX ?? 110],
-          [`${prefix}.shapePosY`, p.shapePosY ?? 450],
-        ];
-        overrides.forEach(([k, v]) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          try { (levaStore as any).setValueAtPath(k, v, 0); } catch (e) { console.warn('setValueAtPath failed:', k, e); }
-        });
-      })
-      .catch(() => { /* 用 DEFAULT_CONTROLS */ })
-      .finally(() => setPresetLoading(false));
-  }, []);
-
-  // 保存当前参数到 default.json
-  const handleSavePreset = useCallback(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const allData = (levaStore as any).getData() as Record<string, { value: unknown }>;
-    if (!allData) { setSaveMsg('❌ 读取失败'); setTimeout(() => setSaveMsg(null), 3000); return; }
-    // 提取所有 '液态玻璃参数.' 开头的路径值
-    const values: Record<string, unknown> = {};
-    const prefix = '液态玻璃参数.';
-    Object.entries(allData).forEach(([k, v]) => {
-      if (k.startsWith(prefix)) values[k.slice(prefix.length)] = v.value;
-    });
-    const preset = {
-      name: 'default',
-      component: 'liquid-glass',
-      params: {
-        shapeWidth: values.shapeWidth,
-        shapeHeight: values.shapeHeight,
-        shapeRadius: values.shapeRadius,
-        shapeRoundness: values.shapeRoundness,
-        mergeRate: values.mergeRate,
-        blurRadius: values.blurRadius,
-        refThickness: values.refThickness,
-        refFactor: values.refFactor,
-        refDispersion: values.refDispersion,
-        refFresnelRange: values.refFresnelRange,
-        refFresnelHardness: values.refFresnelHardness,
-        refFresnelFactor: values.refFresnelFactor,
-        glareRange: values.glareRange,
-        glareFactor: values.glareFactor,
-        glareAngle: values.glareAngle,
-        glareHardness: values.glareHardness,
-        glareConvergence: values.glareConvergence,
-        glareOppositeFactor: values.glareOppositeFactor,
-        shadowExpand: values.shadowExpand,
-        shadowFactor: values.shadowFactor,
-        blurEdge: values.blurEdge,
-        shapePosX: values.shapePosX,
-        shapePosY: values.shapePosY,
-      },
-    };
-    try {
-      const res = await fetch('http://localhost:8002/api/glass-preset/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(preset),
-      });
-      const result = await res.json();
-      setSaveMsg(result.success ? '✅ 已保存' : '❌ 保存失败');
-    } catch {
-      setSaveMsg('❌ 保存失败');
-    }
-    setTimeout(() => setSaveMsg(null), 3000);
-  }, []);
 
   // Init canvas size
   useLayoutEffect(() => {
@@ -393,6 +311,12 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
         renderer.setUniform('u_resolution', [canvas.width, canvas.height]);
       }
 
+      // Spring 动画：shape3 宽度向目标值逼近
+      const stiffness = 280, damping = 24;
+      const wDiff = stateRef.current.shape3WidthTarget - stateRef.current.shape3Width;
+      stateRef.current.shape3Width += wDiff * (stiffness / 1000) * (damping / 100);
+      if (Math.abs(wDiff) < 0.1) stateRef.current.shape3Width = stateRef.current.shape3WidthTarget;
+
       // Clear
       const gl = renderer.getGL();
       gl.clearColor(0, 0, 0, 0);
@@ -419,6 +343,21 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
         u_mergeRate: ctrls.mergeRate,
         u_glareAngle: (ctrls.glareAngle * Math.PI) / 180,
         u_showShape1: ctrls.showShape1 ? 1 : 0,
+        // shape3 (右侧栏)：宽度完全由 WebGL 独立控制，不再依赖 DOM
+        u_shape3PosX: rightSidebarRectRef.current ? (rightSidebarRectRef.current.x + rightSidebarRectRef.current.width / 2) * ci.dpr : 0,
+        u_shape3PosY: rightSidebarRectRef.current ? (ci.height - rightSidebarRectRef.current.y - rightSidebarRectRef.current.height / 2) * ci.dpr : 0,
+        u_shape3Width: rightSidebarRectRef.current ? rightSidebarRectRef.current.width : 0,
+        u_shape3Height: rightSidebarRectRef.current ? rightSidebarRectRef.current.height : 0,
+        u_shape3Radius: 28 / ci.dpr,
+        u_shape3Roundness: ctrls.shapeRoundness,
+        u_showShape3: rightSidebarRectRef.current && rightSidebarRectRef.current.width > 0 ? 1 : 0,
+      });
+
+      // DEBUG: 输出 shape3 独立宽度信息
+      console.log('[shape3 DEBUG]', {
+        dom_width: rightSidebarRectRef.current?.width,
+        webgl_width: stateRef.current.shape3Width,
+        target: stateRef.current.shape3WidthTarget,
       });
 
       renderer.render({
@@ -430,6 +369,14 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
           u_shadowExpand: ctrls.shadowExpand,
           u_shadowFactor: ctrls.shadowFactor / 100,
           u_shadowPosition: [DEFAULT_CONTROLS.shadowPosition.x, DEFAULT_CONTROLS.shadowPosition.y],
+          // shape3 (阴影用)
+          u_showShape3: rightSidebarRectRef.current && rightSidebarRectRef.current.width > 0 ? 1 : 0,
+          u_shape3PosX: rightSidebarRectRef.current ? (rightSidebarRectRef.current.x + rightSidebarRectRef.current.width / 2) * ci.dpr : 0,
+          u_shape3PosY: rightSidebarRectRef.current ? (ci.height - rightSidebarRectRef.current.y - rightSidebarRectRef.current.height / 2) * ci.dpr : 0,
+          u_shape3Width: rightSidebarRectRef.current ? rightSidebarRectRef.current.width : 0,
+          u_shape3Height: rightSidebarRectRef.current ? rightSidebarRectRef.current.height : 0,
+          u_shape3Radius: 28 / ci.dpr,
+          u_shape3Roundness: ctrls.shapeRoundness,
         },
         mainPass: {
           u_tint: [
@@ -474,7 +421,7 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
           display: 'block',
         }}
       />
-      {/* 保存按钮 */}
+      {/* 深度分析按钮 */}
       <div style={{
         position: 'fixed',
         top: 12,
@@ -486,32 +433,32 @@ const LiquidGlassApp: React.FC<LiquidGlassAppProps> = ({
         gap: 8,
       }}>
         <button
-          onClick={handleSavePreset}
-          disabled={presetLoading}
+          onClick={onDeepAnalysis}
           style={{
-            padding: '8px 16px',
-            background: '#1a1a2e',
-            color: '#fff',
-            border: '1px solid #4a4a6a',
-            borderRadius: 6,
+            padding: '8px 18px',
+            background: 'linear-gradient(180deg, rgba(255,210,120,0.20) 0%, rgba(212,160,48,0.14) 50%, rgba(184,115,51,0.08) 100%)',
+            backdropFilter: 'blur(20px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+            border: 'none',
+            borderRadius: 9999,
+            color: '#e8c56a',
             cursor: 'pointer',
             fontSize: 13,
-            opacity: presetLoading ? 0.5 : 1,
+            fontWeight: 600,
+            boxShadow: `
+              0 0 0 0.8px rgba(255,200,100,0.40),
+              0 0 6px 1px rgba(255,180,80,0.35),
+              0 0 14px 3px rgba(255,160,60,0.20),
+              0 0 24px 5px rgba(255,140,40,0.10),
+              0 4px 16px rgba(184,115,51,0.20),
+              inset 0 1.5px 0 rgba(255,230,170,0.70),
+              inset 0 3px 6px rgba(255,210,140,0.18),
+              inset 0 -1px 0 rgba(140,80,30,0.20)
+            `,
           }}
         >
-          {presetLoading ? '加载中…' : '💾 保存为默认'}
+          ◈ 深度分析
         </button>
-        {saveMsg && (
-          <span style={{
-            color: saveMsg.includes('✅') ? '#4ade80' : '#f87171',
-            fontSize: 12,
-            background: 'rgba(0,0,0,0.7)',
-            padding: '4px 10px',
-            borderRadius: 4,
-          }}>
-            {saveMsg}
-          </span>
-        )}
       </div>
     </>
   );

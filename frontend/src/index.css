@@ -138,7 +138,6 @@ body {
   -webkit-backdrop-filter: blur(48px) saturate(200%);
   border: none;
   border-radius: 28px;
-  overflow: hidden;
   transition: background 0.3s ease, box-shadow 0.3s ease;
 
   /* iOS 26 液态玻璃：彩虹边缘折射 + 湿润光晕 */
@@ -160,25 +159,7 @@ body {
 
 /* iOS 26 彩虹渐变边框 - 水珠折射感 */
 .lg-sidebar::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.70) 0%,
-    rgba(200, 220, 255, 0.50) 20%,
-    rgba(220, 200, 255, 0.40) 40%,
-    rgba(255, 200, 220, 0.35) 60%,
-    rgba(200, 255, 240, 0.40) 80%,
-    rgba(255, 255, 255, 0.60) 100%
-  );
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
+  display: none;
 }
 
 /* 侧边栏悬浮态 */
@@ -191,13 +172,13 @@ body {
   background: rgba(255, 255, 255, 0.22);
 }
 
-/* 右侧栏专属：青金冷调 + 右边微暗 */
+/* 右侧栏专属：青金冷调 + 右边微暗（去掉 backdrop-filter，让 WebGL 透出） */
 .lg-sidebar-right {
-  border-right: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow:
-    inset 0  1px 0 rgba(91, 192, 190, 0.18),
-    inset -1px 0 0 rgba(91, 192, 190, 0.06),
-    0 20px 60px rgba(0, 0, 0, 0.40);
+  /* 双重保险：同时禁用标准和 webkit 前缀版本 */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  /* 去掉 rgba 背景，让 WebGL 完全透出 */
+  background: transparent !important;
 }
 
 /* ── 核心材质：Liquid Glass 毛玻璃面板（iOS 26 液态玻璃）── */
