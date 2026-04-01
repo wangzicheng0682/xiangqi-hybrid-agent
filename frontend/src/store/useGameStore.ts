@@ -32,6 +32,20 @@ interface ReplayState {
   isLoadingGames: boolean;
 }
 
+interface EnginePanelState {
+  fen: string;
+  bestmove: string;
+  score: number;
+  depth: number;
+  pv: string[];
+  turn: string;
+  legalMoveCount: number;
+  isCheck: boolean;
+  isCheckmate: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+
 interface GameState {
   board: string[][];
   fen: string;
@@ -54,6 +68,7 @@ interface GameState {
   highlightedPieces: { row: number; col: number; type: 'attack' | 'target' | 'defense' }[];
   connectionLines: { from: { row: number; col: number }; to: { row: number; col: number }; type: 'attack' | 'defense' | 'pin' }[];
   evalHistory: EvalPoint[];
+  enginePanel: EnginePanelState;
 
   selectPiece: (row: number, col: number) => Promise<void>;
   movePiece: (toRow: number, toCol: number) => Promise<void>;
@@ -69,6 +84,7 @@ interface GameState {
   clearHighlights: () => void;
   addEvalPoint: (point: EvalPoint) => void;
   clearEvalHistory: () => void;
+  refreshEngineEvaluation: (fen?: string) => Promise<void>;
 
   searchGames: (player?: string, event?: string) => Promise<void>;
   loadGameFromNeo4j: (gameId: number) => Promise<void>;
@@ -111,6 +127,19 @@ export const useGameStore = create<GameState>((set, get) => ({
   highlightedPieces: [],
   connectionLines: [],
   evalHistory: [],
+  enginePanel: {
+    fen: '',
+    bestmove: '',
+    score: 0,
+    depth: 0,
+    pv: [],
+    turn: 'red',
+    legalMoveCount: 0,
+    isCheck: false,
+    isCheckmate: false,
+    isLoading: false,
+    error: null,
+  },
 
   setHighlightedPieces: (pieces) => {
     set({ highlightedPieces: pieces });
@@ -130,6 +159,73 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   clearEvalHistory: () => {
     set({ evalHistory: [] });
+  },
+
+  refreshEngineEvaluation: async (fenOverride?: string) => {
+    const targetFen = fenOverride || get().fen;
+    if (!targetFen) return;
+    const { board, redToMove } = get();
+
+    set(state => ({
+      enginePanel: {
+        ...state.enginePanel,
+        isLoading: true,
+        error: null,
+      }
+    }));
+
+    try {
+      const result = await api.getEngineEvaluation(targetFen, board, redToMove);
+      if (get().fen !== targetFen) {
+        return;
+      }
+
+      const cp = Math.round(result.score * 100);
+      const nextPoint: EvalPoint = {
+        cp,
+        depth: result.depth,
+        move: result.bestmove,
+      };
+
+      set(state => {
+        const lastPoint = state.evalHistory[state.evalHistory.length - 1];
+        const nextHistory =
+          state.enginePanel.fen === targetFen ||
+          (lastPoint && lastPoint.cp === nextPoint.cp && lastPoint.depth === nextPoint.depth && lastPoint.move === nextPoint.move)
+            ? state.evalHistory
+            : [...state.evalHistory, nextPoint].slice(-24);
+
+        return {
+          evalHistory: nextHistory,
+          enginePanel: {
+            fen: targetFen,
+            bestmove: result.bestmove,
+            score: result.score,
+            depth: result.depth,
+            pv: result.pv,
+            turn: result.turn,
+            legalMoveCount: result.legalMoveCount,
+            isCheck: result.isCheck,
+            isCheckmate: result.isCheckmate,
+            isLoading: false,
+            error: null,
+          }
+        };
+      });
+    } catch (e: any) {
+      if (get().fen !== targetFen) {
+        return;
+      }
+
+      set(state => ({
+        enginePanel: {
+          ...state.enginePanel,
+          fen: targetFen,
+          isLoading: false,
+          error: e?.response?.data?.detail || e?.message || '引擎评估失败',
+        }
+      }));
+    }
   },
 
   toggleFlip: () => {
@@ -336,7 +432,21 @@ export const useGameStore = create<GameState>((set, get) => ({
       redToMove: true,
       error: null,
       lastMove: null,
-      bestMoves: null
+      bestMoves: null,
+      evalHistory: [],
+      enginePanel: {
+        ...get().enginePanel,
+        fen: '',
+        bestmove: '',
+        score: 0,
+        depth: 0,
+        pv: [],
+        legalMoveCount: 0,
+        isCheck: false,
+        isCheckmate: false,
+        isLoading: false,
+        error: null,
+      }
     });
     
     if (get().showArrows) {
@@ -372,6 +482,20 @@ export const useGameStore = create<GameState>((set, get) => ({
         selectedPos: null,
         legalMoves: [],
         lastMove: null,
+        evalHistory: [],
+        enginePanel: {
+          ...get().enginePanel,
+          fen: '',
+          bestmove: '',
+          score: 0,
+          depth: 0,
+          pv: [],
+          legalMoveCount: 0,
+          isCheck: false,
+          isCheckmate: false,
+          isLoading: false,
+          error: null,
+        },
         isLoading: false,
         replayState: {
           ...get().replayState,
@@ -502,6 +626,20 @@ export const useGameStore = create<GameState>((set, get) => ({
       selectedPos: null,
       legalMoves: [],
       lastMove: null,
+        evalHistory: [],
+        enginePanel: {
+          ...get().enginePanel,
+          fen: '',
+          bestmove: '',
+          score: 0,
+          depth: 0,
+          pv: [],
+          legalMoveCount: 0,
+          isCheck: false,
+          isCheckmate: false,
+          isLoading: false,
+          error: null,
+        },
       replayState: {
         games: [],
         selectedGame: null,

@@ -1,0 +1,40 @@
+=== 最终结果 ===
+
+
+=== 事件记录 ===
+{'type': 'expert_start', 'msg': '{"expert": "tactics"}'}
+{'type': 'tactics_thinking', 'msg': '[战术专家] 第1轮分析...'}
+{'type': 'expert_start', 'msg': '{"expert": "strategy"}'}
+{'type': 'strategy_thinking', 'msg': '[战略专家] 第1轮分析...'}
+{'type': 'expert_start', 'msg': '{"expert": "engine"}'}
+{'type': 'engine_thinking', 'msg': '[引擎专家] 第1轮分析...'}
+{'type': 'expert_result', 'msg': '{"expert": "tactics", "finding": "分析失败", "details": "API错误: 429", "success": false}'}
+{'type': 'engine_chunk', 'msg': '我来分析这个开局局面。首先让我调用引擎获取评估数据。'}
+{'type': 'headline', 'msg': '引擎专家正在验证局面评分…'}
+{'type': 'engine_tool', 'msg': '调用工具: engine_deep_analysis'}
+{'type': 'engine_tool_result', 'msg': 'engine_deep_analysis: 引擎分析: 均势 (8分)'}
+{'type': 'headline', 'msg': '引擎专家正在验证候选走法…'}
+{'type': 'engine_tool', 'msg': '调用工具: engine_alternatives'}
+{'type': 'engine_tool_result', 'msg': 'engine_alternatives: 获取1个候选走法'}
+{'type': 'engine_thinking', 'msg': '[引擎专家] 第2轮分析...'}
+{'type': 'strategy_chunk', 'msg': '我初步判断这是一个**开局阶段**的局面，双方子力完整，仅挺起兵卒，战略态势均衡对称。\n\n让我调用工具进行深入分析：'}
+{'type': 'headline', 'msg': '战略专家正在验证战略分析…'}
+{'type': 'strategy_tool', 'msg': '调用工具: analyze_position_strategy'}
+{'type': 'strategy_tool_result', 'msg': 'analyze_position_strategy: 战略分析: 开局，均势握有主动权'}
+{'type': 'strategy_thinking', 'msg': '[战略专家] 第2轮分析...'}
+{'type': 'headline', 'msg': '引擎专家正在验证走法对比…'}
+{'type': 'engine_tool', 'msg': '调用工具: compare_moves'}
+{'type': 'engine_tool_result', 'msg': 'compare_moves: 对比4步棋，最佳: b0c2'}
+{'type': 'engine_thinking', 'msg': '[引擎专家] 第3轮分析...'}
+{'type': 'strategy_chunk', 'msg': '【战略评估】开局阶段双方势均力敌，子力完整对称，战略主动权尚未确立。\n\n【双方计划】\n\n**红方计划（先行之利）**：\n- 出动双马：马二进三、马八进七，抢占中心要点\n- 炮阵选择：保持炮二平五或炮八'}
+{'type': 'headline', 'msg': '战略专家：【战略评估】开局阶段双方势均力敌，子力完整对称，战…'}
+{'type': 'expert_result', 'msg': '{"expert": "strategy", "finding": "【战略评估】开局阶段双方势均力敌，子力完整对称，战略主动权尚未确立。\\n\\n【双方计划】\\n\\n**红方计划（先行之利）**：\\n'}
+{'type': 'engine_chunk', 'msg': '让我再深入验证一下引擎推荐的走法逻辑：'}
+{'type': 'headline', 'msg': '引擎专家正在验证走法效果…'}
+{'type': 'engine_tool', 'msg': '调用工具: analyze_move'}
+{'type': 'engine_tool_result', 'msg': 'analyze_move: 红兵(7,4)→(7,5): good - 仙人指路试探虚实，灵活多变，保护己方棋子'}
+{'type': 'headline', 'msg': '引擎专家正在验证走法效果…'}
+{'type': 'engine_tool', 'msg': '调用工具: analyze_move'}
+{'type': 'engine_tool_result', 'msg': 'analyze_move: 红马(2,1)→(3,3): excellent - 屏风马巩固防守，准备反击，保护己方棋子，逃脱威胁'}
+{'type': 'headline', 'msg': '引擎专家：【引擎解读】开局第4回合，双方阵型对称，引擎评估8…'}
+{'type': 'expert_result', 'msg': '{"expert": "engine", "finding": "【引擎解读】开局第4回合，双方阵型对称，引擎评估8cp，典型的均势开局局面。\\n\\n【候选分析】\\n- **第一候选**：兵七进一（g'}

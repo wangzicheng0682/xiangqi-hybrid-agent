@@ -82,6 +82,156 @@ const getCenter = (el: HTMLElement | null): Offset => {
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 };
 
+const EXPERT_LABELS: Record<ExpertType, string> = {
+  tactics: '战术专家',
+  strategy: '战略专家',
+  engine: '引擎专家',
+};
+
+const useNaturalReveal = (text: string, enabled: boolean) => {
+  const [displayed, setDisplayed] = useState('');
+
+  useEffect(() => {
+    if (!text) {
+      setDisplayed('');
+      return;
+    }
+    if (!enabled) {
+      setDisplayed(text);
+      return;
+    }
+
+    let cancelled = false;
+    let timer: number | undefined;
+    let index = 0;
+
+    const tick = () => {
+      if (cancelled) return;
+      index += 1;
+      setDisplayed(text.slice(0, index));
+      if (index >= text.length) return;
+
+      const char = text[index - 1];
+      let delay = 14 + Math.random() * 18;
+      if ('，,；;：:'.includes(char)) delay += 65;
+      if ('。！？!?\n'.includes(char)) delay += 160;
+      timer = window.setTimeout(tick, delay);
+    };
+
+    timer = window.setTimeout(tick, 80);
+    return () => {
+      cancelled = true;
+      if (timer) window.clearTimeout(timer);
+    };
+  }, [text, enabled]);
+
+  return displayed;
+};
+
+const ExpertHoverStream: React.FC<{ text: string; animate: boolean; color: string }> = ({ text, animate, color }) => {
+  const displayed = useNaturalReveal(text, animate);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    }
+  }, [displayed]);
+
+  return (
+    <div style={{ position: 'relative', minHeight: 160, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+      <div
+        ref={scrollRef}
+        style={{
+          maxHeight: 220,
+          overflowY: 'auto',
+          padding: '12px 12px 18px',
+          fontSize: 12,
+          color: 'rgba(255,255,255,0.86)',
+          fontFamily: '"Noto Serif SC", serif',
+          lineHeight: 1.75,
+          whiteSpace: 'pre-wrap',
+          maskImage: 'linear-gradient(to bottom, transparent 0, black 16px, black calc(100% - 28px), transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 16px, black calc(100% - 28px), transparent 100%)',
+        }}
+      >
+        {displayed}
+        <motion.span
+          animate={{ opacity: [1, 0] }}
+          transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+          style={{ display: 'inline-block', width: 1.5, height: 12, background: color, marginLeft: 1, verticalAlign: 'middle' }}
+        />
+      </div>
+      <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 46, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(30,25,35,0) 0%, rgba(30,25,35,0.78) 65%, rgba(30,25,35,0.94) 100%)' }} />
+    </div>
+  );
+};
+
+const ExpertActivityPanel: React.FC<{ expert: ExpertType }> = ({ expert }) => {
+  const expertState = useAgentStore((state) => state.experts[expert]);
+  const visibleSteps = expertState.steps.slice(-3);
+  const activeStep = [...visibleSteps].reverse().find((step) => step.status === 'thinking');
+
+  return (
+    <div
+      style={{
+        width: 164,
+        minHeight: 72,
+        borderRadius: 12,
+        border: `1px solid rgba(255,255,255,0.08)`,
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
+        padding: '8px 10px',
+      }}
+    >
+      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', marginBottom: 6, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+        {EXPERT_LABELS[expert]}
+      </div>
+
+      {visibleSteps.length === 0 ? (
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.32)', lineHeight: 1.5 }}>
+          {expertState.status === 'thinking'
+            ? (expertState.thinkingContent
+              ? <span style={{ color: 'rgba(255,255,255,0.55)' }}>{expertState.thinkingContent.slice(-60)}</span>
+              : '建立分析路径...')
+            : expertState.status === 'completed' && expertState.finding
+              ? <span style={{ color: 'rgba(255,255,255,0.55)' }}>{expertState.finding.slice(0, 50)}</span>
+              : '等待任务...'}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+          {visibleSteps.map((step) => {
+            const isActive = step.status === 'thinking';
+            return (
+              <div key={`${expert}-${step.index}`}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ color: isActive ? '#fbbf24' : '#86efac', fontWeight: 700, fontSize: 11 }}>
+                    {isActive ? '⟳' : '✓'}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', lineHeight: 1.35 }}>
+                    {step.title}
+                  </span>
+                </div>
+                {isActive && step.content ? (
+                  <div style={{ marginTop: 3, paddingLeft: 16, fontSize: 10, color: 'rgba(255,255,255,0.52)', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
+                    {step.content}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {!activeStep && expertState.subtitle ? (
+        <div style={{ marginTop: 6, fontSize: 10, color: 'rgba(255,255,255,0.38)', lineHeight: 1.4 }}>
+          {expertState.subtitle}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
 // ============================================================
 // ExpertGlassPanel
 // ============================================================
@@ -93,6 +243,11 @@ export const ExpertGlassPanelFlip: React.FC<{ expert: ExpertType; cardRect: DOMR
     engine: { rank: 'Q', suit: '♦', color: '#2563eb', glowColor: 'rgba(37,99,235,0.35)', gradientFrom: 'rgba(180,210,255,0.18)', gradientTo: 'rgba(37,99,235,0.08)', badge: '📊', name: '引擎专家', tagline: '深度分析 · 候选走法', abilities: ['搜索最佳候选走法', '计算精确局面评估分', '提供多步深度分析', '量化优劣与胜率预估'] },
   } as const;
   const exp = d[expert];
+  const expertState = useAgentStore((state) => state.experts[expert]);
+  const hoverText = expertState.status === 'completed'
+    ? (expertState.finding || '该专家已完成分析，但还没有结论文本。')
+    : (expertState.thinkingContent || '正在组织分析路径...');
+  const hoverLabel = expertState.status === 'completed' ? '最终结论' : '实时思考';
   const content = (
     <motion.div
       initial={{ opacity: 0, x: -16, scale: 0.95 }}
@@ -112,12 +267,11 @@ export const ExpertGlassPanelFlip: React.FC<{ expert: ExpertType; cardRect: DOMR
         </div>
       </div>
       <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${exp.color}35, transparent)`, marginBottom: 10 }} />
-      {exp.abilities.map((ability) => (
-        <div key={ability} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: 'rgba(255,255,255,0.85)', fontFamily: '"Noto Serif SC", serif', lineHeight: 1.6, marginBottom: 5 }}>
-          <span style={{ color: exp.color, fontWeight: 700, flexShrink: 0, marginTop: 2 }}>▸</span>
-          <span>{ability}</span>
-        </div>
-      ))}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.48)', letterSpacing: '0.08em' }}>{hoverLabel}</div>
+        <div style={{ fontSize: 11, color: exp.color }}>{expertState.status === 'completed' ? '已收束' : '流式更新'}</div>
+      </div>
+      <ExpertHoverStream text={hoverText} animate={expertState.status !== 'completed'} color={exp.color} />
     </motion.div>
   );
   return createPortal(content, document.body);
@@ -449,36 +603,38 @@ const SplitLayout: React.FC<{
       initial={false}
       animate={{ opacity: isActive ? 1 : 0 }}
       transition={{ duration: 0.2 }}
-      style={{ position: 'absolute', inset: 0, display: 'flex', gap: 0, pointerEvents: isActive ? 'auto' : 'none' }}
+      style={{ position: 'absolute', inset: 0, display: 'flex', gap: 0, pointerEvents: isActive ? 'auto' : 'none', padding: '12px 14px 14px' }}
     >
           {/* 左侧：三专家扑克牌 */}
-          <div style={{ width: '45%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0' }}>
+          <div style={{ width: '40%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0 8px 2px' }}>
             <div ref={cardsFinalRef} style={{ display: 'flex', flexDirection: 'column', gap: CARD_GAP, justifyContent: 'center', alignItems: 'center' }}>
               {EXPERT_TYPES.map((type, i) => (
-                <motion.div
-                  key={type}
-                  data-card={isSettled ? type : undefined}
-                  data-final-card={type}
-                  onMouseEnter={() => onHoverStart(type)}
-                  onMouseLeave={onHoverEnd}
-                  initial={false}
-                  animate={{
-                    x: shouldAnimate ? 0 : (cardsInitialOffset[i]?.x ?? 0),
-                    y: shouldAnimate ? 0 : (cardsInitialOffset[i]?.y ?? 0),
-                    scale: shouldAnimate ? 1 : 0.88,
-                    rotate: shouldAnimate ? 0 : 0,
-                    opacity: shouldAnimate ? 1 : 0,
-                  }}
-                  transition={{
-                    duration: 0.65,
-                    delay: i * 0.12,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                  whileHover={{ scale: 1.08 }}
-                  style={{ width: CARD_W, height: CARD_H, cursor: 'default', position: 'relative' }}
-                >
-                  <CardVisual type={type} isHovered={hovered === type} />
-                </motion.div>
+                <div key={type} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                  <motion.div
+                    data-card={isSettled ? type : undefined}
+                    data-final-card={type}
+                    onMouseEnter={() => onHoverStart(type)}
+                    onMouseLeave={onHoverEnd}
+                    initial={false}
+                    animate={{
+                      x: shouldAnimate ? 0 : (cardsInitialOffset[i]?.x ?? 0),
+                      y: shouldAnimate ? 0 : (cardsInitialOffset[i]?.y ?? 0),
+                      scale: shouldAnimate ? 1 : 0.88,
+                      rotate: shouldAnimate ? 0 : 0,
+                      opacity: shouldAnimate ? 1 : 0,
+                    }}
+                    transition={{
+                      duration: 0.65,
+                      delay: i * 0.12,
+                      ease: [0.16, 1, 0.3, 1],
+                    }}
+                    whileHover={{ scale: 1.08 }}
+                    style={{ width: CARD_W, height: CARD_H, cursor: 'default', position: 'relative' }}
+                  >
+                    <CardVisual type={type} isHovered={hovered === type} />
+                  </motion.div>
+                  {isSettled ? <ExpertActivityPanel expert={type} /> : null}
+                </div>
               ))}
             </div>
           </div>
@@ -488,12 +644,12 @@ const SplitLayout: React.FC<{
             initial={false}
             animate={{ opacity: shouldAnimate ? 1 : 0, scaleY: shouldAnimate ? 1 : 0 }}
             transition={{ duration: 0.4, delay: 0.1 }}
-            style={{ width: 1, background: 'linear-gradient(to bottom, transparent, rgba(167,139,250,0.3), rgba(251,191,36,0.2), transparent)', alignSelf: 'stretch', transformOrigin: 'top' }}
+            style={{ width: 1, margin: '20px 8px', background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.10), transparent)', alignSelf: 'stretch', transformOrigin: 'top' }}
           />
 
           {/* 右侧：协调者球 + 思维流 */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 16px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '12px 12px', overflow: 'hidden', borderRadius: 18, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <motion.div
                 ref={orbFinalRef}
                 initial={false}
@@ -507,8 +663,8 @@ const SplitLayout: React.FC<{
                 <OrbVisual size={ORB_FINAL_SIZE} />
               </motion.div>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: 'rgba(255,255,255,0.9)', fontFamily: '"Noto Serif SC", serif', letterSpacing: '0.02em' }}>协调者</div>
-                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.4)', fontFamily: '"Noto Serif SC", serif', marginTop: 2 }}>实时综合分析</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.88)', fontFamily: '"Noto Serif SC", serif', letterSpacing: '0.02em' }}>协调者</div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.36)', fontFamily: '"Noto Serif SC", serif', marginTop: 2 }}>实时综合分析</div>
               </div>
             </div>
 
@@ -516,14 +672,14 @@ const SplitLayout: React.FC<{
               initial={false}
               animate={{ scaleY: isSettled ? 1 : 0, opacity: isSettled ? 1 : 0 }}
               transition={{ duration: 0.5, delay: 0.15 }}
-              style={{ width: 1, height: 16, background: 'linear-gradient(to bottom, rgba(251,191,36,0.5), rgba(251,191,36,0.1))', marginLeft: 23, transformOrigin: 'top' }}
+              style={{ width: 1, height: 12, background: 'linear-gradient(to bottom, rgba(251,191,36,0.4), rgba(251,191,36,0.08))', marginLeft: 23, transformOrigin: 'top' }}
             />
 
             <motion.div
               initial={false}
               animate={{ opacity: isSettled ? 1 : 0 }}
               transition={{ duration: 0.3 }}
-              style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingLeft: 4, paddingRight: 4 }}
+              style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingLeft: 2, paddingRight: 2, minHeight: 0 }}
             >
               {isSettled && <ThinkingStream />}
             </motion.div>
@@ -653,7 +809,7 @@ export const AgentCardFlip: React.FC = () => {
 
   return (
     <>
-      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', perspective: 600, position: 'relative' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', perspective: 600, position: 'relative', padding: 2 }}>
         <StackedCards
           phase={phase}
           hovered={hovered}

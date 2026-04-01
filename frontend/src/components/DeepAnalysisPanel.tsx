@@ -13,7 +13,12 @@ interface ThinkingMessage {
   message?: string;
   tool?: string;
   finding?: string;
+  summary?: string;
   expert?: string; // 'tactics' | 'strategy' | 'engine'
+  title?: string;
+  content?: string;
+  step_index?: number;
+  duration_ms?: number;
 }
 
 // ============================================
@@ -217,21 +222,32 @@ export default function DeepAnalysisPanel() {
         // ── 同步更新 useAgentStore（驱动扑克牌动画 + 思维流）─────────────────
         const store = useAgentStore.getState();
         const expertType = msg.expert as ExpertType | undefined;
+        const expertNameMap: Record<ExpertType, string> = {
+          tactics: '战术专家',
+          strategy: '战略专家',
+          engine: '引擎专家',
+        };
 
         // 专家归属事件 → 更新对应专家状态
         if (expertType && ['tactics', 'strategy', 'engine'].includes(expertType)) {
           if (msg.type === 'expert_start') {
             store.updateExpert(expertType, { status: 'thinking' as ExpertStatus });
           } else if (msg.type === 'expert_result') {
-            try {
-              const data = typeof msg.message === 'string' ? JSON.parse(msg.message) : msg.message;
-              store.updateExpert(expertType, {
-                status: 'done' as any,
-                finding: data.finding || '',
-              });
-            } catch {
-              store.updateExpert(expertType, { status: 'completed' as any });
-            }
+            store.updateExpert(expertType, {
+              status: 'completed' as ExpertStatus,
+              finding: msg.finding || msg.summary || msg.message || '',
+              subtitle: msg.summary || msg.title || '',
+            });
+          } else if (msg.type === 'expert_step_start') {
+            store.updateExpert(expertType, {
+              status: 'thinking' as ExpertStatus,
+              subtitle: msg.title || '',
+            });
+            store.addExpertStep(expertType, msg.title || '分析步骤', msg.step_index ?? 0);
+          } else if (msg.type === 'expert_step_content') {
+            store.appendExpertStepContent(expertType, msg.step_index ?? 0, msg.content || msg.message || '');
+          } else if (msg.type === 'expert_step_end') {
+            store.finalizeExpertStep(expertType, msg.step_index ?? 0, msg.duration_ms);
           } else if (msg.type === `expert_${expertType}_thinking`) {
             // 专家思考内容（流式）
             store.appendExpertThinking(expertType, msg.message || '');
@@ -249,14 +265,49 @@ export default function DeepAnalysisPanel() {
           }
         }
 
-        // 协调者小标题事件（目前后端用 synthesis_chunk 代替）
-        if (msg.type === 'orchestrator_subtitle' || msg.type === 'synthesis_chunk') {
+        if (msg.type === 'synthesis_step_start') {
+          store.updateOrchestratorSubtitle(msg.title || '综合分析');
+          store.addOrchestratorStep(msg.title || '综合分析', msg.step_index ?? 0);
+        } else if (msg.type === 'synthesis_step_content') {
+          store.appendOrchestratorStepContent(msg.step_index ?? 0, msg.content || msg.message || '');
+        } else if (msg.type === 'synthesis_step_end') {
+          store.finalizeOrchestratorStep(msg.step_index ?? 0, msg.duration_ms);
+        }
+
+        // 协调者兼容事件
+        if (msg.type === 'orchestrator_subtitle') {
+          store.updateOrchestratorSubtitle(msg.message || '');
+        }
+
+        if (msg.type === 'synthesis_chunk') {
           store.appendOrchestratorContent(msg.message || '');
         }
 
         // ── 原有 thinkingLog 更新逻辑 ──────────────────────────────────────
         flushSync(() => {
           setThinkingLog(prev => {
+            if (msg.type === 'expert_step_content' || msg.type === 'expert_step_end' || msg.type === 'synthesis_step_content' || msg.type === 'synthesis_step_end') {
+              return prev;
+            }
+            if (expertType && msg.type === 'expert_step_start') {
+              return [
+                ...prev,
+                {
+                  type: 'thinking',
+                  message: `${expertNameMap[expertType]}：${msg.title || '开始新步骤'}`,
+                  expert: expertType,
+                },
+              ];
+            }
+            if (msg.type === 'synthesis_step_start') {
+              return [
+                ...prev,
+                {
+                  type: 'thinking',
+                  message: `协调者：${msg.title || '开始综合步骤'}`,
+                },
+              ];
+            }
             // 流式内容片段：累积到最后一个thinking节点
             if (msg.type === 'thinking_chunk') {
               if (prev.length > 0 && prev[prev.length - 1].type === 'thinking') {

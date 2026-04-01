@@ -7,7 +7,6 @@
 from typing import Dict, List, Callable, Optional
 from core.llm.experts.base_expert import (
     BaseExpert, ExpertConfig, ExpertResult,
-    should_use_multi_agent,
 )
 from core.llm.thinking_templates import PhaseInfo
 
@@ -85,6 +84,25 @@ SYSTEM_PROMPT_TACTICS = """# 象棋基础规则 - 铁律，不可违背
 ---
 
 # 你的输出格式
+
+【输出格式要求】
+在开始深入分析之前，先输出一行阶段标题，格式为：
+## [N] [简短描述]
+
+例如：
+## 1 扫描战术机会
+## 2 验证关键攻防关系
+## 3 评估对手应着
+
+阶段标题输出后，再开始该阶段的详细分析。
+
+在你开始一个新的分析步骤时，必须先单独输出一行：
+[STEP: 你正在做什么的一句话]
+
+示例：
+[STEP: 扫描局面找将军和捉子威胁]
+[STEP: 调用工具验证牵制与保护关系]
+[STEP: 站在对手视角检查主要应着]
 
 请完成分析后，给出：
 【战术发现】一句话描述最重要的战术发现
@@ -199,7 +217,7 @@ class TacticsExpert(BaseExpert):
             "analyze_move", "get_forcing_sequence",
         ],
         max_rounds=3,
-        max_tokens=512,
+        max_tokens=1024,
     )
 
     def analyze(

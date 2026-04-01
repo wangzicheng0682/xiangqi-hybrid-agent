@@ -15,12 +15,21 @@ export interface ToolCall {
   result: string;
 }
 
+export interface ExpertStep {
+  index: number;
+  title: string;
+  content: string;
+  status: 'thinking' | 'completed';
+  durationMs?: number;
+}
+
 export interface ExpertCardProps {
   type: ExpertType;
   status: ExpertStatus;
   thinkingContent: string;
   toolCalls: ToolCall[];
   finding: string;
+  steps?: ExpertStep[];
 }
 
 // ============================================
@@ -207,6 +216,7 @@ export const ExpertCard: React.FC<ExpertCardProps> = ({
   thinkingContent,
   toolCalls,
   finding,
+  steps = [],
 }) => {
   const config = EXPERT_CONFIG[type];
   const isActive = status === 'thinking';
@@ -245,7 +255,43 @@ export const ExpertCard: React.FC<ExpertCardProps> = ({
           ...(isCompleted ? { maxHeight: 80 } : {}),
         }}
       >
-        {thinkingContent ? (
+        {steps.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {steps.map((step) => {
+              const isCurrent = step.status === 'thinking';
+              return (
+                <div
+                  key={`${type}-${step.index}`}
+                  style={{
+                    border: `1px solid ${isCurrent ? config.accentColor : 'rgba(255,255,255,0.08)'}`,
+                    background: isCurrent ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
+                    borderRadius: 10,
+                    padding: '8px 10px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: step.content ? 6 : 0 }}>
+                    <span style={{ color: isCurrent ? config.accentColor : '#86efac', fontWeight: 700 }}>
+                      {isCurrent ? '⟳' : '✓'}
+                    </span>
+                    <span style={{ color: 'rgba(255,255,255,0.92)', fontSize: 12, fontWeight: 600 }}>
+                      {step.title}
+                    </span>
+                    {step.durationMs ? (
+                      <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
+                        {(step.durationMs / 1000).toFixed(1)}s
+                      </span>
+                    ) : null}
+                  </div>
+                  {step.content ? (
+                    <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                      {step.content}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : thinkingContent ? (
           <StreamText text={thinkingContent} speed={isActive ? 25 : 0} />
         ) : (
           <div style={cardStyles.placeholder}>

@@ -1,0 +1,94 @@
+/* ── 备份：原液态玻璃样式（墨韵青灯版 + iOS 26 彩虹光晕）── */
+/* 保留此文件以便回滚 */
+
+.lg-sidebar-legacy {
+  position: relative;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(48px) saturate(200%);
+  -webkit-backdrop-filter: blur(48px) saturate(200%);
+  border: none;
+  border-radius: 28px;
+  overflow: hidden;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+
+  /* iOS 26 液态玻璃：彩虹边缘折射 + 湿润光晕 */
+  box-shadow:
+    /* 外层：彩虹光晕扩散 */
+    0 0 0 1px rgba(255, 255, 255, 0.20),
+    0 0 15px 2px rgba(180, 200, 255, 0.25),
+    0 0 30px 4px rgba(200, 180, 255, 0.15),
+    0 0 50px 8px rgba(255, 200, 220, 0.10),
+    /* 深度阴影 */
+    0 20px 60px rgba(0, 0, 0, 0.45),
+    /* 内层：湿润高光 */
+    inset 0  1.5px 0 rgba(255, 255, 255, 0.60),
+    inset 0  3px 6px rgba(200, 220, 255, 0.15),
+    inset 1px 0 2px rgba(255, 255, 255, 0.25),
+    /* 内层：底部暗边 */
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25);
+}
+
+.lg-sidebar-legacy::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.70) 0%,
+    rgba(200, 220, 255, 0.50) 20%,
+    rgba(220, 200, 255, 0.40) 40%,
+    rgba(255, 200, 220, 0.35) 60%,
+    rgba(200, 255, 240, 0.40) 80%,
+    rgba(255, 255, 255, 0.60) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.glass-panel-legacy {
+  position: relative;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(48px) saturate(200%);
+  -webkit-backdrop-filter: blur(48px) saturate(200%);
+  border: none;
+  border-radius: 20px;
+  transition: background 0.2s var(--apple-ease), box-shadow 0.2s var(--apple-ease);
+
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.18),
+    0 0 12px 2px rgba(180, 200, 255, 0.22),
+    0 0 25px 5px rgba(200, 180, 255, 0.12),
+    0 0 40px 8px rgba(255, 200, 220, 0.08),
+    0 24px 64px rgba(0, 0, 0, 0.45),
+    inset 0  1.5px 0 rgba(255, 255, 255, 0.55),
+    inset 0  3px 6px rgba(200, 220, 255, 0.12),
+    inset 1px 0 2px rgba(255, 255, 255, 0.20),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.22);
+}
+
+.glass-panel-legacy::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.65) 0%,
+    rgba(200, 220, 255, 0.45) 20%,
+    rgba(220, 200, 255, 0.35) 40%,
+    rgba(255, 200, 220, 0.30) 60%,
+    rgba(200, 255, 240, 0.35) 80%,
+    rgba(255, 255, 255, 0.55) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}

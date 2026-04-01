@@ -10,9 +10,11 @@
 
 import json
 import os
+import re
 import time
 import requests
 from typing import Dict, List, Any, Callable, Optional, TYPE_CHECKING
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
 
 if TYPE_CHECKING:
@@ -20,7 +22,7 @@ if TYPE_CHECKING:
     from core.llm.debug_logger import AgentDebugLogger
 
 from core.llm.agent_tools import AgentTools, ToolResult
-
+from core.llm.tracing import get_tracer, SpanNames, SpanAttributes
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 工具元数据 - 用于生成元叙事小标题
@@ -38,6 +40,48 @@ TOOL_META = {
     "engine_alternatives": "候选走法",
     "analyze_position_strategy": "战略分析",
 }
+
+
+STEP_PATTERN = re.compile(r"^\[STEP:\s*(.+?)\s*\]$")
+_SECTION_RE = re.compile(r"^【(.+?)】")
+
+
+def parse_step_blocks(content: str) -> List[Dict[str, str]]:
+    """从带 [STEP: ...] 或 【节标题】 标记的文本中拆出步骤块。"""
+    if not content:
+        return []
+
+    steps: List[Dict[str, str]] = []
+    current_title: Optional[str] = None
+    current_lines: List[str] = []
+    saw_marker = False
+
+    for raw_line in content.replace("\r\n", "\n").split("\n"):
+        stripped = raw_line.strip()
+        match = STEP_PATTERN.match(stripped)
+        if not match:
+            match = _SECTION_RE.match(stripped)
+        if match:
+            saw_marker = True
+            if current_title is not None:
+                steps.append({
+                    "title": current_title,
+                    "content": "\n".join(current_lines).strip(),
+                })
+            current_title = match.group(1).strip()
+            current_lines = []
+            continue
+
+        if current_title is not None:
+            current_lines.append(raw_line)
+
+    if current_title is not None:
+        steps.append({
+            "title": current_title,
+            "content": "\n".join(current_lines).strip(),
+        })
+
+    return steps if saw_marker else []
 
 
 @dataclass
@@ -68,7 +112,7 @@ class ExpertConfig:
     tools: List[Dict]  # 该专家可用的工具Schema
     tool_names: List[str]  # 该专家可用的工具名列表
     max_rounds: int = 3  # 最大Agent循环轮次
-    max_tokens: int = 512  # 最大输出token
+    max_tokens: int = 1024  # 最大输出token（提升以支持深度分析）
 
 
 class BaseExpert:
@@ -154,6 +198,13 @@ class BaseExpert:
         context += f"【棋盘布局 - 这是唯一可信的棋子位置来源】\n{board_layout}\n\n"
         context += "[警告] 禁止编造任何未在此列出的棋子位置或坐标。\n\n"
 
+        # 注入阶段信息，让专家知道当前阶段
+        if phase_info:
+            phase_name = getattr(phase_info, 'phase_name', str(phase_info))
+            move_count = getattr(phase_info, 'move_count', 0)
+            total_pieces = getattr(phase_info, 'total_pieces', 0)
+            context += f"【当前阶段】{phase_name}（回合数≈{move_count}，剩余棋子≈{total_pieces}）\n\n"
+
         if tag_summary:
             tag_str = "\n".join(tag_summary) if isinstance(tag_summary, list) else tag_summary
             context += f"【局面事实 - 这是唯一可信的事实来源】\n"
@@ -182,82 +233,163 @@ class BaseExpert:
         tools: List[Dict] = None,
         agent_type: str = "expert",
     ) -> Dict:
-        """调用LLM API（非流式）"""
+        """调用LLM API（非流式），自动记录 OTEL Span"""
         if not self.api_key:
             return {"content": "API Key未配置", "tool_calls": [], "finish_reason": "error"}
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+        tracer = get_tracer()
 
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 2048,  # 增加以避免截断
-        }
+        with tracer.start_as_current_span(
+            SpanNames.LLM_CALL,
+            attributes={
+                SpanAttributes.LLM_MODEL: self.model,
+                SpanAttributes.AGENT_TYPE: agent_type,
+            }
+        ) as span:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            }
 
-        if tools:
-            payload["tools"] = tools
-            payload["tool_choice"] = "auto"
+            payload = {
+                "model": self.model,
+                "messages": messages,
+                "temperature": 0.7,
+                "max_tokens": 2048,
+                # GLM-5 原生支持 thinking 模式，内部推理链流式输出
+                "thinking": {"type": "enabled"},
+            }
 
-        # 记录输入
-        if self.debug_logger:
-            self.debug_logger.log_input(agent_type, {"messages": messages, "tools": [t.get("function", {}).get("name") for t in (tools or [])]})
+            if tools:
+                payload["tools"] = tools
+                payload["tool_choice"] = "auto"
 
-        start_time = time.time()
-        try:
-            session = requests.Session()
-            session.trust_env = False
-            response = session.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=120,
+            # 记录输入
+            if self.debug_logger:
+                self.debug_logger.log_input(agent_type, {"messages": messages, "tools": [t.get("function", {}).get("name") for t in (tools or [])]})
+
+            start_time = time.time()
+            try:
+                session = requests.Session()
+                session.trust_env = False
+                response = session.post(
+                    f"{self.base_url}/chat/completions",
+                    headers=headers,
+                    json=payload,
+                    timeout=120,
+                )
+
+                duration_ms = int((time.time() - start_time) * 1000)
+                span.set_attribute(SpanAttributes.LLM_DURATION_MS, duration_ms)
+
+                if response.status_code == 200:
+                    result = response.json()
+                    choice = result.get("choices", [{}])[0]
+                    message = choice.get("message", {})
+                    api_result = {
+                        "content": message.get("content", ""),
+                        "reasoning_content": message.get("reasoning_content", ""),
+                        "tool_calls": message.get("tool_calls", []),
+                        "finish_reason": choice.get("finish_reason", "stop"),
+                    }
+
+                    # 记录 token 使用（如果有）
+                    usage = result.get("usage", {})
+                    if usage:
+                        span.set_attribute(SpanAttributes.LLM_INPUT_TOKENS, usage.get("prompt_tokens", 0))
+                        span.set_attribute(SpanAttributes.LLM_OUTPUT_TOKENS, usage.get("completion_tokens", 0))
+
+                    # 记录输出
+                    if self.debug_logger:
+                        tool_names = []
+                        for tc in api_result.get("tool_calls", []):
+                            if isinstance(tc, dict):
+                                func = tc.get("function")
+                                if isinstance(func, dict):
+                                    tool_names.append(func.get("name", "unknown"))
+                                elif isinstance(func, str):
+                                    tool_names.append(func)
+                                else:
+                                    tool_names.append("unknown")
+                            else:
+                                tool_names.append(str(tc)[:30])
+                        self.debug_logger.log_output(agent_type, {
+                            "content": api_result["content"][:500] if api_result["content"] else "",
+                            "tool_calls": tool_names,
+                            "finish_reason": api_result["finish_reason"],
+                        }, duration_ms)
+                    return api_result
+                else:
+                    error_result = {"content": f"API错误: {response.status_code}", "tool_calls": [], "finish_reason": "error"}
+                    if self.debug_logger:
+                        self.debug_logger.log_error(agent_type, f"API错误: {response.status_code}")
+                    span.set_attribute(SpanAttributes.ERROR, True)
+                    span.set_attribute(SpanAttributes.ERROR_MESSAGE, f"HTTP {response.status_code}")
+                    return error_result
+            except Exception as e:
+                error_result = {"content": f"请求失败: {str(e)}", "tool_calls": [], "finish_reason": "error"}
+                if self.debug_logger:
+                    self.debug_logger.log_error(agent_type, str(e))
+                span.set_attribute(SpanAttributes.ERROR, True)
+                span.set_attribute(SpanAttributes.ERROR_MESSAGE, str(e))
+                return error_result
+
+    def _emit_structured_steps(
+        self,
+        expert_name: str,
+        content: str,
+        on_thinking: Callable[[str, str], None],
+    ) -> bool:
+        """将专家完整输出拆成结构化步骤事件。"""
+        steps = parse_step_blocks(content)
+        if not steps:
+            return False
+
+        for step_index, step in enumerate(steps):
+            title = step["title"]
+            body = step["content"]
+            duration_ms = max(250, min(4000, len(body) * 18 if body else 300))
+
+            on_thinking(
+                "expert_step_start",
+                json.dumps(
+                    {
+                        "expert": expert_name,
+                        "step_index": step_index,
+                        "title": title,
+                    },
+                    ensure_ascii=False,
+                ),
             )
 
-            duration_ms = int((time.time() - start_time) * 1000)
+            if body:
+                on_thinking(
+                    "expert_step_content",
+                    json.dumps(
+                        {
+                            "expert": expert_name,
+                            "step_index": step_index,
+                            "title": title,
+                            "content": body,
+                        },
+                        ensure_ascii=False,
+                    ),
+                )
 
-            if response.status_code == 200:
-                result = response.json()
-                choice = result.get("choices", [{}])[0]
-                message = choice.get("message", {})
-                api_result = {
-                    "content": message.get("content", ""),
-                    "tool_calls": message.get("tool_calls", []),
-                    "finish_reason": choice.get("finish_reason", "stop"),
-                }
-                # 记录输出
-                if self.debug_logger:
-                    tool_names = []
-                    for tc in api_result.get("tool_calls", []):
-                        if isinstance(tc, dict):
-                            func = tc.get("function")
-                            if isinstance(func, dict):
-                                tool_names.append(func.get("name", "unknown"))
-                            elif isinstance(func, str):
-                                tool_names.append(func)
-                            else:
-                                tool_names.append("unknown")
-                        else:
-                            tool_names.append(str(tc)[:30])
-                    self.debug_logger.log_output(agent_type, {
-                        "content": api_result["content"][:500] if api_result["content"] else "",
-                        "tool_calls": tool_names,
-                        "finish_reason": api_result["finish_reason"],
-                    }, duration_ms)
-                return api_result
-            else:
-                error_result = {"content": f"API错误: {response.status_code}", "tool_calls": [], "finish_reason": "error"}
-                if self.debug_logger:
-                    self.debug_logger.log_error(agent_type, f"API错误: {response.status_code}")
-                return error_result
-        except Exception as e:
-            error_result = {"content": f"请求失败: {str(e)}", "tool_calls": [], "finish_reason": "error"}
-            if self.debug_logger:
-                self.debug_logger.log_error(agent_type, str(e))
-            return error_result
+            on_thinking(
+                "expert_step_end",
+                json.dumps(
+                    {
+                        "expert": expert_name,
+                        "step_index": step_index,
+                        "title": title,
+                        "duration_ms": duration_ms,
+                    },
+                    ensure_ascii=False,
+                ),
+            )
+
+        return True
 
     def _call_expert(
         self,
@@ -295,48 +427,107 @@ class BaseExpert:
                 )
 
             content = response["content"]
+            reasoning_content = response.get("reasoning_content", "")
             tool_calls = response.get("tool_calls", [])
 
+            # GLM-5 thinking 内容单独 yield，前端可展示"正在思考"
+            if on_thinking and reasoning_content:
+                on_thinking(f"{config.name}_reasoning", reasoning_content)
+
             if on_thinking and content:
-                on_thinking(f"{config.name}_chunk", content)
+                emitted = self._emit_structured_steps(config.name, content, on_thinking)
+                if not emitted:
+                    on_thinking(f"{config.name}_chunk", content)
 
             # 工具调用循环
             if tool_calls:
                 messages.append({"role": "assistant", "content": content or ""})
                 assistant_tool_calls = []
-                for tc in tool_calls:
+
+                # 只读工具可并行执行（无副作用）
+                READONLY_TOOLS = {
+                    "get_piece_attacks", "get_piece_defenders", "get_threats_to_piece",
+                    "get_piece_relations", "compare_moves", "analyze_position_strategy",
+                }
+
+                readonly_tcs = [tc for tc in tool_calls if tc["function"]["name"] in READONLY_TOOLS]
+                other_tcs = [tc for tc in tool_calls if tc["function"]["name"] not in READONLY_TOOLS]
+
+                # 1. 只读工具并行执行
+                if readonly_tcs:
+                    with ThreadPoolExecutor(max_workers=4) as executor:
+                        futures = {}
+                        for tc in readonly_tcs:
+                            args = json.loads(tc["function"]["arguments"])
+                            tool_calls_log.append({
+                                "round": round_num,
+                                "name": tc["function"]["name"],
+                                "arguments": args,
+                            })
+                            if on_thinking:
+                                tool_desc = TOOL_META.get(tc["function"]["name"], tc["function"]["name"])
+                                on_thinking("headline", f"{config.display_name}正在验证{tool_desc}…")
+                                on_thinking(f"{config.name}_tool", f"调用工具: {tc['function']['name']}")
+                            if self.debug_logger:
+                                self.debug_logger.log_tool_call(config.name, tc["function"]["name"], args)
+                            futures[executor.submit(self._execute_tool, tc["function"]["name"], args, fen)] = tc
+
+                        # 按 tool_call_id 排序后再 append，保持 LLM 上下文一致性
+                        results = []
+                        for future in futures:
+                            tc = futures[future]
+                            result = future.result()
+                            results.append((tc["id"], tc, result))
+                        results.sort(key=lambda x: x[0])
+
+                        for tool_call_id, tc, result in results:
+                            tool_msg = json.dumps(result, ensure_ascii=False)
+                            messages.append({
+                                "role": "tool",
+                                "tool_call_id": tool_call_id,
+                                "content": tool_msg,
+                            })
+                            if self.debug_logger:
+                                self.debug_logger.log_tool_result(config.name, tc["function"]["name"], result)
+                            if on_thinking:
+                                msg_preview = result.get("message", str(result)[:80])
+                                on_thinking(f"{config.name}_tool_result", f"{tc['function']['name']}: {msg_preview}")
+                            assistant_tool_calls.append({
+                                "id": tool_call_id,
+                                "type": "function",
+                                "function": {
+                                    "name": tc["function"]["name"],
+                                    "arguments": tc["function"]["arguments"],
+                                }
+                            })
+
+                # 2. 其他工具（engine_deep_analysis 等）串行执行
+                for tc in other_tcs:
                     tool_name = tc["function"]["name"]
                     tool_calls_log.append({
                         "round": round_num,
                         "name": tool_name,
                         "arguments": json.loads(tc["function"]["arguments"]),
                     })
-
-                    # 元叙事：工具调用时推 headline
                     if on_thinking:
                         tool_desc = TOOL_META.get(tool_name, tool_name)
                         on_thinking("headline", f"{config.display_name}正在验证{tool_desc}…")
                         on_thinking(f"{config.name}_tool", f"调用工具: {tool_name}")
-
-                    # 记录工具调用到debug_logger
                     if self.debug_logger:
                         self.debug_logger.log_tool_call(config.name, tool_name, json.loads(tc["function"]["arguments"]))
 
-                    result = self._execute_tool(tc["function"]["name"], json.loads(tc["function"]["arguments"]), fen)
+                    result = self._execute_tool(tool_name, json.loads(tc["function"]["arguments"]), fen)
                     tool_msg = json.dumps(result, ensure_ascii=False)
                     messages.append({
                         "role": "tool",
                         "tool_call_id": tc["id"],
                         "content": tool_msg,
                     })
-
-                    # 记录工具结果到debug_logger
                     if self.debug_logger:
                         self.debug_logger.log_tool_result(config.name, tool_name, result)
-
                     if on_thinking:
                         msg_preview = result.get("message", str(result)[:80])
-                        on_thinking(f"{config.name}_tool_result", f"{tc['function']['name']}: {msg_preview}")
+                        on_thinking(f"{config.name}_tool_result", f"{tool_name}: {msg_preview}")
 
                     assistant_tool_calls.append({
                         "id": tc["id"],
@@ -367,6 +558,9 @@ class BaseExpert:
 
         # 达到最大轮数，强制结束
         final_response = self._call_api(messages, tools=None)
+        final_reasoning = final_response.get("reasoning_content", "")
+        if on_thinking and final_reasoning:
+            on_thinking(f"{config.name}_reasoning", final_reasoning)
         final_finding = self._extract_finding(final_response["content"], config.name)
         # 元叙事：专家结束时推摘要 headline
         if on_thinking:
@@ -382,31 +576,62 @@ class BaseExpert:
             success=True,
         )
 
+    # 工具超时配置（秒）
+    TOOL_TIMEOUT = 30
+
     def _execute_tool(self, tool_name: str, arguments: Dict, fen: str) -> Dict:
-        """执行工具"""
-        func = self._tool_functions.get(tool_name)
-        if not func:
-            return {"error": f"未知工具: {tool_name}"}
+        """执行工具（含超时保护 + OTEL Span）"""
+        tracer = get_tracer()
 
-        try:
-            args = dict(arguments)  # 复制，不修改原始
-            args["fen"] = fen     # 注入 fen（与 XiangqiCoachAgent 对齐）
-            result = func(**args)
+        with tracer.start_as_current_span(
+            SpanNames.TOOL_CALL,
+            attributes={
+                SpanAttributes.TOOL_NAME: tool_name,
+            }
+        ) as span:
+            span.set_attribute("tool.arguments", json.dumps(arguments)[:200])  # 截断避免过长
 
-            if isinstance(result, ToolResult):
-                return {
-                    "success": result.success,
-                    "data": result.data,
-                    "message": result.message,
-                }
-            return result
-        except Exception as e:
-            return {"error": str(e)}
+            func = self._tool_functions.get(tool_name)
+            if not func:
+                span.set_attribute(SpanAttributes.ERROR, True)
+                span.set_attribute(SpanAttributes.ERROR_MESSAGE, f"未知工具: {tool_name}")
+                return {"error": f"未知工具: {tool_name}"}
+
+            def _run():
+                args = dict(arguments)
+                args["fen"] = fen
+                result = func(**args)
+                if isinstance(result, ToolResult):
+                    return {
+                        "success": result.success,
+                        "data": result.data,
+                        "message": result.message,
+                    }
+                return result
+
+            try:
+                from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(_run)
+                    return future.result(timeout=self.TOOL_TIMEOUT)
+            except FuturesTimeoutError:
+                span.set_attribute(SpanAttributes.ERROR, True)
+                span.set_attribute(SpanAttributes.ERROR_MESSAGE, f"工具执行超时（>{self.TOOL_TIMEOUT}s）")
+                span.set_attribute(SpanAttributes.TOOL_SUCCESS, False)
+                return {"error": f"工具执行超时（>{self.TOOL_TIMEOUT}s）: {tool_name}"}
+            except Exception as e:
+                span.set_attribute(SpanAttributes.ERROR, True)
+                span.set_attribute(SpanAttributes.ERROR_MESSAGE, str(e))
+                span.set_attribute(SpanAttributes.TOOL_SUCCESS, False)
+                return {"error": str(e)}
 
     def _extract_finding(self, content: str, expert_name: str) -> str:
         """从分析内容中提取核心发现（一句话摘要）"""
         if not content:
             return "无分析内容"
+        content = STEP_PATTERN.sub("", content)
+        content = _SECTION_RE.sub("", content)
+        content = re.sub(r"\s+", " ", content).strip()
         # 取前100字作为发现摘要
         finding = content.strip()[:100]
         if len(content) > 100:

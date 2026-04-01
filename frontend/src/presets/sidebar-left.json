@@ -1,0 +1,30 @@
+{
+  "name": "left-sidebar-standard",
+  "component": "sidebar-left",
+  "params": {
+    "blurRadius": 1,
+    "refThickness": 20,
+    "refFactor": 1.4,
+    "refDispersion": 0.6,
+    "refFresnelRange": 30,
+    "refFresnelHardness": 12,
+    "refFresnelFactor": 60,
+    "glareRange": 250,
+    "glareFactor": 90,
+    "glareAngle": -45,
+    "glareHardness": 8,
+    "glareConvergence": 60,
+    "glareOppositeFactor": 90,
+    "shapeWidth": 220,
+    "shapeHeight": 800,
+    "shapeRadius": 40,
+    "shapeRoundness": 2.0,
+    "mergeRate": 0.05,
+    "tint": { "r": 255, "g": 255, "b": 255, "a": 0 },
+    "shadowExpand": 25,
+    "shadowFactor": 15,
+    "blurEdge": true,
+    "shapePosX": 110,
+    "shapePosY": 450
+  }
+}

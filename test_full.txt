@@ -1,0 +1,9 @@
+成功: True
+发现: 无分析内容
+详情: 
+工具调用数: 0
+
+
+=== 思考过程 (2 events) ===
+{'stage': 'tactics_thinking', 'msg': '[战术专家] 第1轮分析...'}
+{'stage': 'headline', 'msg': '战术专家：无分析内容…'}

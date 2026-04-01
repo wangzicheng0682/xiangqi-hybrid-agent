@@ -247,6 +247,20 @@ class PositionAnalysisResponse(BaseModel):
     analysis_text: Dict[str, Any]
 
 
+class EngineEvaluationRequest(BaseModel):
+    fen: str
+    depth: int = 12
+
+
+class EngineEvaluationResponse(BaseModel):
+    fen: str
+    turn: str
+    bestmove: str
+    score: float
+    depth: int
+    pv: List[str]
+
+
 @app.post("/api/position-analysis", response_model=PositionAnalysisResponse)
 async def get_position_analysis(request: PositionAnalysisRequest):
     """
@@ -336,6 +350,39 @@ async def get_position_analysis(request: PositionAnalysisRequest):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/engine/evaluate", response_model=EngineEvaluationResponse)
+async def engine_evaluate(request: EngineEvaluationRequest):
+    """
+    轻量级引擎评估接口。
+
+    仅返回 Pikafish 的核心评估信息，避免 position-analysis 混入规则层失败。
+    """
+    engine = None
+    try:
+        from core.engine import PikafishEngine
+
+        engine = PikafishEngine()
+        result = engine.analyze(request.fen, depth=request.depth)
+        turn = "red" if request.fen.strip().endswith(" w") else "black"
+
+        return EngineEvaluationResponse(
+            fen=request.fen,
+            turn=turn,
+            bestmove=result.bestmove or "",
+            score=result.score or 0.0,
+            depth=result.depth or request.depth,
+            pv=result.pv if hasattr(result, 'pv') and result.pv else [],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if engine is not None:
+            try:
+                engine.stop()
+            except Exception:
+                pass
 
 
 class AIMoveRequest(BaseModel):
@@ -1637,8 +1684,33 @@ async def analyze_deep_stream(
                             yield f"data: {json.dumps({'type': 'expert_result', **expert_data}, ensure_ascii=False)}\n\n"
                         except (json.JSONDecodeError, KeyError):
                             pass
+                    elif event["type"] in ("expert_step_start", "expert_step_content", "expert_step_end"):
+                        try:
+                            step_data = json.loads(event["message"])
+                            yield f"data: {json.dumps({'type': event['type'], **step_data}, ensure_ascii=False)}\n\n"
+                        except (json.JSONDecodeError, KeyError):
+                            pass
+                    elif event["type"] in ("synthesis_step_start", "synthesis_step_content", "synthesis_step_end"):
+                        try:
+                            step_data = json.loads(event["message"])
+                            yield f"data: {json.dumps({'type': event['type'], **step_data}, ensure_ascii=False)}\n\n"
+                        except (json.JSONDecodeError, KeyError):
+                            pass
+                    elif event["type"] == "orchestrator_subtitle":
+                        try:
+                            subtitle_data = json.loads(event["message"])
+                            msg = subtitle_data.get("message", event["message"])
+                        except (json.JSONDecodeError, TypeError):
+                            msg = event["message"]
+                        yield f"data: {json.dumps({'type': 'orchestrator_subtitle', 'message': msg}, ensure_ascii=False)}\n\n"
                     elif event["type"] == "synthesis_chunk":
-                        yield f"data: {json.dumps({'type': 'synthesis_chunk', 'message': event['message']}, ensure_ascii=False)}\n\n"
+                        # on_synthesis_event 会 json.dumps(payload)，需要解码还原
+                        try:
+                            chunk_data = json.loads(event["message"])
+                            msg = chunk_data.get("message", event["message"])
+                        except (json.JSONDecodeError, TypeError):
+                            msg = event["message"]
+                        yield f"data: {json.dumps({'type': 'synthesis_chunk', 'message': msg}, ensure_ascii=False)}\n\n"
                     elif event["type"] == "synthesis":
                         yield f"data: {json.dumps({'type': 'result', 'explanation': event['message'], 'confidence': 'high', 'source': 'multi_agent'}, ensure_ascii=False)}\n\n"
                     elif event["type"] in ("tactics_thinking", "strategy_thinking", "engine_thinking",

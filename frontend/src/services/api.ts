@@ -134,6 +134,18 @@ export interface PositionAnalysisResponse {
   };
 }
 
+export interface EngineEvaluationResponse {
+  fen: string;
+  turn: string;
+  bestmove: string;
+  score: number;
+  depth: number;
+  pv: string[];
+  legalMoveCount: number;
+  isCheck: boolean;
+  isCheckmate: boolean;
+}
+
 export interface TacticalTag {
   name: string;
   category: string;
@@ -180,6 +192,43 @@ export const api = {
   getPositionAnalysis: async (fen: string): Promise<PositionAnalysisResponse> => {
     const response = await axios.post(`${API_BASE}/position-analysis`, { fen });
     return response.data;
+  },
+
+  getEngineEvaluation: async (fen: string, board?: string[][], redToMove?: boolean): Promise<EngineEvaluationResponse> => {
+    try {
+      const response = await axios.post(`${API_BASE}/engine/evaluate`, { fen, depth: 12 });
+      return {
+        ...response.data,
+        legalMoveCount: 0,
+        isCheck: false,
+        isCheckmate: false,
+      };
+    } catch (error) {
+      if (!board || redToMove === undefined) {
+        throw error;
+      }
+
+      const fallback = await axios.post(`${API_BASE}/best-moves`, {
+        board,
+        red_to_move: redToMove,
+        difficulty: 10,
+      });
+
+      const data = fallback.data as BestMovesResponse;
+      const bestmove = redToMove ? data.red_best_move : data.black_best_move;
+
+      return {
+        fen,
+        turn: redToMove ? 'red' : 'black',
+        bestmove,
+        score: 0,
+        depth: 0,
+        pv: bestmove ? [bestmove] : [],
+        legalMoveCount: 0,
+        isCheck: false,
+        isCheckmate: false,
+      };
+    }
   },
 
   analyzePosition: async (fen: string, board: string[][]): Promise<AnalyzeResponse> => {
@@ -270,7 +319,21 @@ export const api = {
   // 添加连接管理，防止连接泄漏
   analyzeDeep: async (
     data: { fen: string; move?: string; show_thinking?: boolean; question?: string },
-    onThinking: (msg: { type: string; stage?: number; message?: string; tool?: string; finding?: string; expert?: string }) => void,
+    onThinking: (msg: {
+      type: string;
+      stage?: number;
+      message?: string;
+      tool?: string;
+      finding?: string;
+      summary?: string;
+      expert?: string;
+      title?: string;
+      content?: string;
+      step_index?: number;
+      duration_ms?: number;
+      details?: string;
+      success?: boolean;
+    }) => void,
     onResult: (result: { explanation: string; confidence: string }) => void,
     onError: (error: string) => void
   ): Promise<void> => {
@@ -322,7 +385,8 @@ export const api = {
               json.type === 'expert_start' || json.type === 'expert_result' ||
               json.type.startsWith('expert_') ||
               // 协调者思维流事件
-              json.type === 'synthesis_chunk' || json.type === 'orchestrator_subtitle') {
+              json.type === 'synthesis_chunk' || json.type === 'orchestrator_subtitle' ||
+              json.type.startsWith('synthesis_')) {
             onThinking(json);
           } else if (json.type === 'result') {
             if (json.explanation) {

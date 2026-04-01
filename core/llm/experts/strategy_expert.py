@@ -7,7 +7,6 @@
 from typing import Dict, List, Callable, Optional
 from core.llm.experts.base_expert import (
     BaseExpert, ExpertConfig, ExpertResult,
-    should_use_multi_agent,
 )
 from core.llm.thinking_templates import PhaseInfo
 
@@ -80,6 +79,25 @@ SYSTEM_PROMPT_STRATEGY = """# 象棋基础规则 - 铁律，不可违背
 ---
 
 # 你的输出格式
+
+【输出格式要求】
+在开始深入分析之前，先输出一行阶段标题，格式为：
+## [N] [简短描述]
+
+例如：
+## 1 判断相位与整体态势
+## 2 识别战略失衡点
+## 3 推演双方计划
+
+阶段标题输出后，再开始该阶段的详细分析。
+
+在你开始一个新的分析步骤时，必须先单独输出一行：
+[STEP: 你正在做什么的一句话]
+
+示例：
+[STEP: 判断当前属于开局中局还是残局]
+[STEP: 评估双方子力和空间失衡]
+[STEP: 推演优势方与劣势方的计划]
 
 请完成分析后，给出：
 【战略评估】一句话描述整体战略态势
@@ -167,7 +185,7 @@ class StrategyExpert(BaseExpert):
             "get_piece_attacks", "get_piece_relations",
         ],
         max_rounds=3,
-        max_tokens=512,
+        max_tokens=1024,
     )
 
     def analyze(

@@ -92,6 +92,90 @@
 
 ---
 
+### 2.1.1 深度分析流
+**GET** `/api/analyze/deep-stream`
+
+**用途**:
+- 用于前端“深度分析”模式
+- 以 SSE 逐条推送三位专家与协调者的分析进度
+- 前端当前通过 `EventSource` 直接消费
+
+**请求参数**:
+```text
+fen: string                必填，当前局面的 FEN
+question: string           可选，默认“请分析当前局面”
+move: string               可选，刚走的 UCI 走法
+show_thinking: boolean     可选，默认 true
+debug: boolean             可选，默认 false
+```
+
+**响应类型**:
+```http
+Content-Type: text/event-stream
+```
+
+**SSE 事件格式**:
+每条消息均为：
+```text
+data: {json}\n\n
+```
+
+**事件类型**:
+
+1. 通用进度事件
+```json
+{ "type": "thinking", "message": "启动分析..." }
+{ "type": "thinking_chunk", "message": "..." }
+{ "type": "tool_call", "message": "调用工具: ..." }
+{ "type": "tool_result", "message": "工具返回摘要" }
+```
+
+2. 专家生命周期事件
+```json
+{ "type": "expert_start", "expert": "tactics" }
+{ "type": "expert_result", "expert": "tactics", "summary": "一句话摘要", "finding": "完整专家结论", "success": true }
+```
+
+3. 专家步骤事件
+```json
+{ "type": "expert_step_start", "expert": "tactics", "step_index": 0, "title": "扫描将军威胁" }
+{ "type": "expert_step_content", "expert": "tactics", "step_index": 0, "title": "扫描将军威胁", "content": "红方中炮正在压制中路..." }
+{ "type": "expert_step_end", "expert": "tactics", "step_index": 0, "title": "扫描将军威胁", "duration_ms": 820 }
+```
+
+4. 专家兼容流事件
+```json
+{ "type": "expert_tactics_thinking", "message": "..." }
+{ "type": "expert_tactics_chunk", "message": "..." }
+{ "type": "expert_tactics_tool", "message": "..." }
+{ "type": "expert_tactics_tool_result", "message": "..." }
+```
+
+5. 协调者事件
+```json
+{ "type": "orchestrator_subtitle", "message": "识别三位专家的共识" }
+{ "type": "synthesis_step_start", "step_index": 0, "title": "识别三位专家的共识" }
+{ "type": "synthesis_step_content", "step_index": 0, "title": "识别三位专家的共识", "content": "三位专家一致认为红方先手更主动..." }
+{ "type": "synthesis_step_end", "step_index": 0, "title": "识别三位专家的共识", "duration_ms": 960 }
+{ "type": "synthesis_chunk", "message": "..." }
+{ "type": "result", "explanation": "最终讲解", "confidence": "high" }
+{ "type": "error", "message": "错误信息" }
+```
+
+**专家字段取值**:
+- `tactics`
+- `strategy`
+- `engine`
+
+**前端消费约定**:
+- `expert_step_start/content/end` 用于构建“专家步骤条目”
+- `expert_result.summary` 用于摘要，`expert_result.finding` 用于完整结论展示
+- `orchestrator_subtitle` 用于更新右侧“当前阶段”标题区
+- `synthesis_step_start/content/end` 用于构建“协调者综合步骤”
+- `synthesis_chunk` 作为右侧内容区的实时流式正文
+
+---
+
 ### 2.2 获取合法走法
 **POST** `/api/legal-moves`
 

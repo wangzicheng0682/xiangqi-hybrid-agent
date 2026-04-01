@@ -15,25 +15,26 @@ SSE事件类型：
 
 import json
 import os
+import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Any, Callable, Optional
 
 import requests
 
-from core.llm.agent_tools import AgentTools, ToolResult
 from core.llm.experts.base_expert import (
-    BaseExpert, ExpertResult, ExpertConfig,
-    should_use_multi_agent, ToolCall,
+    ExpertResult, should_use_multi_agent, STEP_PATTERN,
 )
 from core.llm.experts.tactics_expert import TacticsExpert
 from core.llm.experts.strategy_expert import StrategyExpert
 from core.llm.experts.engine_expert import EngineExpert
 from core.llm.thinking_templates import PhaseInfo, PhaseDetector
-from core.rules.tension_detector import (
-    detect_tensions, get_primary_tension,
-    Tension, TensionPriority,
+from core.rules.tension_detector import detect_tensions, get_primary_tension
+from core.llm.debug_logger import AgentDebugLogger
+from core.llm.tracing import (
+    get_tracer, add_span_attributes,
+    SpanNames, SpanAttributes,
 )
-from core.llm.debug_logger import AgentDebugLogger, get_debug_logger
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -85,6 +86,22 @@ SYNTHESIZER_SYSTEM_PROMPT = """# 你是谁
 
 # 输出格式
 
+在每个综合阶段开始前，先单独输出一行阶段标题，格式为：
+## [数字] [简短描述]
+
+例如：
+## 1 汇总三位专家共识
+## 2 识别关键分歧
+## 3 形成最终教练建议
+
+在你开始一个新的综合步骤时，必须先单独输出一行：
+[STEP: 你正在做什么的一句话]
+
+示例：
+[STEP: 识别三位专家的共识]
+[STEP: 解决战术与引擎之间的分歧]
+[STEP: 生成面向学生的教练建议]
+
 请生成最终讲解：
 【综合评估】一句话综合三位专家的观点
 【对手处境】综合分析对手的选项和应对（必须包含）
@@ -111,7 +128,7 @@ class Synthesizer:
         strategy_result: ExpertResult,
         engine_result: ExpertResult,
         user_question: str,
-        on_chunk: Callable[[str], None] = None,
+        on_event: Callable[[str, Dict[str, Any]], None] = None,
     ) -> str:
         """
         合成三位专家的结论，生成统一讲解
@@ -121,7 +138,7 @@ class Synthesizer:
             strategy_result: 战略专家结论
             engine_result: 引擎专家结论
             user_question: 用户原始问题
-            on_chunk: 流式回调
+            on_event: 流式事件回调
 
         Returns:
             统一讲解文本
@@ -156,12 +173,12 @@ class Synthesizer:
             {"role": "user", "content": user_content},
         ]
 
-        return self._call_stream(messages, on_chunk=on_chunk)
+        return self._call_stream(messages, on_event=on_event)
 
     def _call_stream(
         self,
         messages: List[Dict],
-        on_chunk: Callable[[str], None] = None,
+        on_event: Callable[[str, Dict[str, Any]], None] = None,
     ) -> str:
         """流式调用合成"""
         if not self.api_key:
@@ -195,6 +212,7 @@ class Synthesizer:
                 return f"合成器API错误: {response.status_code}"
 
             full_content = []
+            step_parser = SynthesisStepStreamParser(on_event) if on_event else None
             for line in response.iter_lines():
                 if not line:
                     continue
@@ -210,15 +228,129 @@ class Synthesizer:
                     chunk = delta.get("content", "")
                     if chunk:
                         full_content.append(chunk)
-                        if on_chunk:
-                            on_chunk(chunk)
+                        # 始终实时推送 chunk，确保前端降级方案有内容
+                        if on_event:
+                            on_event("synthesis_chunk", {"message": chunk})
+                        if step_parser:
+                            step_parser.feed(chunk)
                 except json.JSONDecodeError:
                     continue
 
-            return "".join(full_content)
+            final_content = "".join(full_content)
+            if step_parser:
+                step_parser.finalize()
+
+            return final_content
 
         except Exception as e:
             return f"合成失败: {str(e)}"
+
+
+# 中文节标题 → 用作隐式 STEP 标记（模型几乎总会输出这些）
+_SECTION_PATTERN = re.compile(r"^【(.+?)】")
+_SUBTITLE_PATTERN = re.compile(r"^##\s*(\d+)\s+(.+?)\s*$")
+
+
+class SynthesisStepStreamParser:
+    """将协调者流式输出按 [STEP:] / 【节标题】 解析为结构化事件。"""
+
+    def __init__(self, on_event: Callable[[str, Dict[str, Any]], None]):
+        self.on_event = on_event
+        self.pending = ""
+        self.current_title: Optional[str] = None
+        self.current_subtitle: Optional[str] = None
+        self.current_index = -1
+        self.current_started_at = 0.0
+        self.saw_marker = False
+
+    def feed(self, chunk: str) -> None:
+        self.pending += chunk
+        while "\n" in self.pending:
+            line, self.pending = self.pending.split("\n", 1)
+            self._process_line(line.rstrip("\r"))
+
+    def finalize(self) -> None:
+        if self.pending:
+            self._process_line(self.pending.rstrip("\r"))
+            self.pending = ""
+        self._finish_step()
+
+    def _process_line(self, line: str) -> None:
+        stripped = line.strip()
+
+        subtitle_match = _SUBTITLE_PATTERN.match(stripped)
+        if subtitle_match:
+            subtitle = subtitle_match.group(2).strip()
+            self.current_subtitle = subtitle
+            self.on_event("orchestrator_subtitle", {"message": subtitle})
+            return
+
+        # 优先检查 [STEP:] 显式标记
+        match = STEP_PATTERN.match(stripped)
+        if match:
+            self.saw_marker = True
+            self._finish_step()
+            self.current_index += 1
+            self.current_title = match.group(1).strip()
+            self.current_subtitle = self.current_title
+            self.current_started_at = time.time()
+            self.on_event("orchestrator_subtitle", {"message": self.current_title})
+            self.on_event(
+                "synthesis_step_start",
+                {
+                    "step_index": self.current_index,
+                    "title": self.current_title,
+                },
+            )
+            return
+
+        # 其次检查【节标题】作为隐式步骤（模型几乎总会输出）
+        section_match = _SECTION_PATTERN.match(stripped)
+        if section_match:
+            self.saw_marker = True
+            self._finish_step()
+            self.current_index += 1
+            self.current_title = section_match.group(1).strip()
+            self.current_subtitle = self.current_title
+            self.current_started_at = time.time()
+            self.on_event("orchestrator_subtitle", {"message": self.current_title})
+            self.on_event(
+                "synthesis_step_start",
+                {
+                    "step_index": self.current_index,
+                    "title": self.current_title,
+                },
+            )
+            return
+
+        if self.current_title is None:
+            return
+
+        if stripped:
+            self.on_event(
+                "synthesis_step_content",
+                {
+                    "step_index": self.current_index,
+                    "title": self.current_title,
+                    "content": f"{stripped}\n",
+                },
+            )
+
+    def _finish_step(self) -> None:
+        if self.current_title is None:
+            return
+
+        duration_ms = max(250, int((time.time() - self.current_started_at) * 1000))
+        self.on_event(
+            "synthesis_step_end",
+            {
+                "step_index": self.current_index,
+                "title": self.current_title,
+                "duration_ms": duration_ms,
+            },
+        )
+        self.current_title = None
+        self.current_started_at = 0.0
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -236,22 +368,11 @@ class MultiAgentOrchestrator:
 
     def __init__(self, api_key: str = None, debug_logger: AgentDebugLogger = None):
         self.debug_logger = debug_logger
-        self.tactics_expert = TacticsExpert(api_key=api_key, debug_logger=debug_logger)
-        self.strategy_expert = StrategyExpert(api_key=api_key, debug_logger=debug_logger)
-        self.engine_expert = EngineExpert(api_key=api_key, debug_logger=debug_logger)
-        self.synthesizer = Synthesizer(api_key=api_key)
-        self._tool_functions = {
-            "get_piece_attacks": AgentTools().get_piece_attacks,
-            "get_piece_defenders": AgentTools().get_piece_defenders,
-            "get_threats_to_piece": AgentTools().get_threats_to_piece,
-            "get_piece_relations": AgentTools().get_piece_relations,
-            "analyze_move": AgentTools().analyze_move,
-            "compare_moves": AgentTools().compare_moves,
-            "get_forcing_sequence": AgentTools().get_forcing_sequence,
-            "engine_deep_analysis": AgentTools().engine_deep_analysis,
-            "engine_alternatives": AgentTools().engine_alternatives,
-            "analyze_position_strategy": AgentTools().analyze_position_strategy,
-        }
+        self.api_key = api_key or os.getenv("ALIYUN_API_KEY")
+        self.tactics_expert = TacticsExpert(api_key=self.api_key, debug_logger=debug_logger)
+        self.strategy_expert = StrategyExpert(api_key=self.api_key, debug_logger=debug_logger)
+        self.engine_expert = EngineExpert(api_key=self.api_key, debug_logger=debug_logger)
+        self.synthesizer = Synthesizer(api_key=self.api_key)
 
     def _detect_phase(self, fen: str, move_count: int) -> PhaseInfo:
         """检测当前阶段"""
@@ -288,168 +409,166 @@ class MultiAgentOrchestrator:
         2. 自适应决策
         3. 并行调用三个专家
         4. 合成结果
-
-        Args:
-            on_thinking: SSE回调，参数为(event_type, message)
-                - "expert_start": 专家开始 {"expert": "tactics"|"strategy"|"engine"}
-                - "expert_result": 专家完成 {"expert": "...", "finding": "...", "success": true}
-                - "synthesis_chunk": 合成内容片段
-                - "synthesis": 合成完成
-
-        Returns:
-            统一讲解文本
         """
-        # ===== 开始调试会话 =====
-        if self.debug_logger:
-            self.debug_logger.start_session(fen, question)
+        tracer = get_tracer()
 
-        # ===== 1. 预检测 =====
-        phase_info = self._detect_phase(fen, move_count)
-        tensions, primary_tension = self._detect_tensions(
-            evidence_map or {}, engine_eval or {}, phase_info.phase_name
-        )
+        with tracer.start_as_current_span(
+            SpanNames.ORCHESTRATOR_ANALYZE_MULTI,
+            attributes={
+                SpanAttributes.FEN_HASH: _hash_fen(fen),
+                SpanAttributes.MOVE_COUNT: move_count,
+            }
+        ) as span:
+            # ===== 开始调试会话 =====
+            if self.debug_logger:
+                self.debug_logger.start_session(fen, question)
 
-        # 记录预检测结果
-        if self.debug_logger:
-            self.debug_logger.log_thinking("orchestrator", f"阶段: {phase_info.phase_name}, 张力数: {len(tensions)}")
-
-        tag_list = tag_summary if isinstance(tag_summary, list) else []
-        # get_primary_tension already returns Dict, not Tension object
-        primary_tension_dict = primary_tension if primary_tension else {}
-
-        # ===== 元叙事：推主线 headline =====
-        if on_thinking and primary_tension_dict:
-            core_question = primary_tension_dict.get("question", "关键问题")
-            on_thinking("headline", f"正在围绕「{core_question[:30]}」展开分析…")
-
-        # ===== 2. 并行调用三位专家 =====
-        def call_tactics():
-            if on_thinking:
-                on_thinking("expert_start", json.dumps({"expert": "tactics"}, ensure_ascii=False))
-            result = self.tactics_expert.analyze(
-                fen=fen, question=question,
-                tag_summary=tag_list,
-                primary_tension=primary_tension_dict,
-                phase_info=phase_info,
-                move=move,
-                on_thinking=on_thinking,
-            )
-            if on_thinking:
-                on_thinking("expert_result", json.dumps({
-                    "expert": "tactics",
-                    "finding": result.finding,
-                    "details": result.details[:200] if result.details else "",
-                    "success": result.success,
-                }, ensure_ascii=False))
-            return result
-
-        def call_strategy():
-            if on_thinking:
-                on_thinking("expert_start", json.dumps({"expert": "strategy"}, ensure_ascii=False))
-            result = self.strategy_expert.analyze(
-                fen=fen, question=question,
-                tag_summary=tag_list,
-                primary_tension=primary_tension_dict,
-                phase_info=phase_info,
-                move=move,
-                on_thinking=on_thinking,
-            )
-            if on_thinking:
-                on_thinking("expert_result", json.dumps({
-                    "expert": "strategy",
-                    "finding": result.finding,
-                    "details": result.details[:200] if result.details else "",
-                    "success": result.success,
-                }, ensure_ascii=False))
-            return result
-
-        def call_engine():
-            if on_thinking:
-                on_thinking("expert_start", json.dumps({"expert": "engine"}, ensure_ascii=False))
-            result = self.engine_expert.analyze(
-                fen=fen, question=question,
-                tag_summary=tag_list,
-                primary_tension=primary_tension_dict,
-                phase_info=phase_info,
-                engine_eval=engine_eval,
-                move=move,
-                on_thinking=on_thinking,
-            )
-            if on_thinking:
-                on_thinking("expert_result", json.dumps({
-                    "expert": "engine",
-                    "finding": result.finding,
-                    "details": result.details[:200] if result.details else "",
-                    "success": result.success,
-                }, ensure_ascii=False))
-            return result
-
-        # 串行执行（避免API并发限流）
-        import time
-        results = {}
-
-        # 依次调用三个专家，每个专家之间间隔1秒
-        try:
-            results["tactics"] = call_tactics()
-            time.sleep(1)
-        except Exception as e:
-            results["tactics"] = ExpertResult(
-                expert_name="tactics",
-                finding="执行失败",
-                details=str(e),
-                success=False,
-                error=str(e),
+            # ===== 1. 预检测 =====
+            phase_info = self._detect_phase(fen, move_count)
+            tensions, primary_tension = self._detect_tensions(
+                evidence_map or {}, engine_eval or {}, phase_info.phase_name
             )
 
-        try:
-            results["strategy"] = call_strategy()
-            time.sleep(1)
-        except Exception as e:
-            results["strategy"] = ExpertResult(
-                expert_name="strategy",
-                finding="执行失败",
-                details=str(e),
-                success=False,
-                error=str(e),
-            )
+            span.set_attribute(SpanAttributes.PHASE, phase_info.phase_name)
+            span.set_attribute(SpanAttributes.TENSION_COUNT, len(tensions))
+            if primary_tension:
+                span.set_attribute(SpanAttributes.TENSION_TYPE, primary_tension.get("tension_type", ""))
 
-        try:
-            results["engine"] = call_engine()
-        except Exception as e:
-            results["engine"] = ExpertResult(
-                expert_name="engine",
-                finding="执行失败",
-                details=str(e),
-                success=False,
-                error=str(e),
-            )
+            if self.debug_logger:
+                self.debug_logger.log_thinking("orchestrator", f"阶段: {phase_info.phase_name}, 张力数: {len(tensions)}")
 
-        # ===== 3. 合成结果 =====
-        def on_synthesis_chunk(chunk: str):
-            if on_thinking:
-                on_thinking("synthesis_chunk", chunk)
+            tag_list = tag_summary if isinstance(tag_summary, list) else []
+            primary_tension_dict = primary_tension if primary_tension else {}
 
-        synthesis = self.synthesizer.synthesize(
-            tactics_result=results.get("tactics", ExpertResult(
-                expert_name="tactics", finding="未执行", details="", success=False
-            )),
-            strategy_result=results.get("strategy", ExpertResult(
-                expert_name="strategy", finding="未执行", details="", success=False
-            )),
-            engine_result=results.get("engine", ExpertResult(
-                expert_name="engine", finding="未执行", details="", success=False
-            )),
-            user_question=question,
-            on_chunk=on_synthesis_chunk,
-        )
+            if on_thinking and primary_tension_dict:
+                core_question = primary_tension_dict.get("question", "关键问题")
+                on_thinking("headline", f"正在围绕「{core_question[:30]}」展开分析…")
 
-        # synthesis 事件由 orchestrator.analyze() 返回后，在 API 层统一发送
+            # ===== 2. 并行调用三位专家 =====
+            results = {}
+            experts_start = time.time()
 
-        # 结束调试日志会话
-        if self.debug_logger:
-            self.debug_logger.end_session()
+            def run_expert(name: str, span_name: str, func) -> tuple:
+                """包装专家执行，捕获异常，加入 OTEL Span"""
+                expert_tracer = get_tracer()
+                with expert_tracer.start_as_current_span(
+                    span_name,
+                    attributes={SpanAttributes.AGENT_NAME: name}
+                ) as expert_span:
+                    try:
+                        result = func()
+                        expert_span.set_attribute(SpanAttributes.EXPERT_SUCCESS, result.success)
+                        if result.success:
+                            expert_span.set_attribute(SpanAttributes.EXPERT_FINDING, result.finding[:100])
+                        else:
+                            expert_span.set_attribute(SpanAttributes.ERROR, True)
+                            expert_span.set_attribute(SpanAttributes.ERROR_MESSAGE, str(result.error or ""))
+                        return (name, result)
+                    except Exception as e:
+                        expert_span.set_attribute(SpanAttributes.ERROR, True)
+                        expert_span.set_attribute(SpanAttributes.ERROR_MESSAGE, str(e))
+                        return (name, ExpertResult(
+                            expert_name=name, finding="执行失败",
+                            details=str(e), success=False, error=str(e),
+                        ))
 
-        return synthesis
+            def call_tactics():
+                if on_thinking:
+                    on_thinking("expert_start", json.dumps({"expert": "tactics"}, ensure_ascii=False))
+                result = self.tactics_expert.analyze(
+                    fen=fen, question=question,
+                    tag_summary=tag_list, primary_tension=primary_tension_dict,
+                    phase_info=phase_info, move=move, on_thinking=on_thinking,
+                )
+                if on_thinking:
+                    on_thinking("expert_result", json.dumps({
+                        "expert": "tactics",
+                        "summary": result.finding,
+                        "finding": result.details if result.details else result.finding,
+                        "success": result.success,
+                    }, ensure_ascii=False))
+                return result
+
+            def call_strategy():
+                if on_thinking:
+                    on_thinking("expert_start", json.dumps({"expert": "strategy"}, ensure_ascii=False))
+                result = self.strategy_expert.analyze(
+                    fen=fen, question=question,
+                    tag_summary=tag_list, primary_tension=primary_tension_dict,
+                    phase_info=phase_info, move=move, on_thinking=on_thinking,
+                )
+                if on_thinking:
+                    on_thinking("expert_result", json.dumps({
+                        "expert": "strategy",
+                        "summary": result.finding,
+                        "finding": result.details if result.details else result.finding,
+                        "success": result.success,
+                    }, ensure_ascii=False))
+                return result
+
+            def call_engine():
+                if on_thinking:
+                    on_thinking("expert_start", json.dumps({"expert": "engine"}, ensure_ascii=False))
+                result = self.engine_expert.analyze(
+                    fen=fen, question=question,
+                    tag_summary=tag_list, primary_tension=primary_tension_dict,
+                    phase_info=phase_info, engine_eval=engine_eval,
+                    move=move, on_thinking=on_thinking,
+                )
+                if on_thinking:
+                    on_thinking("expert_result", json.dumps({
+                        "expert": "engine",
+                        "summary": result.finding,
+                        "finding": result.details if result.details else result.finding,
+                        "success": result.success,
+                    }, ensure_ascii=False))
+                return result
+
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                futures = [
+                    executor.submit(run_expert, "tactics", SpanNames.TACTICS_EXPERT_ANALYZE, call_tactics),
+                    executor.submit(run_expert, "strategy", SpanNames.STRATEGY_EXPERT_ANALYZE, call_strategy),
+                    executor.submit(run_expert, "engine", SpanNames.ENGINE_EXPERT_ANALYZE, call_engine),
+                ]
+                for future in futures:
+                    name, result = future.result(timeout=180)
+                    results[name] = result
+
+            span.set_attribute("experts.duration_ms", int((time.time() - experts_start) * 1000))
+
+            # ===== 3. 合成结果 =====
+            synthesis_start = time.time()
+
+            def on_synthesis_event(event_type: str, payload: Dict[str, Any]):
+                if on_thinking:
+                    on_thinking(event_type, json.dumps(payload, ensure_ascii=False))
+
+            tactics_r = results.get("tactics")
+            strategy_r = results.get("strategy")
+            engine_r = results.get("engine")
+
+            synthesis_tracer = get_tracer()
+            with synthesis_tracer.start_as_current_span(
+                SpanNames.SYNTHESIZER_SYNTHESIZE,
+                attributes={SpanAttributes.AGENT_NAME: "synthesizer"}
+            ):
+                synthesis = self.synthesizer.synthesize(
+                    tactics_result=tactics_r if tactics_r and tactics_r.success else
+                        ExpertResult(expert_name="tactics", finding="未执行", details="", success=False),
+                    strategy_result=strategy_r if strategy_r and strategy_r.success else
+                        ExpertResult(expert_name="strategy", finding="未执行", details="", success=False),
+                    engine_result=engine_r if engine_r and engine_r.success else
+                        ExpertResult(expert_name="engine", finding="未执行", details="", success=False),
+                    user_question=question,
+                    on_event=on_synthesis_event,
+                )
+                span.set_attribute("synthesis.duration_ms", int((time.time() - synthesis_start) * 1000))
+                span.set_attribute("synthesis.length", len(synthesis))
+
+            if self.debug_logger:
+                self.debug_logger.end_session()
+
+            return synthesis
 
     def analyze_single(
         self,
@@ -497,40 +616,62 @@ class MultiAgentOrchestrator:
         根据局面复杂度自动选择：
         - 简单局面 → 单Agent（快速）
         - 复杂局面 → 多Agent并行 + 合成
-
-        Args:
-            force_multi: 强制使用多Agent（忽略自适应判断）
         """
-        # ===== 预检测 =====
-        phase_info = self._detect_phase(fen, move_count)
-        tensions, _ = self._detect_tensions(
-            evidence_map or {}, engine_eval or {}, phase_info.phase_name
-        )
+        tracer = get_tracer()
 
-        # ===== 自适应决策 =====
-        use_multi = force_multi or should_use_multi_agent(
-            tensions=tensions,
-            phase_name=phase_info.phase_name,
-            user_request=question,
-        )
+        with tracer.start_as_current_span(
+            SpanNames.ORCHESTRATOR_ANALYZE,
+            attributes={
+                SpanAttributes.FEN_HASH: _hash_fen(fen),
+                SpanAttributes.MOVE_COUNT: move_count,
+            }
+        ) as span:
+            # ===== 预检测 =====
+            phase_info = self._detect_phase(fen, move_count)
+            tensions, _ = self._detect_tensions(
+                evidence_map or {}, engine_eval or {}, phase_info.phase_name
+            )
 
-        if use_multi:
-            return self.analyze_multi(
-                fen=fen, question=question,
-                evidence_map=evidence_map,
-                tag_summary=tag_summary,
-                move_count=move_count,
-                engine_eval=engine_eval,
-                move=move,
-                on_thinking=on_thinking,
+            # 设置阶段属性
+            span.set_attribute(SpanAttributes.PHASE, phase_info.phase_name)
+            span.set_attribute(SpanAttributes.TENSION_COUNT, len(tensions))
+
+            # ===== 自适应决策 =====
+            use_multi = force_multi or should_use_multi_agent(
+                tensions=tensions,
+                phase_name=phase_info.phase_name,
+                user_request=question,
             )
-        else:
-            return self.analyze_single(
-                fen=fen, question=question,
-                evidence_map=evidence_map,
-                tag_summary=tag_summary,
-                move_count=move_count,
-                engine_eval=engine_eval,
-                move=move,
-                on_thinking=on_thinking,
-            )
+            span.set_attribute("decision.use_multi_agent", use_multi)
+
+            if use_multi:
+                return self.analyze_multi(
+                    fen=fen, question=question,
+                    evidence_map=evidence_map,
+                    tag_summary=tag_summary,
+                    move_count=move_count,
+                    engine_eval=engine_eval,
+                    move=move,
+                    on_thinking=on_thinking,
+                )
+            else:
+                return self.analyze_single(
+                    fen=fen, question=question,
+                    evidence_map=evidence_map,
+                    tag_summary=tag_summary,
+                    move_count=move_count,
+                    engine_eval=engine_eval,
+                    move=move,
+                    on_thinking=on_thinking,
+                )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════════════
+# 辅助函数
+# ═══════════════════════════════════════════════════════════════════════════════════════
+
+def _hash_fen(fen: str, length: int = 16) -> str:
+    """生成 FEN 的短哈希（避免在 Span 中记录完整 FEN）"""
+    import hashlib
+    return hashlib.sha256(fen.encode()).hexdigest()[:length]
+

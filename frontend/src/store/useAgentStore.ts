@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { ExpertType, ExpertStatus, ToolCall } from '../components/ExpertCard';
+import { ExpertType, ExpertStatus, ToolCall, ExpertStep } from '../components/ExpertCard';
 
 // ============================================
 // Types
@@ -32,11 +32,14 @@ export interface ExpertAgentState {
   toolCalls: ToolCall[];
   finding: string;
   subtitle: string; // 动态副标题
+  steps: ExpertStep[];
 }
 
 export interface OrchestratorState {
   subtitle: string; // 协调者动态副标题
   content: string;  // 综合流式内容
+  steps: ExpertStep[];
+  subtitles: string[];
 }
 
 export interface AgentStore {
@@ -76,11 +79,21 @@ export interface AgentStore {
     toolCall: ToolCall
   ) => void;
 
+  // 步骤相关
+  addExpertStep: (type: ExpertType, title: string, stepIndex: number) => void;
+  appendExpertStepContent: (type: ExpertType, stepIndex: number, chunk: string) => void;
+  finalizeExpertStep: (type: ExpertType, stepIndex: number, durationMs?: number) => void;
+
   // 更新协调者副标题
   updateOrchestratorSubtitle: (subtitle: string) => void;
 
   // 追加协调者内容
   appendOrchestratorContent: (chunk: string) => void;
+
+  // 协调者步骤
+  addOrchestratorStep: (title: string, stepIndex: number) => void;
+  appendOrchestratorStepContent: (stepIndex: number, chunk: string) => void;
+  finalizeOrchestratorStep: (stepIndex: number, durationMs?: number) => void;
 }
 
 // ============================================
@@ -94,6 +107,7 @@ const initialExpertState: Record<ExpertType, ExpertAgentState> = {
     toolCalls: [],
     finding: '',
     subtitle: '',
+    steps: [],
   },
   strategy: {
     status: 'idle',
@@ -101,6 +115,7 @@ const initialExpertState: Record<ExpertType, ExpertAgentState> = {
     toolCalls: [],
     finding: '',
     subtitle: '',
+    steps: [],
   },
   engine: {
     status: 'idle',
@@ -108,6 +123,7 @@ const initialExpertState: Record<ExpertType, ExpertAgentState> = {
     toolCalls: [],
     finding: '',
     subtitle: '',
+    steps: [],
   },
 };
 
@@ -124,6 +140,8 @@ export const useAgentStore = create<AgentStore>((set) => ({
   orchestrator: {
     subtitle: '',
     content: '',
+    steps: [],
+    subtitles: [],
   },
 
   isPanelActive: false,
@@ -140,7 +158,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
         strategy: { ...initialExpertState.strategy },
         engine: { ...initialExpertState.engine },
       },
-      orchestrator: { subtitle: '', content: '' },
+      orchestrator: { subtitle: '', content: '', steps: [], subtitles: [] },
       isAnalyzing: false,
     }),
 
@@ -178,9 +196,72 @@ export const useAgentStore = create<AgentStore>((set) => ({
       },
     })),
 
+  addExpertStep: (type, title, stepIndex) =>
+    set((state) => {
+      const existing = state.experts[type].steps.find((step) => step.index === stepIndex);
+      if (existing) {
+        return state;
+      }
+
+      return {
+        experts: {
+          ...state.experts,
+          [type]: {
+            ...state.experts[type],
+            subtitle: title,
+            steps: [
+              ...state.experts[type].steps,
+              {
+                index: stepIndex,
+                title,
+                content: '',
+                status: 'thinking' as const,
+              },
+            ].sort((a, b) => a.index - b.index),
+          },
+        },
+      };
+    }),
+
+  appendExpertStepContent: (type, stepIndex, chunk) =>
+    set((state) => ({
+      experts: {
+        ...state.experts,
+        [type]: {
+          ...state.experts[type],
+          steps: state.experts[type].steps.map((step) =>
+            step.index === stepIndex
+              ? { ...step, content: step.content + chunk }
+              : step
+          ),
+        },
+      },
+    })),
+
+  finalizeExpertStep: (type, stepIndex, durationMs) =>
+    set((state) => ({
+      experts: {
+        ...state.experts,
+        [type]: {
+          ...state.experts[type],
+          steps: state.experts[type].steps.map((step) =>
+            step.index === stepIndex
+              ? { ...step, status: 'completed', durationMs }
+              : step
+          ),
+        },
+      },
+    })),
+
   updateOrchestratorSubtitle: (subtitle) =>
     set((state) => ({
-      orchestrator: { ...state.orchestrator, subtitle },
+      orchestrator: {
+        ...state.orchestrator,
+        subtitle,
+        subtitles: subtitle && !state.orchestrator.subtitles.includes(subtitle)
+          ? [...state.orchestrator.subtitles, subtitle]
+          : state.orchestrator.subtitles,
+      },
     })),
 
   appendOrchestratorContent: (chunk) =>
@@ -188,6 +269,54 @@ export const useAgentStore = create<AgentStore>((set) => ({
       orchestrator: {
         ...state.orchestrator,
         content: state.orchestrator.content + chunk,
+      },
+    })),
+
+  addOrchestratorStep: (title, stepIndex) =>
+    set((state) => {
+      const existing = state.orchestrator.steps.find((step) => step.index === stepIndex);
+      if (existing) {
+        return state;
+      }
+
+      return {
+        orchestrator: {
+          ...state.orchestrator,
+          subtitle: title,
+          steps: [
+            ...state.orchestrator.steps,
+            {
+              index: stepIndex,
+              title,
+              content: '',
+              status: 'thinking' as const,
+            },
+          ].sort((a, b) => a.index - b.index),
+        },
+      };
+    }),
+
+  appendOrchestratorStepContent: (stepIndex, chunk) =>
+    set((state) => ({
+      orchestrator: {
+        ...state.orchestrator,
+        steps: state.orchestrator.steps.map((step) =>
+          step.index === stepIndex
+            ? { ...step, content: step.content + chunk }
+            : step
+        ),
+      },
+    })),
+
+  finalizeOrchestratorStep: (stepIndex, durationMs) =>
+    set((state) => ({
+      orchestrator: {
+        ...state.orchestrator,
+        steps: state.orchestrator.steps.map((step) =>
+          step.index === stepIndex
+            ? { ...step, status: 'completed', durationMs }
+            : step
+        ),
       },
     })),
 }));

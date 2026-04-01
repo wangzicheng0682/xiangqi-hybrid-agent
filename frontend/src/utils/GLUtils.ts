@@ -425,6 +425,11 @@ export class MultiPassRenderer {
     const ext = gl.getExtension("EXT_color_buffer_float");
     if (!ext) console.warn("EXT_color_buffer_float not supported, using fallback");
 
+    // Enable alpha blending so transparent pixels from later passes (e.g. buttonPass)
+    // don't overwrite pixels already on the canvas
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
     this.gl = gl;
 
     const passesArray: RenderPass[] = [];
@@ -491,6 +496,10 @@ export class MultiPassRenderer {
     this.clearAllUniforms();
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+
+  public getPass(name: string): RenderPass | undefined {
+    return this.passes.get(name);
   }
 }
 

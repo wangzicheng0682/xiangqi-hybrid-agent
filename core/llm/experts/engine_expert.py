@@ -7,7 +7,6 @@
 from typing import Dict, List, Callable, Optional
 from core.llm.experts.base_expert import (
     BaseExpert, ExpertConfig, ExpertResult,
-    should_use_multi_agent,
 )
 from core.llm.thinking_templates import PhaseInfo
 
@@ -90,6 +89,25 @@ SYSTEM_PROMPT_ENGINE = """# 象棋基础规则 - 铁律，不可违背
 ---
 
 # 你的输出格式
+
+【输出格式要求】
+在开始深入分析之前，先输出一行阶段标题，格式为：
+## [N] [简短描述]
+
+例如：
+## 1 读取引擎评估
+## 2 比较候选分差
+## 3 验证最佳着逻辑
+
+阶段标题输出后，再开始该阶段的详细分析。
+
+在你开始一个新的分析步骤时，必须先单独输出一行：
+[STEP: 你正在做什么的一句话]
+
+示例：
+[STEP: 读取引擎评估和主变化]
+[STEP: 比较前三候选走法的分差]
+[STEP: 解读不走最佳着的风险]
 
 请完成分析后，给出：
 【引擎解读】一句话描述你对引擎评估的理解
@@ -179,7 +197,7 @@ class EngineExpert(BaseExpert):
             "analyze_move", "compare_moves",
         ],
         max_rounds=3,
-        max_tokens=512,
+        max_tokens=1024,
     )
 
     def analyze(

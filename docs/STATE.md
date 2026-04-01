@@ -1,9 +1,564 @@
+---
+name: 项目状态
+type: state
+version: 3.49
+date: 2026-04-02
+owner: AI（自动维护）
+changelog:
+  - v3.49 (2026-04-02): 搜索栏 WebGL 形变提速并按内容外框包裹 + 搜索亮底字体提亮对比 + 引擎栏恢复大字优势信息 + 协调者流式区去黑框
+  - v3.48 (2026-04-01): 引擎栏折线占主体 + 删除大数字胜率 + 删除右栏仿macOS外框 + iOS式搜索缩放动画 + 右栏间距色调统一
+  - v3.47 (2026-04-01): 搜索浮层动画提速并收紧 + 引擎栏改为图表优先布局 + 右侧分析栏 macOS 化舞台重构
+  - v3.46 (2026-04-01): 引擎栏补齐胜率比例条与真实折线图 + 左栏切换为统一 WebGL 液态几何 + 打棋谱按钮到搜索框连续形变
+  - v3.45 (2026-04-01): 修复分析模式引擎栏显示条件/定位错误 + 新增轻量 engine/evaluate 接口 + 旧后端兼容降级
+  - v3.44 (2026-04-01): 左栏层级重排 + 引擎栏接入 Pikafish 真评估 + 棋盘下方稳定显示
+  - v3.43 (2026-04-01): 左侧栏交互升级一期 — 走法记录框/打棋谱搜索浮层/WebGL按钮接入 + 引擎栏大数字与tooltip重构
+  - v3.42 (2026-04-01): 补齐计划剩余项 — ExpertGlassPanel接入实时thinking/finding + ThinkingStream拆分标题区/内容区 + orchestrator_subtitle事件 + prompt阶段标题约束
+  - v3.41 (2026-04-01): 修复协调者步骤不显示bug — 实时chunk推送 + 【节标题】隐式步骤 + API双编码修复 + 前端降级路径
+  - v3.40 (2026-04-01): 协调者步骤协议落地 — synthesis_step SSE事件 + 前端右侧综合步骤流 + 流式解析测试补齐
+  - v3.39 (2026-04-01): 多Agent步骤协议首版落地 — 三专家[STEP]标记 + SSE结构化事件 + 前端左侧步骤可视化
+  - v3.38 (2026-04-01): 完成左侧栏完整重构 — Zustand持久化 + 两Leva文件夹 + z=3固定Logo/滑块 + WebGL按钮透明叠层
+  - v3.37 (2026-04-01): 左侧栏重构 — iOS 26三段滑块 + 拍照按钮 + WebGL按钮坐标调整
+  - v3.36 (2026-04-01): OpenTelemetry追踪系统上线并验证 — 完整Span层级 + 控制台输出
+  - v3.35 (2026-04-01): OpenTelemetry追踪系统上线 — 零配置控制台输出，支持Langfuse/Jaeger接入
+  - v3.34 (2026-04-01): WebGL按钮升级 — dashersw折射模型迁移（进行中）
+  - v3.33 (2026-04-01): 多Agent系统工程化修复，详见 doc/plans/eager-growing-eich.md
+  - v3.32 (2026-04-01): 文档体系整理，添加frontmatter
+  - v3.31 (2026-03-31): DNA重写，文档体系重大更新
+---
+
 # 项目状态
 
 > 本文档记录当前开发进度，架构详情请阅读 [DNA.md](DNA.md)
 
-**版本**: v3.30
-**最后更新**: 2026-03-31
+**版本**: v3.49
+**最后更新**: 2026-04-02
+
+---
+
+## 📋 文档更新记录
+
+### 2026-04-02 ✅ 完成：搜索栏液态节奏校准 + 引擎栏大字回归 + 协调者内容区去黑框（v3.49）
+
+**本次改造**（基于最新截图反馈）：
+- `frontend/src/components/LiquidGlassApp.tsx`
+  - 左侧搜索玻璃 shape1 追踪改为更高 lerp，显著快于 DOM 内容显现，减少“内容已到位但 WebGL 还在慢慢追”的违和感
+  - 保持几何动画直接对齐目标外框，收口更利落
+- `frontend/src/components/LeftSidebar.tsx`
+  - 搜索框的几何上报从内层 shell 改为外层 overlay，玻璃包裹范围与实际内容外框一致
+  - DOM 内容显现节奏略放缓，而 WebGL 变形提速，二者更接近苹果式“玻璃先到位、内容随后安定”的节奏
+  - 在亮背景下将搜索标题、输入框、结果文字统一切换为更深的暖灰/金棕系，提高可读性
+- `frontend/src/components/EngineChart.tsx`
+  - 在顶部新增大字优势信息，如“红优 233 分 / 黑优 23 分”，保留苹果式大字号信息感
+  - 同时保留折线图主体布局，不再回到旧的冗余大数字双栏
+- `frontend/src/components/ThinkingStream.tsx`
+  - 去掉协调者下面突兀的大黑框，改为更轻的半透明内容区 + 细竖向强调线
+  - 底部遮罩改轻，整体更接近玻璃层里的阅读区域，而不是独立黑色卡片
+
+**验证结果**：
+- `cd frontend && npm run build` → 通过
+- `python -m pytest -q` → 全绿
+
+### 2026-04-01 ✅ 完成：引擎栏折线主体化 + 右栏去层 + iOS搜索动画（v3.48）
+
+**本次改造**（基于用户截图反馈 + 提问工具对齐）：
+- `frontend/src/components/EngineChart.tsx`
+  - 删除 46px 大数字胜率和评估分（有胜率条即不需要冗余大数字）
+  - 布局改为 flex 纵向：折线图 flex:1 占满主体 → 底部一行（迷你胜率条 + 评分 + 着法 + 深度）
+  - 修复折线被截断看不全的问题（之前被 metricStrip/probabilityWrap 挤压导致 chartArea 高度不足）
+- `frontend/src/components/AgentThinkingPanel.tsx`
+  - 完全删除 v3.47 新增的仿 macOS 外框（红黄绿灯点、标题栏、radial-gradient 装饰、glass border）
+  - 回归简洁透明容器，让底层 WebGL LiquidGlassApp shape3 作为唯一背景
+- `frontend/src/components/AgentCardFlip.tsx`
+  - ExpertActivityPanel 宽度 178→164，边距和字号收紧，色调统一为低饱和白色系
+  - SplitLayout 内边距 18→12/14，分隔线改柔和白色，右侧协调者面板去掉重 boxShadow
+- `frontend/src/components/LeftSidebar.tsx`
+  - 搜索框动画改为 iOS 风格缩放：从按钮位置 scale 0.4→1（150ms），关闭时缩回 scale 0.45
+  - 删除所有 setTimeout 延迟和位移动画，实现即时响应
+  - transformOrigin 设在按钮位置（24px 0%），视觉上从按钮弹出
+
+**验证结果**：
+- `npm run build` → 通过（565 modules, 2.09s）
+- `pytest -q` → 186 passed
+
+### 2026-04-01 ✅ 完成：搜索浮层提速、引擎栏图表优先与右栏 macOS 化收束（v3.47）
+
+**本次前端改造**：
+- `frontend/src/components/LeftSidebar.tsx`
+  - 搜索浮层开合时延从肉眼可感的拖拽式过渡改为更短促的系统级过渡
+  - 内容淡入与液态几何扩张分离，减少“慢、钝、像网页”的感觉
+- `frontend/src/components/EngineChart.tsx`
+  - 去掉“最佳着法 / 搜索深度 / 合法着数”三个大块占位，改为一行紧凑元信息
+  - 进一步放大图表区域，主折线描边加粗并加发光，优先保证走势可见性
+- `frontend/src/App.tsx`
+  - 分析态棋盘再上移一档，引擎栏高度回收，为折线图腾出更高可用区域
+- `frontend/src/components/AgentThinkingPanel.tsx`
+  - 右侧分析区增加统一顶栏、系统灯点、柔和环境光和整体内框，收束成单一工作台
+- `frontend/src/components/AgentCardFlip.tsx`
+  - 调整专家列 / 协调者列比例
+  - 专家活动卡和协调者区改为统一玻璃底板，减少漂浮碎块感
+- `frontend/src/components/ThinkingStream.tsx`
+  - 协调者流式内容区改为更柔和的蓝色玻璃面，去掉原先过黑的矩形块观感
+
+**当前交互结果**：
+- 打棋谱搜索框展开更快、更脆，不再拖泥带水
+- 引擎栏现在更明确地以折线走势为主，而不是被三个信息块挤占空间
+- 右侧分析模式从“几块分散悬浮内容”收束成更接近 macOS 工作台的统一窗口
+
+**验证结果**：
+- `cd frontend && npm run build` → 通过
+- `python -m pytest --tb=short | Select-Object -Last 5 | Out-String` → `186 passed in 6.92s`
+
+### 2026-04-01 ✅ 完成：左栏统一 WebGL 液态材质系统与引擎栏图表修复（v3.46）
+
+**本次前端改造**：
+- `frontend/src/components/LeftSidebar.tsx`
+  - 左栏操作区从“CSS 玻璃面板 + 独立 WebGL 按钮”改为“统一 WebGL 玻璃体 + 透明 DOM 控件层”
+  - `打棋谱` 点击时先把液态几何收缩到按钮，再扩展为搜索容器，实现连续液态形变
+  - 走法记录框进一步压缩高度，底部比例更稳定
+- `frontend/src/App.tsx`
+  - 新增左栏液态几何状态回传，让 WebGL 层根据真实 DOM 矩形驱动 shape1
+  - 引擎栏定位改为整数像素并固定高度，减少视觉歪斜和模糊
+- `frontend/src/components/LiquidGlassApp.tsx`
+  - shape1 改为由左栏/搜索框实测矩形驱动，不再依赖固定参数死板定位
+  - 新增 shape1 几何弹簧过渡，支撑按钮到搜索框的连续液态变形
+- `frontend/src/components/EngineChart.tsx`
+  - 图表坐标改为按真实图表区域测量，修复折线被裁切导致“看不到分数折线图”的问题
+  - 新增红黑胜率比例条，用直观面积分配取代纯数字呈现
+  - 单点评估时自动补平滑兜底折线，空局面也能维持完整信息框架
+
+**当前交互结果**：
+- 引擎栏现在会稳定显示可见折线，而不是只剩大数字没有走势
+- 胜率改为红黑比例条，红黑优劣一眼可读
+- 左栏关闭态是一整块统一液态玻璃，不再是按钮材质和面板材质割裂
+- 打开打棋谱时，液态几何会从按钮连续扩展为搜索容器，整体更接近一体化 Apple 式材质运动
+
+**验证结果**：
+- `cd frontend && npm run build` → 通过
+- `python -m pytest -q` → 通过
+- `python -m pytest --tb=short | Select-Object -Last 5 | Out-String` → `186 passed in 6.92s`
+
+### 2026-04-01 ✅ 完成：分析态引擎栏 bugfix 与接口降级兼容（v3.45）
+
+**本次修复**：
+- `api/main.py`
+  - 新增轻量级 `/api/engine/evaluate` 接口，只返回 Pikafish 核心评估结果
+  - 避开原 `position-analysis` 混入规则层后导致的 500 错误
+- `frontend/src/services/api.ts`
+  - `getEngineEvaluation()` 改为优先调用 `/api/engine/evaluate`
+  - 若用户当前运行的是旧后端，自动降级到 `/api/best-moves`，避免引擎栏直接报错
+- `frontend/src/App.tsx`
+  - 修复引擎栏在非分析模式下仍显示的问题
+  - 修复分析态引擎栏未停靠在棋盘正下方的问题，改为按棋盘真实矩形绝对定位
+  - 分析态下棋盘自动上移并轻微缩放，为引擎栏腾出稳定空间
+- `frontend/src/components/LeftSidebar.tsx`
+  - 缩短走法记录框高度，避免空局面时纵向比例失衡
+
+**当前结果**：
+- 引擎栏只在分析模式显示
+- 进入分析模式后，引擎栏会停靠在棋盘正下方，而不是漂到底部或出现在错误模式
+- 旧后端未重启时，前端也不会直接进入“异常”状态
+- 左栏棋谱框长度回到更接近 5-6 行的视觉比例
+
+**验证结果**：
+- `FastAPI TestClient -> POST /api/engine/evaluate` → `200`，返回真实 Pikafish 结果
+- `cd frontend && npm run build` → 通过
+- `python -m pytest --tb=short` → `186 passed in 5.74s`
+
+### 2026-04-01 ✅ 完成：左栏层级重排与 Pikafish 引擎栏真接线（v3.44）
+
+**本次前端改造**：
+- `frontend/src/components/LeftSidebar.tsx`
+  - 将左栏信息层级重排为“模式/操作在上，走法记录在下”
+  - 走法记录框沉到底部并占据剩余高度，更符合控制优先的布局逻辑
+- `frontend/src/services/api.ts`
+  - 新增 `getEngineEvaluation()`，直接从后端结构化局面分析提取 Pikafish 评分结果
+- `frontend/src/store/useGameStore.ts`
+  - 新增 `enginePanel` 状态，统一承载最佳着法、评分、深度、PV、合法着数与加载/错误态
+  - 新增 `refreshEngineEvaluation()`，在局面切换后刷新 Pikafish 真评估，并写入 `evalHistory`
+  - 重开、载入棋谱、退出回放时同步清空旧局面的引擎走势
+- `frontend/src/App.tsx`
+  - 局面 `fen` 变化时自动触发引擎刷新
+  - 引擎栏改为稳定停靠在棋盘下方，而不是只在折叠态下显示
+- `frontend/src/components/EngineChart.tsx`
+  - 接入 `enginePanel` 真数据
+  - 增加引擎加载态、错误态、最佳着法/搜索深度/合法着数摘要区
+
+**当前交互结果**：
+- 左栏不再是“棋谱压在上面、操作挤在下面”的结构，控制区优先级更清晰
+- 引擎栏已经真正读取 Pikafish 结果，不再只是前端空数据图表
+- 棋盘下方始终可见引擎信息面板，连续显示评分走势与当前最佳着法
+
+**验证结果**：
+- `cd frontend && npm run build` → 通过
+- `python -c "from core.engine import PikafishEngine; ..."` → 成功返回 `{'bestmove': 'c3c4', 'score': 0.12, 'depth': 8, 'pv': [...]}`
+- `python -m pytest --tb=short` → `186 passed in 5.09s`
+
+
+### 2026-04-01 ✅ 完成：左侧栏交互升级一期（v3.43）
+
+**本次前端改造**：
+- `frontend/src/components/LeftSidebar.tsx`
+  - 新增固定左侧栏独立组件，承载 Logo、走法记录、模式分段控件与操作区
+  - 打棋谱改成搜索浮层工作流：左栏主体淡出，搜索容器向棋盘左缘展开
+  - 搜索结果直接接入现有 `/api/games/search` 与 `/api/games/{id}`，选局后进入回放态
+  - 回放态左栏切换为“走法记录 + 上一步/下一步/退出打棋谱”
+- `frontend/src/utils/moveNotation.ts`
+  - 新增 ICCS 走法到中文记谱的前端格式化工具
+  - 支持实时对局历史在左栏按红黑双列显示
+- `frontend/src/App.tsx`
+  - 左栏改为独立组件接管，主布局只保留棋盘、引擎栏与右侧思考区
+  - 新增棋盘左边界测量，供打棋谱搜索浮层计算展开宽度
+- `frontend/src/components/EngineChart.tsx`
+  - 从“小图标+细折线”重构为“大数字胜率/评估分 + 折线图 + hover tooltip”
+  - tooltip 现显示回合数、评估分、胜率与深度
+- `frontend/src/components/WebGLButton.tsx`
+  - 修正定位方式，重新用于左栏操作按钮承载 WebGL 渲染按钮
+
+**当前交互结果**：
+- 左栏固定显示 5-6 行量级的走法记录，并随对局自动滚动
+- 打棋谱不再直接跳模式，而是先进入搜索浮层，再选择历史对局
+- 回放控制已收回左栏，符合“边看棋盘边翻谱”的布局目标
+- 引擎栏在分析态下更接近 iOS 大数字信息面板，而不再只是占位图表
+
+**验证结果**：
+- `cd frontend && npm run build` → 通过
+- `python -m pytest --tb=short` → `186 passed in 6.27s`
+
+### 2026-04-01 ✅ 完成：补齐 plan 剩余可视化目标（v3.42）
+
+**本次补齐**：
+- `frontend/src/components/AgentCardFlip.tsx`
+  - ExpertGlassPanel 悬停态不再显示静态 abilities
+  - 分析中显示实时 `thinkingContent`
+  - 完成后切换为完整 `finding`
+  - 增加自然停顿、自动滚动、底部遮罩、光标跟随
+- `frontend/src/components/ThinkingStream.tsx`
+  - 右侧改成上下两区：上方“当前阶段”标题区，下方正文内容区
+  - 内容区改为更自然的流式节奏，增加自动滚动和底部渐隐遮罩
+- `frontend/src/store/useAgentStore.ts`
+  - `orchestrator` 新增 `subtitles` 历史数组
+- `core/llm/multi_agent_orchestrator.py`
+  - 协调者新增 `orchestrator_subtitle` 事件发送
+  - `expert_result` 改为 `summary + finding` 双字段，`finding`承载完整结论，不再塞截断 `details`
+- 三位专家 Prompt
+  - 新增 `## [N] [阶段标题]` 约束，强化阶段性输出
+
+**验证结果**：
+- `python -m pytest --tb=short` → `186 passed`
+- `frontend/npm run build` → 通过
+
+---
+
+### 2026-04-01 ✅ 修复：协调者步骤不显示bug（v3.41）
+
+**问题现象**：用户启动深度分析后，协调者区域只显示"协调者正在分析..."占位文本，无任何步骤或内容。
+
+**根因分析（三层bug叠加）**：
+1. **模型不输出`[STEP:]`标记** → 解析器整个流式阶段无事件产出
+2. **降级方案只在流结束后才发一次`synthesis_chunk`** → 流式期间前端零内容
+3. **`synthesis_chunk`事件存在JSON双重编码** → API层包了两次`json.dumps`，前端拿到JSON字符串而非文本
+
+**后端修复**：
+- `core/llm/multi_agent_orchestrator.py`
+  - 流式循环中始终实时推送`synthesis_chunk`（不再只在结束时推送一次）
+  - 新增`【节标题】`隐式步骤检测（如`【综合评估】`→自动触发`synthesis_step_start`）
+  - 模型几乎总会输出这类中文节标题，可靠性远超`[STEP:]`标记
+- `api/main.py`
+  - 修复`synthesis_chunk`的JSON双重编码：先`json.loads`解码再取`.message`
+
+**前端修复**：
+- `frontend/src/components/ThinkingStream.tsx`
+  - 修复`orchestrator.content`的items累积bug：改为直接渲染流式文本
+  - 三层降级：步骤卡片 → 流式文本 → 等待占位
+
+**新增测试**：
+- `tests/test_step_protocol.py`：`【节标题】`隐式步骤解析 + 混合`[STEP:]`与`【section】`场景
+
+---
+
+### 2026-04-01 ✅ 完成：协调者步骤协议落地（v3.40）
+
+**本次目标**：把右侧协调者综合流也升级成结构化步骤，让“专家并行分析 → 协调者综合归纳”形成统一可见链路。
+
+**后端改动**：
+- `core/llm/multi_agent_orchestrator.py`
+  - 合成器 Prompt 新增 `[STEP: ...]` 输出约定
+  - 新增 `SynthesisStepStreamParser`，把流式输出解析为 `synthesis_step_start/content/end`
+  - 保留 `synthesis_chunk` 兼容分支，避免旧前端直接断流
+- `api/main.py`
+  - SSE 新增转发 `synthesis_step_start`
+  - SSE 新增转发 `synthesis_step_content`
+  - SSE 新增转发 `synthesis_step_end`
+
+**前端改动**：
+- `frontend/src/store/useAgentStore.ts`
+  - `orchestrator` 新增 `steps`
+  - 新增 `addOrchestratorStep/appendOrchestratorStepContent/finalizeOrchestratorStep`
+- `frontend/src/components/ThinkingStream.tsx`
+  - 右侧协调者面板优先展示结构化步骤卡片
+  - 保留旧 `subtitle + content` 文本流回退
+- `frontend/src/components/DeepAnalysisPanel.tsx`
+  - 接入 `synthesis_step_*` 事件
+  - `orchestrator_subtitle` 与 `synthesis_chunk` 分开处理，避免状态污染
+- `frontend/src/services/api.ts`
+  - 深度分析 SSE 消息类型扩展到 `synthesis_*`
+
+**测试补充**：
+- `tests/test_step_protocol.py`
+  - 新增协调者流式步骤解析测试
+  - 新增无步骤标记回退测试
+
+**当前效果**：
+- 左侧三专家展示最近步骤摘要
+- 右侧协调者按步骤显示“综合判断是如何形成的”
+- 专家与协调者都遵循统一的 `[STEP:] -> 结构化SSE -> 前端步骤卡片` 协议
+
+---
+
+### 2026-04-01 ✅ 完成：多Agent步骤协议首版落地（v3.39）
+
+**本次目标**：把“思考步骤可见”从纯文本流升级为结构化步骤流，让前端能直接显示三位专家分别在做什么。
+
+**后端改动**：
+- `core/llm/experts/base_expert.py`
+  - 新增 `parse_step_blocks()`，解析专家输出中的 `[STEP: ...]`
+  - 新增 `_emit_structured_steps()`，发出 `expert_step_start/content/end`
+  - `_extract_finding()` 会自动去掉 `[STEP:]` 标记，避免摘要污染
+- 三位专家 Prompt：
+  - `tactics_expert.py`
+  - `strategy_expert.py`
+  - `engine_expert.py`
+  - 均新增 `[STEP: 你正在做什么]` 输出约定
+- `api/main.py`
+  - SSE 新增转发 `expert_step_start`
+  - SSE 新增转发 `expert_step_content`
+  - SSE 新增转发 `expert_step_end`
+
+**前端改动**：
+- `frontend/src/store/useAgentStore.ts`
+  - 新增 `steps` 状态
+  - 新增 `addExpertStep/appendExpertStepContent/finalizeExpertStep`
+- `frontend/src/components/DeepAnalysisPanel.tsx`
+  - 接入 `expert_step_*` 事件
+  - 修复 `expert_result` 状态更新逻辑（`done` → `completed`）
+- `frontend/src/components/AgentCardFlip.tsx`
+  - 左侧三专家区域新增步骤摘要面板
+  - 当前步骤默认展开，最近 2-3 步可见
+- `frontend/src/components/ExpertCard.tsx`
+  - 新增 `steps` 渲染能力，兼容旧的 `thinkingContent`
+- `frontend/src/services/api.ts`
+  - 扩展深度分析 SSE 消息类型定义
+
+**用户体验约束（已按设计偏好落实）**：
+- 当前步骤默认展开
+- 左侧信息密度取“平衡”
+- 状态文案简短直接
+- 视觉风格克制专业，不做重特效
+
+**验证结果**：
+- `pytest tests/test_step_protocol.py -q` ✅
+- `pytest tests/test_multi_agent.py tests/test_step_protocol.py -q` ✅
+- `cd frontend && npm run build` ✅
+
+**当前已知边界**：
+- 协调者 `synthesis_chunk` 仍是普通流文本，尚未升级为 `synthesis_step_*`
+- 左侧专家区目前是“步骤摘要卡”，还不是最终的完全折叠式分组面板
+
+---
+
+### 2026-04-01 ✅ 完成：左侧栏完整重构（v3.38）
+
+**最终架构**：
+```
+App.tsx (z=3 固定叠层)
+  ├── Logo ♕ + "象棋AI教练·混合代理系统"（DOM文字）
+  └── iOS 26 三段滑块 分析/◉人机/◎双人（DOM交互，点击触发segment切换）
+
+LiquidGlassApp (z=2 WebGL透明叠层)
+  ├── 主 WebGL canvas → 液态玻璃背景 + shape3 右侧栏
+  └── button canvas → WebGL 液态玻璃按钮
+      → CustomEvent 'webgl-button-click' → App.tsx 处理
+
+Grid (z=1)
+  ├── 左侧栏 aside（pointerEvents:none，占位保持grid宽度）
+  ├── 中央棋盘 main
+  └── 右侧透明 aside（AgentThinkingPanel，shape3定位基准）
+
+LocalStorage: 'glass-params'（Zustand persist）
+  └── Leva GUI（'左侧栏'/'右侧栏'两文件夹）↔ Zustand ↔ paramsRef → RAF → shader uniforms
+```
+
+**按钮清单**（WebGL渲染，buttonCanvas hitTest，y ≥ 106）：
+| 按钮 | 位置（侧栏内） | 激活态 |
+|------|--------------|--------|
+| 打棋谱 | y=112 | replay模式 |
+| 翻转棋盘 | y=162 | toggle |
+| 显示提示 | y=162,x=96 | showArrows |
+| 重新开始 | y=204 | gold primary |
+| 📷 拍照 | y=204,x=146 | — |
+
+**关键修复**：
+- 三段滑块移至 `position:fixed; z=3`（解决被 button canvas z=2 遮挡）
+- `buttonCanvas hitTest` 跳过 y<106 区域（Logo+三段滑块）
+- Zustand subscribe → paramsRef → RAF（无 React 重渲染）
+- shape3 radius 从硬编码 28 → `paramsRef.current.shape3Radius`（可由 Leva 控制）
+
+### 2026-04-01 🔧 左侧栏重构：iOS 26三段滑块 + 拍照按钮
+
+**新布局**：分析/人机/双人 → iOS 26 pill滑块；重新开始右侧新增拍照按钮📷
+
+**文件变更**：`App.tsx` + `index.css`（三段滑块CSS）+ `LiquidGlassApp.tsx`（坐标调整）
+
+---
+
+### 2026-04-01 🔧 WebGL按钮升级：dashersw折射模型迁移（进行中）
+
+**目标**：按钮文字从 Canvas2D 改为 DOM 层，shader 增加 dashersw 风格的 cornerBoost + rippleEffect。
+
+**参考来源**：`dashersw/liquid-glass-js`（192 stars）- 读取源码自行实现，未下载文件
+
+**已完成的改动**：
+
+- `fragment-button.glsl`：
+  - 新增 uniform `u_cornerBoost`（角落增强折射）
+  - 新增 uniform `u_rippleEffect`（表面涟漪纹理）
+  - cornerBoost：在角落处额外折射偏移
+  - rippleEffect：垂直于法线的涟漪波纹
+
+- `LiquidGlassApp.tsx`：
+  - `BUTTON_DEFS` 改为 `export`（供 App.tsx 引用）
+  - 移除 Canvas2D 文字渲染代码
+  - 新增 `hoveredBtn` / `activeBtn` prop（从 App.tsx 传入）
+  - 新增 Leva 参数 `btn_cornerBoost`（默认 0.02）和 `btn_rippleEffect`（默认 0.1）
+  - `DEFAULT_CONTROLS` 新增 `btn_cornerBoost: 0.02`、`btn_rippleEffect: 0.1`
+  - `Controls` 接口新增 `btn_cornerBoost`、`btn_rippleEffect`
+
+- `App.tsx`：
+  - 导入 `BUTTON_DEFS`
+  - 新增 `hoveredBtn` / `setHoveredBtn` 状态
+  - 传递 `hoveredBtn` / `activeBtn` 给 `LiquidGlassApp`
+
+**待完成**：
+- [ ] 左侧栏 DOM 按钮文字层布局（`index.css` + `App.tsx` JSX）
+- [ ] 鼠标悬停事件（绑定到 aside 区域，命中检测到 span）
+- [ ] CSS 样式（文字阴影、金色高亮、`pointer-events: none`）
+- [ ] 验证按钮效果（cornerBoost + ripple + 文字清晰无锯齿）
+
+**架构变更**：
+```
+变更前：WebGL 渲染按钮 → Canvas2D 绘制文字
+变更后：WebGL 渲染按钮 → DOM span 文字层（pointerEvents: none）
+```
+
+---
+
+## 📋 文档更新记录
+
+### 2026-04-01 🔧 多Agent系统工程化修复
+
+**背景**：架构审查发现多Agent系统存在严重缺陷（B+评分），详见 [plans/eager-growing-eich.md](../plans/eager-growing-eich.md)
+
+**P0 修复**：
+- ✅ **真正并行执行**：用 `ThreadPoolExecutor` 替换串行 `time.sleep(1)` 伪并行
+- ✅ **补充测试**：`tests/test_multi_agent.py` 23个测试用例，覆盖自适应决策、专家配置、阶段检测、异常处理
+
+**P1 修复**：
+- ✅ **phase_info 注入**：专家现在知道当前处于开局/中局/残局
+- ✅ **清理冗余代码**：删除 orchestrator 无效的 `_tool_functions`
+- ✅ **专家失败处理**：失败专家结论不参与合成
+
+**P2 修复**：
+- ✅ **max_tokens 512→1024**：支持深度分析不截断
+- ✅ **工具超时控制**：30秒超时，防止工具卡死阻塞专家
+- ✅ **清理未使用 imports**：三个专家文件中的 `should_use_multi_agent` 冗余导入
+
+**测试结果**：23 passed in 1.08s
+
+---
+
+### 2026-04-01 🔧 OpenTelemetry 追踪系统上线（已完成+验证）
+
+**背景**：GitHub调研发现 OpenTelemetry 是 AI Agent 调试的行业标准（LangGraph/AutoGen/CrewAI 都在用）
+
+**新增文件**：
+- `core/llm/tracing.py` — OTEL 初始化 + TracerProvider + Span装饰器
+- `docs/reference/tracing.md` — 追踪系统完整文档
+
+**追踪层级**：
+```
+orchestrator.analyze
+  └── orchestrator.analyze_multi
+        ├── tactics_expert.analyze
+        │     ├── llm.call（model, input_tokens, output_tokens, duration_ms）
+        │     └── tool_call（tool_name, success, error）
+        ├── strategy_expert.analyze
+        └── engine_expert.analyze
+              └── synthesizer.synthesize
+```
+
+**验证结果**：控制台输出完整Span树（trace_id同一，父子关系正确）
+
+**接入方式**：
+- 本地开发：零配置，控制台直接输出 Span 树
+- Langfuse Cloud：设置 `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` 环境变量
+- 自托管：设置 `OTLP_ENDPOINT`
+- Jaeger/Grafana Tempo：设置 `OTLP_ENDPOINT`
+
+**与 debug_logger 共存**：debug_logger 写文件，OTEL 负责实时追踪，互不干扰
+
+**集成范围**：
+- ✅ Orchestrator（analyze + analyze_multi 入口 Span）
+- ✅ Expert（专家执行 Span）
+- ✅ LLM调用（model + tokens + duration_ms）
+- ✅ 工具执行（tool_name + success + error）
+- ✅ Expert（专家执行 Span + 工具调用 Span）
+- ✅ LLM 调用（model + tokens + duration_ms）
+- ✅ 工具执行（tool_name + success + error）
+
+**测试**：pytest 100% 通过
+
+---
+
+### 2026-04-01 🔷 左侧栏 WebGL2 液态玻璃按钮
+
+**新增文件**:
+- `src/shaders/liquidglass/fragment-button.glsl` — 按钮 fragment shader（SDF + 折射 + 菲涅尔 + glare）
+- `src/utils/GLUtils.ts` — 新增 `getPass(name)` 方法，支持跨 renderer 引用 pass 输出
+
+**修改文件**:
+- `src/components/LiquidGlassApp.tsx`:
+  - 新增 `BUTTON_DEFS`（7 个按钮定义，CSS 像素坐标）
+  - 新增 `buttonCanvasRef` — 独立 canvas（z=2）渲染按钮
+  - 新增 `buttonRenderer` — 独立 `MultiPassRenderer` 单 pass
+  - 新增鼠标射线检测（`pointermove`/`pointerdown`/`pointerup`）
+  - 新增 Canvas2D 文字叠加层
+  - `window.dispatchEvent('webgl-button-click')` 触发 App.tsx 处理
+- `src/App.tsx`:
+  - 移除左侧栏按钮 DOM，保留 Logo
+  - 新增 `window.addEventListener('webgl-button-click')` 处理按钮点击
+
+**架构**: buttonCanvas 与 mainCanvas 同位置叠加，buttonCanvas pointerEvents: auto 拦截点击，
+通过 `renderer.getPass('hBlurPass').getOutputTexture()` 获取模糊背景纹理做折射渲染。
+
+---
+
+### 2026-03-31 📚 文档体系重大更新
+
+**DNA.md 已重写**（v1.0 → v2.0）：
+
+- 标签数量修正：45个 → **38个**
+- 技术路线更新：Transformer已废弃，规则脚本为主
+- Liquid Glass设计理念完整记录
+- Neo4j 19万局数据确认已录入
+- YOLO状态更新：权重已训练，FEN转换算法开发中
+- 前端架构详细记录
+- 多专家并行架构完整文档
+- 废弃文档已标记
+
+**相关操作**：
+- 旧DNA.md 备份至 `docs/_archived/DNA_v1.0_before_rewrite.md`
+- `PROJECT_BLUEPRINT.md` 已标记"已废弃"
+- `INDEX.md` 已标记"已废弃"
 
 ---
 
@@ -51,6 +606,26 @@
 ---
 
 ## 最近更新
+
+### 2026-03-31 🔧 右侧栏 WebGL 液态玻璃：材质统一 + ResizeObserver 同步
+
+**目标**：右侧栏去掉 CSS backdrop-filter，改为 WebGL 渲染，与左侧栏材质完全一致。
+
+**改动**：
+- `index.css`：`.lg-sidebar-right` 去掉 `backdrop-filter` 和 `background`，WebGL 透出
+- `App.tsx`：右侧栏加 `ref` + `ResizeObserver` + `useLayoutEffect`，实时同步 `getBoundingClientRect` 给 WebGL
+- `LiquidGlassApp.tsx`：新增 `rightSidebarRect` prop + `rightSidebarRectRef`，RAF 中设置 shape3 uniform
+- `fragment-main.glsl`：新增 shape3 SDF（圆角矩形）+ 7个 uniform，`mainSDF` 扩展支持三形状混合
+- `fragment-bg.glsl`：同步 shape3 阴影计算
+
+**WebGL shape 架构**：
+- shape1：装饰圆点（`u_showShape1` 控制，默认关闭）
+- shape2：左侧栏（`u_mouseSpring` 固定位置，220px）
+- shape3：右侧栏（`u_shape3Pos/Width/Height` 实时同步 DOM rect，坐标用 `rectCenterX * dpr`）
+
+**材质完全共享**：shape2 和 shape3 共用同一套折射/菲涅尔/glare 逻辑。
+
+**待调**：shape3 坐标定位（分析模式下形状位置微调中）
 
 ### 2026-03-31 🔧 前端清理：删除左侧栏冗余 DOM
 
@@ -716,8 +1291,88 @@ cd frontend && npm run dev
 
 ---
 
+## 前端开发状态
+
+### 模块进度
+
+| 模块 | 进度 | 状态 | 说明 |
+|------|------|------|------|
+| 棋盘组件 | 100% | ✅ 完成 | ChessBoard.tsx |
+| 引擎评分图 | 100% | ✅ 完成 | EngineChart.tsx |
+| 深度分析面板 | 100% | ✅ 完成 | DeepAnalysisPanel.tsx |
+| 局面分析面板 | 100% | ✅ 完成 | PositionAnalysisPanel.tsx |
+| 复盘功能 | 100% | ✅ 完成 | ReplayPanel.tsx |
+| 状态管理 | 100% | ✅ 完成 | useGameStore.ts, useAgentStore.ts |
+| WebGL Liquid Glass | 100% | ✅ 完成 | LiquidGlassApp.tsx, 四步渲染管线 |
+| 专家扑克牌动画 | 100% | ✅ 完成 | AgentCardFlip.tsx |
+| Liquid Glass参数持久化 | 100% | ✅ 完成 | Leva + localStorage + JSON |
+
+### 前端布局架构
+
+```
+初始状态：                                    分析模式：
+┌─────────┬──────────────────┬────────┐  ┌─────────┬──────────────────┬──────────┐
+│ 左侧栏   │      棋盘居中      │ 右侧栏  │  │ 左侧栏   │ 棋盘←──────────   │ 右侧栏    │
+│ 220px   │                  │ 380px  │  │         │  ↑缩小靠左上      │ 扩张到    │
+│         │                  │        │  │         │ 引擎窗口填满剩余空间 │ 620px   │
+└─────────┴──────────────────┴────────┘  └─────────┴──────────────────┴──────────┘
+```
+
+- Grid 第1列：左侧栏固定 220px（WebGL渲染）
+- Grid 第2列：中央区域（棋盘 + 引擎图）
+- Grid 第3列：右侧栏 `380px → 620px`
+
+### 前端技术栈
+
+| 类别 | 技术 |
+|------|------|
+| 框架 | React 18 + TypeScript |
+| 构建 | Vite |
+| 动画 | Framer Motion |
+| 状态管理 | Zustand |
+| 参数面板 | Leva |
+| 3D渲染 | WebGL（原生，无框架） |
+
+### Liquid Glass WebGL渲染管线
+
+```
+bgPass → vBlurPass → hBlurPass → mainPass → 屏幕
+```
+
+核心着色器：`frontend/src/shaders/liquidglass/fragment-main.glsl`（617行）
+
+### 前端交接记录
+
+#### 2026-03-30 - WebGL液态玻璃UI层立项
+
+**核心决策**：
+- 推翻之前"重写渲染器"路线，改为**直接复制粘贴参考项目** `App.tsx` + `GLUtils.ts`
+- 架构确认为：全 WebGL UI层（除棋盘和扑克牌外），DOM只保留ChessBoard + PokerCard
+- 详细方案见 `docs/plans/frontend/002-liquid-glass.md`
+
+#### 2026-03-19 - 前端文档体系建立
+
+- 建立前端宪法 `docs/guides/frontend.md`
+- 建立接口契约 `docs/reference/api_contract.md`
+- 建立组件规范 `docs/guides/component.md`
+- 建立状态管理规范 `docs/guides/state_management.md`
+
+### 前端技术文档
+
+| 文档 | 位置 | 说明 |
+|------|------|------|
+| 前端指南 | `docs/guides/frontend.md` | 完整技术文档 |
+| Liquid Glass方案 | `docs/plans/frontend/002-liquid-glass.md` | WebGL渲染详细方案 |
+| API契约 | `docs/reference/api_contract.md` | 前后端接口 |
+| 组件规范 | `docs/guides/component.md` | 组件开发规范 |
+| 状态管理 | `docs/guides/state_management.md` | Zustand规范 |
+
+---
+
 ## 快速链接
 
 - [项目DNA](DNA.md) - 架构全貌（必读）
-- [标签参考](reference/tag_reference.md) - 45个标签详细定义
+- [标签参考](reference/tag_reference.md) - 38个标签详细定义
 - [Agent工具规范](reference/agent_tools_spec.md) - 10个工具接口
+- [前端指南](guides/frontend.md) - 前端开发完整文档
+- [Liquid Glass方案](plans/frontend/002-liquid-glass.md) - WebGL渲染方案
