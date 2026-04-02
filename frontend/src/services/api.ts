@@ -96,6 +96,15 @@ export interface PGNNavigateResponse {
   move_text: string;
 }
 
+export interface RecognizeResponse {
+  fen: string;
+  board: string[][];
+  description: string;
+  confidence: number;
+  pieces_detected: number;
+  annotated_image?: string;   // YOLO 标注图 base64 (WebP)
+}
+
 export interface PositionAnalysisResponse {
   analysis_structured: {
     board_fen: string;
@@ -221,8 +230,8 @@ export const api = {
         fen,
         turn: redToMove ? 'red' : 'black',
         bestmove,
-        score: 0,
-        depth: 0,
+        score: (data as any).score ?? 0,
+        depth: (data as any).depth ?? 0,
         pv: bestmove ? [bestmove] : [],
         legalMoveCount: 0,
         isCheck: false,
@@ -419,5 +428,15 @@ export const api = {
         api._activeEventSource = null;
       };
     });
-  }
+  },
+
+  recognizeBoard: async (file: File): Promise<RecognizeResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await axios.post(`${API_BASE}/recognize`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    });
+    return response.data;
+  },
 };

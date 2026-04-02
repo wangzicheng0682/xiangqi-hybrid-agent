@@ -102,3 +102,25 @@ Thumbs.db
 
 # Jupyter Notebooks
 .ipynb_checkpoints/
+
+# Large model files
+*.pt
+*.pth
+*.onnx
+*.h5
+
+# YOLO model directories
+vision/xiangqi-detect-model/
+yolo11n.pt
+
+# Vector database
+data/vector_db/chroma/
+
+# Pytest cache
+.pytest_cache/
+.pytest_collect.txt
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo

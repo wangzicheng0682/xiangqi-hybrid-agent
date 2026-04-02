@@ -9,23 +9,10 @@
 - 不生成语义标签
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 from dataclasses import dataclass
-from pathlib import Path
 
-# 延迟导入，避免循环依赖
-_pikafish_engine = None
-
-
-def _get_engine():
-    """获取引擎实例（单例模式）"""
-    global _pikafish_engine
-    if _pikafish_engine is None:
-        from core.engine.pikafish_engine import PikafishEngine
-        _pikafish_engine = PikafishEngine()
-        _pikafish_engine.start()
-    return _pikafish_engine
-
+from core.rules.xiangqi_rules import XiangqiRulesEngine
 
 @dataclass
 class LegalMove:
@@ -74,6 +61,42 @@ class RuleEngine:
         if len(uci) < 4:
             return uci[:2], uci[2:4] if len(uci) >= 4 else uci[2:]
         return uci[:2], uci[2:4]
+
+    @staticmethod
+    def _coords_to_square(row: int, col: int) -> str:
+        """内部坐标转UCI格点。"""
+        return f"{'abcdefghi'[col]}{9 - row}"
+
+    @staticmethod
+    def _coords_to_uci(from_row: int, from_col: int, to_row: int, to_col: int) -> str:
+        """内部坐标转UCI走法。"""
+        return (
+            f"{RuleEngine._coords_to_square(from_row, from_col)}"
+            f"{RuleEngine._coords_to_square(to_row, to_col)}"
+        )
+
+    @staticmethod
+    def _fen_to_board(fen: str) -> List[List[str]]:
+        """FEN转棋盘二维数组。"""
+        board_part = fen.split()[0]
+        rows = board_part.split('/')
+        board: List[List[str]] = []
+
+        for row_text in rows:
+            row: List[str] = []
+            for char in row_text:
+                if char.isdigit():
+                    row.extend([''] * int(char))
+                else:
+                    row.append(char)
+            if len(row) != 9:
+                raise ValueError(f"非法FEN行: {row_text}")
+            board.append(row)
+
+        if len(board) != 10:
+            raise ValueError(f"非法FEN: {fen}")
+
+        return board
     
     @staticmethod
     def _parse_side_to_move(fen: str) -> str:
@@ -96,104 +119,48 @@ class RuleEngine:
         Returns:
             LegalMovesResult: 合法走法结果
         """
-        engine = _get_engine()
-        
-        # 使用perft 1获取所有合法走法
-        # perft会输出所有走法及其数量
-        import subprocess
-        
-        engine_path = engine.engine_path
-        process = subprocess.Popen(
-            [str(engine_path)],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-        )
-        
-        try:
-            # 初始化
-            process.stdin.write("uci\n")
-            process.stdin.flush()
-            
-            # 等待uciok
-            while True:
-                line = process.stdout.readline()
-                if "uciok" in line:
-                    break
-            
-            # 设置位置
-            process.stdin.write(f"position fen {fen}\n")
-            process.stdin.flush()
-            
-            # 使用perft 1获取走法
-            process.stdin.write("perft 1\n")
-            process.stdin.flush()
-            
-            moves = []
-            node_count = 0
-            
-            # 读取所有走法
-            while True:
-                line = process.stdout.readline().strip()
-                if not line:
+        board = RuleEngine._fen_to_board(fen)
+        side_to_move = RuleEngine._parse_side_to_move(fen)
+        is_red_turn = side_to_move == "red"
+
+        moves: List[LegalMove] = []
+        for row in range(10):
+            for col in range(9):
+                piece = board[row][col]
+                if not piece:
                     continue
-                
-                # 解析走法行 (格式: "h2e2: 123")
-                if ":" in line:
-                    parts = line.split(":")
-                    uci = parts[0].strip()
-                    count = int(parts[1].strip()) if len(parts) > 1 else 0
-                    
+                if XiangqiRulesEngine.is_red(piece) != is_red_turn:
+                    continue
+
+                for to_row, to_col in XiangqiRulesEngine.get_legal_moves(board, row, col):
+                    uci = RuleEngine._coords_to_uci(row, col, to_row, to_col)
                     from_sq, to_sq = RuleEngine._uci_to_squares(uci)
-                    iccs = RuleEngine._uci_to_iccs(uci)
-                    
                     moves.append(LegalMove(
                         from_square=from_sq,
                         to_square=to_sq,
                         uci=uci,
-                        iccs=iccs
+                        iccs=RuleEngine._uci_to_iccs(uci),
                     ))
-                
-                # 解析总行数
-                elif line.isdigit():
-                    node_count = int(line)
-                    break
-            
-            # 检查是否被将军（通过分析局面）
-            process.stdin.write("d\n")
-            process.stdin.flush()
-            
-            is_check = False
-            is_checkmate = False
-            
-            # 读取局面信息
-            for _ in range(20):  # 最多读取20行
-                line = process.stdout.readline()
-                if "Checkers:" in line:
-                    is_check = True
-                if "Checkmate" in line or len(moves) == 0 and is_check:
-                    is_checkmate = True
-                if not line.strip():
-                    break
-            
-            side_to_move = RuleEngine._parse_side_to_move(fen)
-            
-            return LegalMovesResult(
-                fen=fen,
-                side_to_move=side_to_move,
-                moves=moves,
-                count=len(moves),
-                is_check=is_check,
-                is_checkmate=is_checkmate,
-                is_stalemate=(len(moves) == 0 and not is_check)
+
+        king_pos = XiangqiRulesEngine._find_king(board, is_red_turn)
+        is_check = False
+        if king_pos is not None:
+            is_check = XiangqiRulesEngine._is_in_check(
+                board,
+                king_pos[0],
+                king_pos[1],
+                is_attacking_red=not is_red_turn,
             )
-            
-        finally:
-            process.stdin.write("quit\n")
-            process.stdin.flush()
-            process.wait(timeout=5)
+
+        return LegalMovesResult(
+            fen=fen,
+            side_to_move=side_to_move,
+            moves=moves,
+            count=len(moves),
+            is_check=is_check,
+            is_checkmate=(len(moves) == 0 and is_check),
+            is_stalemate=(len(moves) == 0 and not is_check),
+        )
     
     @staticmethod
     def is_legal_move(fen: str, move: str) -> bool:

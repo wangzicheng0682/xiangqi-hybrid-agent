@@ -20,14 +20,16 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, List, Any, Callable, Optional
 
-import requests
-
+from core.llm.analysis_policy import choose_analysis_policy
+from core.llm.contracts import AnalysisStatus, DegradationLevel, ExpertFailureType
 from core.llm.experts.base_expert import (
     ExpertResult, should_use_multi_agent, STEP_PATTERN,
 )
+from core.llm.claim import format_claims_for_synthesis, ClaimSource, ClaimConfidence
 from core.llm.experts.tactics_expert import TacticsExpert
 from core.llm.experts.strategy_expert import StrategyExpert
 from core.llm.experts.engine_expert import EngineExpert
+from core.llm.reliable_client import ReliableLLMClient
 from core.llm.thinking_templates import PhaseInfo, PhaseDetector
 from core.rules.tension_detector import detect_tensions, get_primary_tension
 from core.llm.debug_logger import AgentDebugLogger
@@ -43,44 +45,52 @@ from core.llm.tracing import (
 
 SYNTHESIZER_SYSTEM_PROMPT = """# 你是谁
 
-你是一位综合裁判，汇总三位专家的观点，生成统一的象棋讲解。
+你是一位证据裁决者，基于三位专家的结构化断言和证据链，生成统一的象棋讲解。
 
 三位专家已经分别从不同角度分析了当前局面：
 - 战术专家：专注于子力关系和战术细节
 - 战略专家：专注于全局战略和相位判断
 - 引擎专家：专注于解读引擎评估和候选走法
 
+每位专家的输出包含：
+- **断言 (CLAIM)**：一条核心结论
+- **证据来源**：工具验证 / 推理 / 未验证
+- **置信度**：高 / 中 / 低
+
 ---
 
 # 你的任务
 
-1. **找出共识**：三位专家都同意的点是什么？
-2. **找出分歧**：哪些地方专家们看法不一致？
-3. **综合对手处境**（关键任务）：
-   - 三位专家对对手选项的分析是否一致？
-   - 是否有专家发现了其他专家忽略的对手应着？
-   - 综合判断：对手是被锁死还是有化解方式？
-4. **解决分歧**：当专家意见冲突时，给出你的综合判断
-5. **生成讲解**：用通俗语言生成面向学生的统一讲解
+1. **断言对齐**：三位专家对同一论点各自给了什么断言？
+2. **证据交叉验证**：
+   - 同一断言被 2+ 专家用工具验证 → **高可信，直接采纳**
+   - 只有 1 位专家声称且有工具验证 → **中可信，标注来源**
+   - 只有推理无工具验证 → **低可信，说明缺乏验证**
+   - 断言之间矛盾 → **需裁决，说明冲突原因**
+3. **综合对手处境**：综合各方对对手选项的分析
+4. **生成讲解**：用通俗语言生成面向学生的统一讲解
 
 ---
 
-# 解决分歧的规则
+# 证据裁决规则
 
-| 冲突类型 | 解决策略 |
-|----------|----------|
-| 引擎评估 vs 战术发现 | 战术发现优先（战术是精确规则，引擎可能误判相位） |
-| 战略判断 vs 引擎评估 | 差异说明：给出双方观点，解释原因 |
-| 三方完全矛盾 | 标注为"复杂局面"，给出多个可能解读 |
+| 情况 | 处理方式 |
+|------|----------|
+| 工具验证断言 vs 纯推理断言 | 工具验证优先 |
+| 引擎评估 vs 战术发现（都有工具验证） | 战术发现优先（精确规则） |
+| 战略判断 vs 引擎评估 | 给出双方观点，解释原因 |
+| 三方完全矛盾 | 标注为"复杂局面"，给出多个解读 |
+| 有专家断言为"未验证" | 在最终结论中降低该断言权重 |
 
 ---
 
 # 绝对约束
 
 - 不能编造棋子位置（来自专家结论中的事实）
-- 不能忽略任何一位专家的高置信度结论
+- 不能忽略任何一位专家的高置信度+工具验证断言
 - 讲解必须回应用户原始问题
 - 用"因为...所以..."的因果逻辑组织讲解
+- 必须说明最终结论的证据基础
 
 ---
 
@@ -90,23 +100,24 @@ SYNTHESIZER_SYSTEM_PROMPT = """# 你是谁
 ## [数字] [简短描述]
 
 例如：
-## 1 汇总三位专家共识
-## 2 识别关键分歧
+## 1 对齐三方断言
+## 2 交叉验证证据
 ## 3 形成最终教练建议
 
 在你开始一个新的综合步骤时，必须先单独输出一行：
 [STEP: 你正在做什么的一句话]
 
 示例：
-[STEP: 识别三位专家的共识]
-[STEP: 解决战术与引擎之间的分歧]
+[STEP: 识别三位专家的共识断言]
+[STEP: 裁决战术与引擎之间的分歧]
 [STEP: 生成面向学生的教练建议]
 
 请生成最终讲解：
-【综合评估】一句话综合三位专家的观点
+【综合评估】一句话综合（标注证据强度）
+【证据基础】本结论基于哪些工具验证的断言
 【对手处境】综合分析对手的选项和应对（必须包含）
-【共识分析】三方一致同意的核心观点
-【分歧解读】分歧点的详细分析和你的综合判断
+【共识分析】三方一致同意的核心观点（标注验证状态）
+【分歧解读】分歧点的详细分析和裁决依据
 【教练建议】给学生的具体建议
 """
 
@@ -121,6 +132,78 @@ class Synthesizer:
         self.api_key = api_key or os.getenv("ALIYUN_API_KEY")
         self.base_url = SYNTHESIZER_BASE_URL
         self.model = SYNTHESIZER_MODEL
+        self.llm_client = ReliableLLMClient(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            model=self.model,
+            timeout=120,
+            max_retries=2,
+        )
+
+    def _format_expert_block(self, label: str, result: ExpertResult) -> str:
+        lines = [f"【{label}】"]
+        lines.append(f"状态：{result.status}")
+        lines.append(f"结论：{result.finding}")
+
+        # Phase 2: 优先注入结构化断言
+        if result.claims:
+            claims_text = format_claims_for_synthesis(result.claims, label)
+            lines.append(claims_text)
+        else:
+            # 回退：传统详情
+            if result.details:
+                lines.append(f"详情：{result.details}")
+
+        if result.confidence:
+            lines.append(f"可信度：{result.confidence}")
+        if result.error:
+            lines.append(f"错误：{result.error}")
+        if result.missing_evidence:
+            lines.append(f"缺失证据：{', '.join(result.missing_evidence)}")
+
+        # Phase 2: 证据链摘要
+        if result.evidence_chain and result.evidence_chain.tool_calls:
+            lines.append("工具证据链：")
+            for ev in result.evidence_chain.tool_calls[:5]:
+                status = "✓" if ev.success else "✗"
+                args_preview = str(ev.arguments)[:60]
+                result_preview = ev.result_summary[:60] if ev.result_summary else "N/A"
+                lines.append(f"  {status} {ev.tool_name}({args_preview}) → {result_preview}")
+        elif result.tool_calls:
+            lines.append("工具验证：")
+            for tc in result.tool_calls[:5]:
+                lines.append(f"  - 调用 {tc.get('name', '?')}({tc.get('arguments', {})})")
+        return "\n".join(lines)
+
+    def _build_degraded_response(
+        self,
+        tactics_result: ExpertResult,
+        strategy_result: ExpertResult,
+        engine_result: ExpertResult,
+        user_question: str,
+    ) -> str:
+        available = [r for r in [tactics_result, strategy_result, engine_result] if r.success]
+        failed = [r for r in [tactics_result, strategy_result, engine_result] if not r.success]
+
+        if not available:
+            reasons = "；".join(filter(None, [r.error for r in failed])) or "关键专家均失败"
+            return (
+                "【系统状态】本次分析失败\n"
+                f"【失败原因】{reasons}\n"
+                "【说明】当前没有足够证据支持可靠讲解，系统选择显式失败而不是伪造结论。"
+            )
+
+        primary = available[0]
+        failed_names = "、".join(r.expert_name for r in failed) if failed else "无"
+        return (
+            "【系统状态】降级分析\n"
+            f"【用户问题】{user_question}\n"
+            f"【可用专家】{primary.expert_name}\n"
+            f"【缺失专家】{failed_names}\n"
+            f"【当前可得结论】{primary.finding}\n"
+            f"【可信度】{primary.confidence}\n"
+            "【说明】由于关键专家失败，本次仅返回部分结论，未输出完整综合讲解。"
+        )
 
     def synthesize(
         self,
@@ -143,29 +226,37 @@ class Synthesizer:
         Returns:
             统一讲解文本
         """
-        # 构建专家结论摘要
-        expert_summaries = f"""【战术专家结论】
-发现：{tactics_result.finding}
-详情：{tactics_result.details}
+        success_count = sum(1 for result in [tactics_result, strategy_result, engine_result] if result.success)
+        if success_count < 2:
+            return self._build_degraded_response(
+                tactics_result=tactics_result,
+                strategy_result=strategy_result,
+                engine_result=engine_result,
+                user_question=user_question,
+            )
 
-【战略专家结论】
-发现：{strategy_result.finding}
-详情：{strategy_result.details}
+        expert_summaries = "\n\n".join([
+            self._format_expert_block("战术专家", tactics_result),
+            self._format_expert_block("战略专家", strategy_result),
+            self._format_expert_block("引擎专家", engine_result),
+        ])
 
-【引擎专家结论】
-发现：{engine_result.finding}
-详情：{engine_result.details}
-"""
-
-        user_content = f"""请综合三位专家的结论，生成统一的象棋讲解。
+        user_content = f"""请基于三位专家的断言和证据链，进行证据裁决并生成讲解。
 
 【用户原始问题】
 {user_question}
 
-【三位专家的分析结论】
+【三位专家的分析与断言】
 {expert_summaries}
 
-请按照你的任务，生成最终讲解。
+【裁决要求】
+- 先对齐三方断言，再交叉验证证据
+- 工具验证的断言权重 > 纯推理断言
+- 明确指出失败或降级的专家，不得把失败专家当作正常证据
+- 如果证据不完整，要主动降低最终结论的置信度
+- 最终结论必须写清证据基础
+
+请按照你的任务，进行证据裁决并生成最终讲解。
 """
 
         messages = [
@@ -181,69 +272,27 @@ class Synthesizer:
         on_event: Callable[[str, Dict[str, Any]], None] = None,
     ) -> str:
         """流式调用合成"""
-        if not self.api_key:
-            return "API Key未配置"
+        step_parser = SynthesisStepStreamParser(on_event) if on_event else None
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 1024,
-            "stream": True,
-        }
-
-        try:
-            session = requests.Session()
-            session.trust_env = False
-            response = session.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-                stream=True,
-                timeout=120,
-            )
-
-            if response.status_code != 200:
-                return f"合成器API错误: {response.status_code}"
-
-            full_content = []
-            step_parser = SynthesisStepStreamParser(on_event) if on_event else None
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                line = line.decode('utf-8')
-                if not line.startswith('data: '):
-                    continue
-                data_str = line[6:]
-                if data_str == '[DONE]':
-                    break
-                try:
-                    data = json.loads(data_str)
-                    delta = data.get("choices", [{}])[0].get("delta", {})
-                    chunk = delta.get("content", "")
-                    if chunk:
-                        full_content.append(chunk)
-                        # 始终实时推送 chunk，确保前端降级方案有内容
-                        if on_event:
-                            on_event("synthesis_chunk", {"message": chunk})
-                        if step_parser:
-                            step_parser.feed(chunk)
-                except json.JSONDecodeError:
-                    continue
-
-            final_content = "".join(full_content)
+        def _on_chunk(chunk: str):
+            if on_event:
+                on_event("synthesis_chunk", {"message": chunk})
             if step_parser:
-                step_parser.finalize()
+                step_parser.feed(chunk)
 
-            return final_content
-
-        except Exception as e:
-            return f"合成失败: {str(e)}"
+        response = self.llm_client.stream_complete(
+            messages=messages,
+            tools=None,
+            temperature=0.7,
+            max_tokens=1024,
+            thinking_enabled=False,
+            on_chunk=_on_chunk,
+        )
+        if step_parser:
+            step_parser.finalize()
+        if not response.success:
+            return f"合成失败: {response.error_message}"
+        return response.content
 
 
 # 中文节标题 → 用作隐式 STEP 标记（模型几乎总会输出这些）
@@ -283,6 +332,16 @@ class SynthesisStepStreamParser:
             subtitle = subtitle_match.group(2).strip()
             self.current_subtitle = subtitle
             self.on_event("orchestrator_subtitle", {"message": subtitle})
+            # 同时作为步骤起点（避免 ## 标题后的内容丢失）
+            self.saw_marker = True
+            self._finish_step()
+            self.current_index += 1
+            self.current_title = subtitle
+            self.current_started_at = time.time()
+            self.on_event(
+                "synthesis_step_start",
+                {"step_index": self.current_index, "title": subtitle},
+            )
             return
 
         # 优先检查 [STEP:] 显式标记
@@ -374,6 +433,21 @@ class MultiAgentOrchestrator:
         self.engine_expert = EngineExpert(api_key=self.api_key, debug_logger=debug_logger)
         self.synthesizer = Synthesizer(api_key=self.api_key)
 
+    def _skipped_result(self, expert_name: str, reason: str) -> ExpertResult:
+        return ExpertResult(
+            expert_name=expert_name,
+            finding="策略裁剪未执行",
+            details="",
+            success=False,
+            error=reason,
+            status=AnalysisStatus.SKIPPED,
+            failure_type=ExpertFailureType.POLICY_SKIPPED,
+            confidence="low",
+            missing_evidence=["expert_not_scheduled"],
+            degraded=True,
+            degradation_level=DegradationLevel.SINGLE_EXPERT,
+        )
+
     def _detect_phase(self, fen: str, move_count: int) -> PhaseInfo:
         """检测当前阶段"""
         return PhaseDetector.detect(fen, move_count)
@@ -390,6 +464,77 @@ class MultiAgentOrchestrator:
             tensions = detect_tensions(evidence_map, engine_eval or {}, phase_name)
         primary = tensions[0] if tensions else None
         return tensions, primary
+
+    def _build_structured_evidence_map(
+        self,
+        fen: str,
+        evidence_map: Dict = None,
+        engine_eval: Dict = None,
+        phase_info: "PhaseInfo" = None,
+        tensions: list = None,
+    ) -> Dict:
+        """
+        构建结构化Evidence Map，供专家消费。
+
+        将离散的tag_summary、engine_eval、tensions等整合为
+        一个结构化JSON对象，让LLM获得精确的事实锚点。
+        """
+        structured = {
+            "tags": [],
+            "tensions": [],
+            "engine": {},
+            "phase": phase_info.phase_name if phase_info else "未知",
+            "initiative": "未知",
+            "piece_count": {"red": 0, "black": 0},
+        }
+
+        # 从 evidence_map 提取结构化标签
+        if evidence_map:
+            facts = evidence_map.get("facts_rules", [])
+            if isinstance(facts, list):
+                for fact in facts:
+                    if isinstance(fact, dict):
+                        structured["tags"].append({
+                            "name": fact.get("tag", ""),
+                            "bind_pieces": fact.get("bind_pieces", []),
+                            "description": fact.get("description", ""),
+                        })
+                    elif isinstance(fact, str):
+                        structured["tags"].append({
+                            "name": fact,
+                            "bind_pieces": [],
+                            "description": "",
+                        })
+
+        # 注入引擎评估
+        if engine_eval:
+            structured["engine"] = {
+                "cp": engine_eval.get("cp", 0),
+                "best": engine_eval.get("best", ""),
+                "pv": engine_eval.get("pv", []),
+                "eval_human": engine_eval.get("eval_human", ""),
+            }
+
+        # 注入张力
+        if tensions:
+            for t in tensions:
+                if isinstance(t, dict):
+                    structured["tensions"].append({
+                        "type": t.get("tension_type", ""),
+                        "description": t.get("description", ""),
+                        "severity": t.get("priority", ""),
+                    })
+
+        # 子力统计
+        try:
+            board_part = fen.split()[0]
+            red_count = sum(1 for c in board_part if c.isupper() and c != '/')
+            black_count = sum(1 for c in board_part if c.islower() and c != '/')
+            structured["piece_count"] = {"red": red_count, "black": black_count}
+        except Exception:
+            pass
+
+        return structured
 
     def analyze_multi(
         self,
@@ -440,6 +585,15 @@ class MultiAgentOrchestrator:
             tag_list = tag_summary if isinstance(tag_summary, list) else []
             primary_tension_dict = primary_tension if primary_tension else {}
 
+            # 构建结构化 Evidence Map
+            structured_em = self._build_structured_evidence_map(
+                fen=fen,
+                evidence_map=evidence_map,
+                engine_eval=engine_eval,
+                phase_info=phase_info,
+                tensions=tensions,
+            )
+
             if on_thinking and primary_tension_dict:
                 core_question = primary_tension_dict.get("question", "关键问题")
                 on_thinking("headline", f"正在围绕「{core_question[:30]}」展开分析…")
@@ -447,6 +601,19 @@ class MultiAgentOrchestrator:
             # ===== 2. 并行调用三位专家 =====
             results = {}
             experts_start = time.time()
+            policy = choose_analysis_policy(
+                question=question,
+                tensions=tensions,
+                phase_name=phase_info.phase_name,
+                engine_eval=engine_eval,
+                force_full_team=False,
+            )
+            span.set_attribute("policy.selected_experts", ",".join(policy.selected_experts))
+            span.set_attribute("policy.parallelism", policy.parallelism)
+            span.set_attribute("policy.reason", policy.reason)
+
+            if on_thinking:
+                on_thinking("headline", f"调度策略：{','.join(policy.selected_experts)}；并发={policy.parallelism}")
 
             def run_expert(name: str, span_name: str, func) -> tuple:
                 """包装专家执行，捕获异常，加入 OTEL Span"""
@@ -470,6 +637,12 @@ class MultiAgentOrchestrator:
                         return (name, ExpertResult(
                             expert_name=name, finding="执行失败",
                             details=str(e), success=False, error=str(e),
+                            status=AnalysisStatus.FAILED,
+                            failure_type=ExpertFailureType.REQUEST_EXCEPTION,
+                            confidence="low",
+                            missing_evidence=["expert_execution"],
+                            degraded=True,
+                            degradation_level=DegradationLevel.PARTIAL_EXPERTS,
                         ))
 
             def call_tactics():
@@ -479,6 +652,7 @@ class MultiAgentOrchestrator:
                     fen=fen, question=question,
                     tag_summary=tag_list, primary_tension=primary_tension_dict,
                     phase_info=phase_info, move=move, on_thinking=on_thinking,
+                    evidence_map=structured_em,
                 )
                 if on_thinking:
                     on_thinking("expert_result", json.dumps({
@@ -496,6 +670,7 @@ class MultiAgentOrchestrator:
                     fen=fen, question=question,
                     tag_summary=tag_list, primary_tension=primary_tension_dict,
                     phase_info=phase_info, move=move, on_thinking=on_thinking,
+                    evidence_map=structured_em,
                 )
                 if on_thinking:
                     on_thinking("expert_result", json.dumps({
@@ -514,6 +689,7 @@ class MultiAgentOrchestrator:
                     tag_summary=tag_list, primary_tension=primary_tension_dict,
                     phase_info=phase_info, engine_eval=engine_eval,
                     move=move, on_thinking=on_thinking,
+                    evidence_map=structured_em,
                 )
                 if on_thinking:
                     on_thinking("expert_result", json.dumps({
@@ -524,15 +700,30 @@ class MultiAgentOrchestrator:
                     }, ensure_ascii=False))
                 return result
 
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                futures = [
-                    executor.submit(run_expert, "tactics", SpanNames.TACTICS_EXPERT_ANALYZE, call_tactics),
-                    executor.submit(run_expert, "strategy", SpanNames.STRATEGY_EXPERT_ANALYZE, call_strategy),
-                    executor.submit(run_expert, "engine", SpanNames.ENGINE_EXPERT_ANALYZE, call_engine),
-                ]
-                for future in futures:
-                    name, result = future.result(timeout=180)
+            expert_jobs = {
+                "tactics": (SpanNames.TACTICS_EXPERT_ANALYZE, call_tactics),
+                "strategy": (SpanNames.STRATEGY_EXPERT_ANALYZE, call_strategy),
+                "engine": (SpanNames.ENGINE_EXPERT_ANALYZE, call_engine),
+            }
+
+            for expert_name in ["tactics", "strategy", "engine"]:
+                if expert_name not in policy.selected_experts:
+                    results[expert_name] = self._skipped_result(expert_name, f"policy:{policy.reason}")
+
+            selected_jobs = [(name, *expert_jobs[name]) for name in policy.selected_experts]
+            if policy.parallelism <= 1:
+                for name, span_name, func in selected_jobs:
+                    _, result = run_expert(name, span_name, func)
                     results[name] = result
+            else:
+                with ThreadPoolExecutor(max_workers=policy.parallelism) as executor:
+                    futures = [
+                        executor.submit(run_expert, name, span_name, func)
+                        for name, span_name, func in selected_jobs
+                    ]
+                    for future in futures:
+                        name, result = future.result(timeout=180)
+                        results[name] = result
 
             span.set_attribute("experts.duration_ms", int((time.time() - experts_start) * 1000))
 
@@ -553,12 +744,9 @@ class MultiAgentOrchestrator:
                 attributes={SpanAttributes.AGENT_NAME: "synthesizer"}
             ):
                 synthesis = self.synthesizer.synthesize(
-                    tactics_result=tactics_r if tactics_r and tactics_r.success else
-                        ExpertResult(expert_name="tactics", finding="未执行", details="", success=False),
-                    strategy_result=strategy_r if strategy_r and strategy_r.success else
-                        ExpertResult(expert_name="strategy", finding="未执行", details="", success=False),
-                    engine_result=engine_r if engine_r and engine_r.success else
-                        ExpertResult(expert_name="engine", finding="未执行", details="", success=False),
+                    tactics_result=tactics_r if tactics_r else self._skipped_result("tactics", "missing_result"),
+                    strategy_result=strategy_r if strategy_r else self._skipped_result("strategy", "missing_result"),
+                    engine_result=engine_r if engine_r else self._skipped_result("engine", "missing_result"),
                     user_question=question,
                     on_event=on_synthesis_event,
                 )

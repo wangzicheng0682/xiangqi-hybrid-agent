@@ -88,55 +88,81 @@ const EXPERT_LABELS: Record<ExpertType, string> = {
   engine: '引擎专家',
 };
 
-const useNaturalReveal = (text: string, enabled: boolean) => {
-  const [displayed, setDisplayed] = useState('');
-
-  useEffect(() => {
-    if (!text) {
-      setDisplayed('');
-      return;
-    }
-    if (!enabled) {
-      setDisplayed(text);
-      return;
-    }
-
-    let cancelled = false;
-    let timer: number | undefined;
-    let index = 0;
-
-    const tick = () => {
-      if (cancelled) return;
-      index += 1;
-      setDisplayed(text.slice(0, index));
-      if (index >= text.length) return;
-
-      const char = text[index - 1];
-      let delay = 14 + Math.random() * 18;
-      if ('，,；;：:'.includes(char)) delay += 65;
-      if ('。！？!?\n'.includes(char)) delay += 160;
-      timer = window.setTimeout(tick, delay);
-    };
-
-    timer = window.setTimeout(tick, 80);
-    return () => {
-      cancelled = true;
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [text, enabled]);
-
-  return displayed;
-};
-
-const ExpertHoverStream: React.FC<{ text: string; animate: boolean; color: string }> = ({ text, animate, color }) => {
-  const displayed = useNaturalReveal(text, animate);
+const ExpertHoverStream: React.FC<{ expert: ExpertType; color: string }> = ({ expert, color }) => {
+  const expertState = useAgentStore((state) => state.experts[expert]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isThinking = expertState.status === 'thinking';
+  const steps = expertState.steps;
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
     }
-  }, [displayed]);
+  }, [steps, expertState.thinkingContent]);
+
+  // 有步骤时：渲染真正的实时步骤流（跟随后端SSE增量更新）
+  if (steps.length > 0) {
+    return (
+      <div style={{ position: 'relative', minHeight: 160, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+        <div
+          ref={scrollRef}
+          style={{
+            maxHeight: 260,
+            overflowY: 'auto',
+            padding: '10px 12px 18px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 8,
+            maskImage: 'linear-gradient(to bottom, transparent 0, black 12px, black calc(100% - 28px), transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 12px, black calc(100% - 28px), transparent 100%)',
+          }}
+        >
+          {steps.map((step) => {
+            const isActive = step.status === 'thinking';
+            return (
+              <div key={step.index} style={{ borderLeft: `2px solid ${isActive ? color : 'rgba(255,255,255,0.15)'}`, paddingLeft: 10, transition: 'border-color 0.3s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                  <span style={{ fontSize: 10, color: isActive ? color : 'rgba(134,239,172,0.9)', fontWeight: 700 }}>
+                    {isActive ? '⟳' : '✓'}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
+                    {step.title}
+                  </span>
+                  {step.durationMs ? (
+                    <span style={{ marginLeft: 'auto', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
+                      {(step.durationMs / 1000).toFixed(1)}s
+                    </span>
+                  ) : null}
+                </div>
+                {step.content ? (
+                  <div style={{
+                    fontSize: 11,
+                    color: 'rgba(255,255,255,0.68)',
+                    lineHeight: 1.65,
+                    whiteSpace: 'pre-wrap',
+                    fontFamily: '"Noto Serif SC", serif',
+                  }}>
+                    {step.content}
+                    {isActive && (
+                      <motion.span
+                        animate={{ opacity: [1, 0] }}
+                        transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                        style={{ display: 'inline-block', width: 1.5, height: 11, background: color, marginLeft: 1, verticalAlign: 'middle' }}
+                      />
+                    )}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 36, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(30,25,35,0) 0%, rgba(30,25,35,0.78) 65%, rgba(30,25,35,0.94) 100%)' }} />
+      </div>
+    );
+  }
+
+  // 无步骤时：显示 thinkingContent 或 finding 的增量流
+  const text = isThinking ? (expertState.thinkingContent || '正在组织分析路径...') : (expertState.finding || '');
 
   return (
     <div style={{ position: 'relative', minHeight: 160, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
@@ -155,12 +181,14 @@ const ExpertHoverStream: React.FC<{ text: string; animate: boolean; color: strin
           WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 16px, black calc(100% - 28px), transparent 100%)',
         }}
       >
-        {displayed}
-        <motion.span
-          animate={{ opacity: [1, 0] }}
-          transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-          style={{ display: 'inline-block', width: 1.5, height: 12, background: color, marginLeft: 1, verticalAlign: 'middle' }}
-        />
+        {text}
+        {isThinking && (
+          <motion.span
+            animate={{ opacity: [1, 0] }}
+            transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+            style={{ display: 'inline-block', width: 1.5, height: 12, background: color, marginLeft: 1, verticalAlign: 'middle' }}
+          />
+        )}
       </div>
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 46, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(30,25,35,0) 0%, rgba(30,25,35,0.78) 65%, rgba(30,25,35,0.94) 100%)' }} />
     </div>
@@ -244,10 +272,11 @@ export const ExpertGlassPanelFlip: React.FC<{ expert: ExpertType; cardRect: DOMR
   } as const;
   const exp = d[expert];
   const expertState = useAgentStore((state) => state.experts[expert]);
-  const hoverText = expertState.status === 'completed'
-    ? (expertState.finding || '该专家已完成分析，但还没有结论文本。')
-    : (expertState.thinkingContent || '正在组织分析路径...');
-  const hoverLabel = expertState.status === 'completed' ? '最终结论' : '实时思考';
+  const hasSteps = expertState.steps.length > 0;
+  const hoverLabel = expertState.status === 'completed'
+    ? (hasSteps ? '推理过程' : '最终结论')
+    : (hasSteps ? '实时推理' : '实时思考');
+  const statusLabel = expertState.status === 'completed' ? '已收束' : '流式更新';
   const content = (
     <motion.div
       initial={{ opacity: 0, x: -16, scale: 0.95 }}
@@ -269,9 +298,9 @@ export const ExpertGlassPanelFlip: React.FC<{ expert: ExpertType; cardRect: DOMR
       <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${exp.color}35, transparent)`, marginBottom: 10 }} />
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.48)', letterSpacing: '0.08em' }}>{hoverLabel}</div>
-        <div style={{ fontSize: 11, color: exp.color }}>{expertState.status === 'completed' ? '已收束' : '流式更新'}</div>
+        <div style={{ fontSize: 11, color: exp.color }}>{statusLabel}</div>
       </div>
-      <ExpertHoverStream text={hoverText} animate={expertState.status !== 'completed'} color={exp.color} />
+      <ExpertHoverStream expert={expert} color={exp.color} />
     </motion.div>
   );
   return createPortal(content, document.body);

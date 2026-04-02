@@ -20,6 +20,8 @@ changelog:
 plans/
 ├── README.md                  # 本文件
 ├── 001-three-layer-prompt.md   # 三层分离Prompt框架
+├── 002-reliability-architecture-refactor.md  # 比赛级可靠性架构重构方案
+├── 003-competition-grade-roadmap.md  # 从当前系统到比赛答辩级作品的长期路线图
 └── frontend/                  # 前端相关Plan
     ├── README.md               # 前端Plan规范
     ├── 001-agent-poker-panel.md

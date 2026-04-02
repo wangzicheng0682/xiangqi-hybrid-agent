@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from './store/useGameStore';
 import { useAgentStore } from './store/useAgentStore';
@@ -7,6 +7,9 @@ import AgentThinkingPanel from './components/AgentThinkingPanel';
 import EngineChart from './components/EngineChart';
 import LiquidGlassApp from './components/LiquidGlassApp';
 import LeftSidebar from './components/LeftSidebar';
+import { api } from './services/api';
+import type { ExpertType } from './components/CardContent';
+import type { ExpertStatus } from './components/ExpertCard';
 
 interface GlassRect {
   x: number;
@@ -16,16 +19,35 @@ interface GlassRect {
   radius: number;
 }
 
+interface AnalysisStreamMessage {
+  type: string;
+  stage?: number;
+  message?: string;
+  tool?: string;
+  finding?: string;
+  summary?: string;
+  expert?: string;
+  title?: string;
+  content?: string;
+  step_index?: number;
+  duration_ms?: number;
+  explanation?: string;
+  confidence?: string;
+}
+
 export default function App() {
   const {
     fen,
+    previousFen,
+    history,
+    lastMove,
     gameMode,
     isBoardCollapsed,
-    toggleBoardCollapsed,
+    setBoardCollapsed,
     refreshEngineEvaluation,
   } = useGameStore();
 
-  const { setPanelActive, setAnalyzing } = useAgentStore();
+  const { setPanelActive, setAnalyzing, isAnalyzing, isPanelActive, resetAll } = useAgentStore();
 
   const boardRef = useRef<HTMLDivElement>(null);
   const boardAreaRef = useRef<HTMLDivElement>(null);
@@ -34,7 +56,7 @@ export default function App() {
   const [engineFrame, setEngineFrame] = useState({ top: 0, left: 0, width: 0 });
   const [leftGlassRect, setLeftGlassRect] = useState<GlassRect>({ x: 14, y: 14, width: 220, height: window.innerHeight - 28, radius: 34 });
 
-  const showEngineDock = gameMode === 'analysis';
+  const showEngineDock = gameMode !== 'replay';
 
   useEffect(() => {
     const updateTop = () => {
@@ -58,9 +80,7 @@ export default function App() {
   }, [isBoardCollapsed]);
 
   useEffect(() => {
-    if (gameMode !== 'analysis') {
-      return;
-    }
+    if (gameMode === 'replay') return;
     void refreshEngineEvaluation(fen);
   }, [fen, gameMode, refreshEngineEvaluation]);
 
@@ -83,11 +103,137 @@ export default function App() {
   }, []);
 
   // 深度分析触发
-  const triggerDeepAnalysis = () => {
+  const applyStreamMessage = useCallback((msg: AnalysisStreamMessage) => {
+    const store = useAgentStore.getState();
+    const expertType = msg.expert as ExpertType | undefined;
+
+    const validExpert = expertType && ['tactics', 'strategy', 'engine'].includes(expertType);
+
+    if (validExpert) {
+      if (msg.type === 'expert_start') {
+        store.updateExpert(expertType, { status: 'thinking' as ExpertStatus });
+      } else if (msg.type === 'expert_result') {
+        store.updateExpert(expertType, {
+          status: 'completed' as ExpertStatus,
+          finding: msg.finding || msg.summary || msg.message || '',
+          subtitle: msg.summary || msg.title || '',
+        });
+      } else if (msg.type === 'expert_step_start') {
+        store.updateExpert(expertType, {
+          status: 'thinking' as ExpertStatus,
+          subtitle: msg.title || '',
+        });
+        store.addExpertStep(expertType, msg.title || '分析步骤', msg.step_index ?? 0);
+      } else if (msg.type === 'expert_step_content') {
+        store.appendExpertStepContent(expertType, msg.step_index ?? 0, msg.content || msg.message || '');
+      } else if (msg.type === 'expert_step_end') {
+        store.finalizeExpertStep(expertType, msg.step_index ?? 0, msg.duration_ms);
+      } else if (msg.type === `expert_${expertType}_thinking` || msg.type === `expert_${expertType}_chunk`) {
+        store.updateExpert(expertType, { status: 'thinking' as ExpertStatus });
+        store.appendExpertThinking(expertType, msg.message || '');
+      } else if (msg.type === `expert_${expertType}_tool`) {
+        store.addExpertToolCall(expertType, {
+          id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          toolName: msg.message || 'tool',
+          params: '',
+          result: '',
+        });
+      }
+    }
+
+    if (msg.type === 'synthesis_step_start') {
+      store.updateOrchestratorSubtitle(msg.title || '综合分析');
+      store.addOrchestratorStep(msg.title || '综合分析', msg.step_index ?? 0);
+    } else if (msg.type === 'synthesis_step_content') {
+      store.appendOrchestratorStepContent(msg.step_index ?? 0, msg.content || msg.message || '');
+    } else if (msg.type === 'synthesis_step_end') {
+      store.finalizeOrchestratorStep(msg.step_index ?? 0, msg.duration_ms);
+    } else if (msg.type === 'orchestrator_subtitle') {
+      store.updateOrchestratorSubtitle(msg.message || '');
+    } else if (msg.type === 'synthesis_chunk') {
+      if (msg.message) {
+        if (!store.orchestrator.subtitle) {
+          store.updateOrchestratorSubtitle('综合讲解生成中');
+        }
+        store.appendOrchestratorContent(msg.message);
+      }
+    } else if (msg.type === 'thinking' || msg.type === 'thinking_chunk') {
+      if (msg.message) {
+        const progressMessage = msg.message.trim();
+        const progressHints = ['启动分析', '检测局面', '引擎评估', 'AI分析中', '分析进行中'];
+        if (progressHints.some((hint) => progressMessage.includes(hint))) {
+          store.updateOrchestratorSubtitle(progressMessage);
+        }
+      }
+    }
+  }, []);
+
+  const triggerDeepAnalysis = useCallback(async () => {
+    if (!fen || isAnalyzing) {
+      return;
+    }
+
+    const lastMoveUci = lastMove
+      ? `${String.fromCharCode(97 + lastMove.from.col)}${9 - lastMove.from.row}${String.fromCharCode(97 + lastMove.to.col)}${9 - lastMove.to.row}`
+      : undefined;
+
+    const hasMoveContext = Boolean(lastMoveUci && history.length > 0);
+    const analysisFen = hasMoveContext ? (previousFen || fen) : fen;
+    const question = hasMoveContext
+      ? `分析刚才走的棋 ${lastMoveUci}，这步棋走得怎么样？`
+      : '请严格基于当前棋盘局面进行分析，不要假设刚刚已经走过某一步。';
+
+    resetAll();
     setPanelActive(true);
     setAnalyzing(true);
-    toggleBoardCollapsed();
-  };
+    setBoardCollapsed(true);
+
+    try {
+      await api.analyzeDeep(
+        {
+          fen: analysisFen,
+          move: hasMoveContext ? lastMoveUci : undefined,
+          question,
+          show_thinking: true,
+        },
+        (msg) => {
+          applyStreamMessage(msg);
+        },
+        (result) => {
+          const store = useAgentStore.getState();
+          if (!store.orchestrator.subtitle) {
+            store.updateOrchestratorSubtitle('分析完成');
+          }
+          if (result.explanation && !store.orchestrator.content.trim()) {
+            store.appendOrchestratorContent(store.orchestrator.content ? `\n\n${result.explanation}` : result.explanation);
+          }
+          setAnalyzing(false);
+        },
+        (error) => {
+          const store = useAgentStore.getState();
+          store.updateOrchestratorSubtitle('分析失败');
+          store.appendOrchestratorContent(`分析请求失败：${error}`);
+          setAnalyzing(false);
+        }
+      );
+    } catch (error) {
+      const store = useAgentStore.getState();
+      store.updateOrchestratorSubtitle('分析失败');
+      store.appendOrchestratorContent(`分析请求失败：${error instanceof Error ? error.message : '未知错误'}`);
+      setAnalyzing(false);
+    }
+  }, [applyStreamMessage, fen, history.length, isAnalyzing, lastMove, previousFen, resetAll, setAnalyzing, setBoardCollapsed, setPanelActive]);
+
+  useEffect(() => {
+    if (isPanelActive) {
+      return;
+    }
+
+    if (api._activeEventSource) {
+      api._activeEventSource.close();
+      api._activeEventSource = null;
+    }
+  }, [isPanelActive]);
 
   return (
     <>
@@ -99,7 +245,7 @@ export default function App() {
         onDeepAnalysis={triggerDeepAnalysis}
       />
 
-      <LeftSidebar boardLeft={boardLeft} onGlassRectChange={setLeftGlassRect} />
+      <LeftSidebar boardLeft={boardLeft} onGlassRectChange={setLeftGlassRect} onDeepAnalysis={triggerDeepAnalysis} />
 
       {/* z=1: DOM 层 — 棋盘和右侧栏 */}
       <div

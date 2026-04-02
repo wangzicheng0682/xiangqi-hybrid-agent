@@ -12,7 +12,6 @@ import json
 import os
 import re
 import time
-import requests
 from typing import Dict, List, Any, Callable, Optional, TYPE_CHECKING
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from dataclasses import dataclass, field
@@ -22,13 +21,66 @@ if TYPE_CHECKING:
     from core.llm.debug_logger import AgentDebugLogger
 
 from core.llm.agent_tools import AgentTools, ToolResult
+from core.llm.claim import (
+    EvidenceChain, EvidenceItem, parse_claims, Claim,
+)
+from core.llm.contracts import AnalysisStatus, DegradationLevel, ExpertFailureType
+from core.llm.reliable_client import ReliableLLMClient
 from core.llm.tracing import get_tracer, SpanNames, SpanAttributes
+
+
+def _backfill_tool_result(tool_calls_log: list, tool_name: str, result: dict):
+    """将工具执行结果回填到 tool_calls_log 对应条目（倒序找第一个匹配且无 result_summary 的）"""
+    for entry in reversed(tool_calls_log):
+        if entry["name"] == tool_name and "result_summary" not in entry:
+            entry["success"] = result.get("success", True)
+            # 摘要：优先取 message，否则截断
+            msg = result.get("message", "")
+            if not msg:
+                msg = str(result.get("data", result))[:120]
+            entry["result_summary"] = msg[:200]
+            break
+
+
+def _build_evidence_chain(tool_calls_log: list) -> EvidenceChain:
+    """从 tool_calls_log 构建 EvidenceChain"""
+    items = []
+    for entry in tool_calls_log:
+        items.append(EvidenceItem(
+            tool_name=entry["name"],
+            arguments=entry.get("arguments", {}),
+            result_summary=entry.get("result_summary", ""),
+            success=entry.get("success", True),
+        ))
+    return EvidenceChain(tool_calls=items)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 共享象棋规则 - 所有专家统一引用，避免重复（~800 tokens × 3 → 1次）
+# ═══════════════════════════════════════════════════════════════════════════════
+
+CHESS_RULES_BLOCK = """# 象棋基础规则 - 铁律，不可违背
+
+**棋子走法**：
+- 车：横竖直线任意格，不能跳越其他棋子
+- 马：日字形（先横/竖一格，再斜一格），蹩马腿则不能走
+- 炮：移动同车（横竖直线），但吃子必须隔一个棋子（炮架）
+- 象/相：田字形（斜走两格），不能过河，塞象眼则不能走
+- 士/仕：斜走一格，不出九宫
+- 将/帅：九宫内横竖一格，将与帅不能照面（在同一列无遮挡）
+
+**硬约束**：
+- 你说任何棋子"保护"另一个棋子，必须先调用工具验证
+- 炮架是被利用的棋子，不等于保护关系
+- 你说任何走法合法，必须符合上述走法规则，否则禁止提及
+- 你要分析具体走法时，优先先调用 get_move_candidates，再把 candidate_id 传给 analyze_move / compare_moves / get_forcing_sequence / simulate_move
+- 不确定的关系，必须调用工具查询，禁止猜测"""
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 工具元数据 - 用于生成元叙事小标题
 # ═══════════════════════════════════════════════════════════════════════════════
 
 TOOL_META = {
+    "get_move_candidates": "候选走法",
     "get_piece_attacks": "攻击关系",
     "get_piece_defenders": "保护关系",
     "get_threats_to_piece": "威胁关系",
@@ -39,6 +91,9 @@ TOOL_META = {
     "engine_deep_analysis": "局面评分",
     "engine_alternatives": "候选走法",
     "analyze_position_strategy": "战略分析",
+    "simulate_move": "走法模拟",
+    "query_chess_principles": "棋理检索",
+    "search_chess_knowledge": "知识库检索",
 }
 
 
@@ -100,6 +155,16 @@ class ExpertResult:
     tool_calls: List[Dict] = field(default_factory=list)
     success: bool = True
     error: Optional[str] = None
+    status: str = AnalysisStatus.SUCCESS
+    failure_type: Optional[str] = None
+    confidence: str = "high"
+    missing_evidence: List[str] = field(default_factory=list)
+    retry_count: int = 0
+    degraded: bool = False
+    degradation_level: str = DegradationLevel.NONE
+    # Phase 2: 结构化断言与证据链
+    claims: List[Claim] = field(default_factory=list)
+    evidence_chain: Optional[EvidenceChain] = None
 
 
 @dataclass
@@ -136,8 +201,16 @@ class BaseExpert:
         self.model = model
         self.tools = AgentTools()
         self.debug_logger = debug_logger  # 调试日志记录器
+        self.llm_client = ReliableLLMClient(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            model=self.model,
+            timeout=120,
+            max_retries=2,
+        )
 
         self._tool_functions = {
+            "get_move_candidates": self.tools.get_move_candidates,
             "get_piece_attacks": self.tools.get_piece_attacks,
             "get_piece_defenders": self.tools.get_piece_defenders,
             "get_threats_to_piece": self.tools.get_threats_to_piece,
@@ -148,6 +221,9 @@ class BaseExpert:
             "engine_deep_analysis": self.tools.engine_deep_analysis,
             "engine_alternatives": self.tools.engine_alternatives,
             "analyze_position_strategy": self.tools.analyze_position_strategy,
+            "simulate_move": self.tools.simulate_move,
+            "query_chess_principles": self.tools.query_chess_principles,
+            "search_chess_knowledge": self.tools.search_chess_knowledge,
         }
 
     def _generate_board_layout(self, fen: str) -> str:
@@ -190,8 +266,14 @@ class BaseExpert:
         phase_info,
         question: str,
         move: str = None,
+        evidence_map: Dict = None,
     ) -> str:
-        """构建共享上下文（注入给每个专家）"""
+        """构建共享上下文（注入给每个专家）
+
+        支持两种模式：
+        - 结构化 evidence_map（优先）：包含tags/tensions/engine/phase的结构化JSON
+        - 文本 tag_summary（兼容）：旧的文本格式
+        """
         board_layout = self._generate_board_layout(fen)
 
         context = f"【当前局面】FEN: {fen}\n\n"
@@ -205,7 +287,43 @@ class BaseExpert:
             total_pieces = getattr(phase_info, 'total_pieces', 0)
             context += f"【当前阶段】{phase_name}（回合数≈{move_count}，剩余棋子≈{total_pieces}）\n\n"
 
-        if tag_summary:
+        # 优先使用结构化 Evidence Map（P0修复）
+        if evidence_map and isinstance(evidence_map, dict):
+            # 结构化事实表：标签 + 绑定棋子
+            em_tags = evidence_map.get("tags", [])
+            if em_tags:
+                context += "【Evidence Map - 规则引擎检测的事实（100%准确）】\n"
+                for tag_item in em_tags:
+                    tag_name = tag_item.get("name", "")
+                    bind_pieces = tag_item.get("bind_pieces", [])
+                    desc = tag_item.get("description", "")
+                    pieces_str = "、".join(bind_pieces) if bind_pieces else ""
+                    line = f"- {tag_name}"
+                    if pieces_str:
+                        line += f" [{pieces_str}]"
+                    if desc:
+                        line += f": {desc}"
+                    context += line + "\n"
+                context += "\n[警告] 禁止推断任何未在此列出的攻防关系。如需验证额外关系，必须调用工具。\n\n"
+
+            # 引擎评估
+            em_engine = evidence_map.get("engine", {})
+            if em_engine:
+                context += "【引擎评估数据】\n"
+                if "cp" in em_engine:
+                    context += f"- 评估分: {em_engine['cp']}cp\n"
+                if "best" in em_engine and em_engine["best"]:
+                    context += f"- 最佳走法: {em_engine['best']}\n"
+                if "pv" in em_engine and em_engine["pv"]:
+                    context += f"- 主变化: {' '.join(em_engine['pv'][:5])}\n"
+                context += "\n"
+
+            # 子力统计
+            em_pieces = evidence_map.get("piece_count", {})
+            if em_pieces:
+                context += f"【子力统计】红方{em_pieces.get('red', '?')}子 vs 黑方{em_pieces.get('black', '?')}子\n\n"
+
+        elif tag_summary:
             tag_str = "\n".join(tag_summary) if isinstance(tag_summary, list) else tag_summary
             context += f"【局面事实 - 这是唯一可信的事实来源】\n"
             context += "以下结论由规则引擎计算得出，100%准确，你只能在这个范围内分析：\n"
@@ -235,7 +353,15 @@ class BaseExpert:
     ) -> Dict:
         """调用LLM API（非流式），自动记录 OTEL Span"""
         if not self.api_key:
-            return {"content": "API Key未配置", "tool_calls": [], "finish_reason": "error"}
+            return {
+                "content": "API Key未配置",
+                "tool_calls": [],
+                "finish_reason": "error",
+                "error_type": ExpertFailureType.REQUEST_EXCEPTION,
+                "status": AnalysisStatus.FAILED,
+                "retry_count": 0,
+                "degraded": False,
+            }
 
         tracer = get_tracer()
 
@@ -246,55 +372,41 @@ class BaseExpert:
                 SpanAttributes.AGENT_TYPE: agent_type,
             }
         ) as span:
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json",
-            }
-
-            payload = {
-                "model": self.model,
-                "messages": messages,
-                "temperature": 0.7,
-                "max_tokens": 2048,
-                # GLM-5 原生支持 thinking 模式，内部推理链流式输出
-                "thinking": {"type": "enabled"},
-            }
-
-            if tools:
-                payload["tools"] = tools
-                payload["tool_choice"] = "auto"
-
             # 记录输入
             if self.debug_logger:
                 self.debug_logger.log_input(agent_type, {"messages": messages, "tools": [t.get("function", {}).get("name") for t in (tools or [])]})
 
             start_time = time.time()
             try:
-                session = requests.Session()
-                session.trust_env = False
-                response = session.post(
-                    f"{self.base_url}/chat/completions",
-                    headers=headers,
-                    json=payload,
-                    timeout=120,
+                response = self.llm_client.complete(
+                    messages=messages,
+                    tools=tools,
+                    temperature=0.7,
+                    max_tokens=2048,
+                    thinking_enabled=True,
                 )
-
                 duration_ms = int((time.time() - start_time) * 1000)
                 span.set_attribute(SpanAttributes.LLM_DURATION_MS, duration_ms)
 
-                if response.status_code == 200:
-                    result = response.json()
-                    choice = result.get("choices", [{}])[0]
-                    message = choice.get("message", {})
+                if response.success:
+                    # GLM-5 Extended Thinking: content 可能为空，实际内容在 reasoning_content
+                    effective_content = response.content
+                    if not effective_content and response.reasoning_content and not response.tool_calls:
+                        effective_content = response.reasoning_content
+
                     api_result = {
-                        "content": message.get("content", ""),
-                        "reasoning_content": message.get("reasoning_content", ""),
-                        "tool_calls": message.get("tool_calls", []),
-                        "finish_reason": choice.get("finish_reason", "stop"),
+                        "content": effective_content,
+                        "reasoning_content": response.reasoning_content,
+                        "tool_calls": response.tool_calls,
+                        "finish_reason": response.finish_reason,
+                        "status": response.status,
+                        "error_type": response.error_type,
+                        "retry_count": response.retry_count,
+                        "degraded": response.degraded,
+                        "degradation_level": response.degradation_level,
                     }
 
-                    # 记录 token 使用（如果有）
-                    usage = result.get("usage", {})
+                    usage = response.metadata.get("usage", {})
                     if usage:
                         span.set_attribute(SpanAttributes.LLM_INPUT_TOKENS, usage.get("prompt_tokens", 0))
                         span.set_attribute(SpanAttributes.LLM_OUTPUT_TOKENS, usage.get("completion_tokens", 0))
@@ -317,14 +429,25 @@ class BaseExpert:
                             "content": api_result["content"][:500] if api_result["content"] else "",
                             "tool_calls": tool_names,
                             "finish_reason": api_result["finish_reason"],
+                            "status": api_result["status"],
+                            "retry_count": api_result["retry_count"],
                         }, duration_ms)
                     return api_result
                 else:
-                    error_result = {"content": f"API错误: {response.status_code}", "tool_calls": [], "finish_reason": "error"}
+                    error_result = {
+                        "content": response.error_message,
+                        "tool_calls": [],
+                        "finish_reason": "error",
+                        "error_type": response.error_type,
+                        "status": response.status,
+                        "retry_count": response.retry_count,
+                        "degraded": response.degraded,
+                        "degradation_level": response.degradation_level,
+                    }
                     if self.debug_logger:
-                        self.debug_logger.log_error(agent_type, f"API错误: {response.status_code}")
+                        self.debug_logger.log_error(agent_type, response.error_message)
                     span.set_attribute(SpanAttributes.ERROR, True)
-                    span.set_attribute(SpanAttributes.ERROR_MESSAGE, f"HTTP {response.status_code}")
+                    span.set_attribute(SpanAttributes.ERROR_MESSAGE, response.error_message)
                     return error_result
             except Exception as e:
                 error_result = {"content": f"请求失败: {str(e)}", "tool_calls": [], "finish_reason": "error"}
@@ -410,6 +533,7 @@ class BaseExpert:
         ]
 
         tool_calls_log = []
+        tool_failures: List[str] = []
 
         for round_num in range(config.max_rounds):
             if on_thinking:
@@ -424,6 +548,13 @@ class BaseExpert:
                     details=response["content"],
                     success=False,
                     error=response["content"],
+                    status=response.get("status", AnalysisStatus.FAILED),
+                    failure_type=response.get("error_type", ExpertFailureType.UNKNOWN),
+                    confidence="low",
+                    missing_evidence=["llm_response"],
+                    retry_count=response.get("retry_count", 0),
+                    degraded=response.get("degraded", False),
+                    degradation_level=response.get("degradation_level", DegradationLevel.NONE),
                 )
 
             content = response["content"]
@@ -446,8 +577,10 @@ class BaseExpert:
 
                 # 只读工具可并行执行（无副作用）
                 READONLY_TOOLS = {
+                    "get_move_candidates",
                     "get_piece_attacks", "get_piece_defenders", "get_threats_to_piece",
                     "get_piece_relations", "compare_moves", "analyze_position_strategy",
+                    "simulate_move", "query_chess_principles", "search_chess_knowledge",
                 }
 
                 readonly_tcs = [tc for tc in tool_calls if tc["function"]["name"] in READONLY_TOOLS]
@@ -487,6 +620,10 @@ class BaseExpert:
                                 "tool_call_id": tool_call_id,
                                 "content": tool_msg,
                             })
+                            if result.get("error") or result.get("success") is False:
+                                tool_failures.append(result.get("error") or result.get("message", "tool_failed"))
+                            # Phase 2: 回填工具输出到 tool_calls_log
+                            _backfill_tool_result(tool_calls_log, tc["function"]["name"], result)
                             if self.debug_logger:
                                 self.debug_logger.log_tool_result(config.name, tc["function"]["name"], result)
                             if on_thinking:
@@ -523,6 +660,10 @@ class BaseExpert:
                         "tool_call_id": tc["id"],
                         "content": tool_msg,
                     })
+                    if result.get("error") or result.get("success") is False:
+                        tool_failures.append(result.get("error") or result.get("message", "tool_failed"))
+                    # Phase 2: 回填工具输出到 tool_calls_log
+                    _backfill_tool_result(tool_calls_log, tool_name, result)
                     if self.debug_logger:
                         self.debug_logger.log_tool_result(config.name, tool_name, result)
                     if on_thinking:
@@ -548,16 +689,55 @@ class BaseExpert:
                 # 记录专家结果到debug_logger
                 if self.debug_logger:
                     self.debug_logger.log_expert_result(config.name, finding, content, success=True)
+                degraded = bool(tool_failures) or response.get("degraded", False)
+                confidence = "high"
+                if degraded and tool_calls_log:
+                    confidence = "medium"
+                elif degraded:
+                    confidence = "low"
+                # Phase 2: 构建证据链并解析 Claim
+                ev_chain = _build_evidence_chain(tool_calls_log)
+                claims = parse_claims(content, ev_chain)
                 return ExpertResult(
                     expert_name=config.name,
                     finding=finding,
                     details=content,
                     tool_calls=tool_calls_log,
                     success=True,
+                    status=AnalysisStatus.DEGRADED if degraded else AnalysisStatus.SUCCESS,
+                    failure_type=ExpertFailureType.TOOL_ERROR if tool_failures else response.get("error_type"),
+                    confidence=confidence,
+                    missing_evidence=["tool_validation"] if tool_failures else [],
+                    retry_count=response.get("retry_count", 0),
+                    degraded=degraded,
+                    degradation_level=(
+                        response.get("degradation_level", DegradationLevel.NONE)
+                        if response.get("degraded", False)
+                        else (DegradationLevel.PARTIAL_EXPERTS if tool_failures else DegradationLevel.NONE)
+                    ),
+                    error="；".join(tool_failures[:2]) if tool_failures else None,
+                    claims=claims,
+                    evidence_chain=ev_chain,
                 )
 
         # 达到最大轮数，强制结束
         final_response = self._call_api(messages, tools=None)
+        if final_response["finish_reason"] == "error":
+            return ExpertResult(
+                expert_name=config.name,
+                finding="分析失败",
+                details=final_response["content"],
+                tool_calls=tool_calls_log,
+                success=False,
+                error=final_response["content"],
+                status=final_response.get("status", AnalysisStatus.FAILED),
+                failure_type=final_response.get("error_type", ExpertFailureType.UNKNOWN),
+                confidence="low",
+                missing_evidence=["llm_final_response"],
+                retry_count=final_response.get("retry_count", 0),
+                degraded=final_response.get("degraded", False),
+                degradation_level=final_response.get("degradation_level", DegradationLevel.NONE),
+            )
         final_reasoning = final_response.get("reasoning_content", "")
         if on_thinking and final_reasoning:
             on_thinking(f"{config.name}_reasoning", final_reasoning)
@@ -568,16 +748,34 @@ class BaseExpert:
         # 记录专家结果到debug_logger
         if self.debug_logger:
             self.debug_logger.log_expert_result(config.name, final_finding, final_response["content"], success=True)
+        final_degraded = bool(tool_failures) or final_response.get("degraded", False)
+        # Phase 2: 构建证据链并解析 Claim
+        ev_chain_final = _build_evidence_chain(tool_calls_log)
+        claims_final = parse_claims(final_response["content"], ev_chain_final)
         return ExpertResult(
             expert_name=config.name,
             finding=final_finding,
             details=final_response["content"],
             tool_calls=tool_calls_log,
             success=True,
+            status=AnalysisStatus.DEGRADED if final_degraded else AnalysisStatus.SUCCESS,
+            failure_type=ExpertFailureType.TOOL_ERROR if tool_failures else final_response.get("error_type"),
+            confidence="medium" if final_degraded else "high",
+            missing_evidence=["tool_validation"] if tool_failures else [],
+            retry_count=final_response.get("retry_count", 0),
+            degraded=final_degraded,
+            degradation_level=(
+                final_response.get("degradation_level", DegradationLevel.NONE)
+                if final_response.get("degraded", False)
+                else (DegradationLevel.PARTIAL_EXPERTS if tool_failures else DegradationLevel.NONE)
+            ),
+            error="；".join(tool_failures[:2]) if tool_failures else None,
+            claims=claims_final,
+            evidence_chain=ev_chain_final,
         )
 
     # 工具超时配置（秒）
-    TOOL_TIMEOUT = 30
+    TOOL_TIMEOUT = 45
 
     def _execute_tool(self, tool_name: str, arguments: Dict, fen: str) -> Dict:
         """执行工具（含超时保护 + OTEL Span）"""
@@ -595,7 +793,11 @@ class BaseExpert:
             if not func:
                 span.set_attribute(SpanAttributes.ERROR, True)
                 span.set_attribute(SpanAttributes.ERROR_MESSAGE, f"未知工具: {tool_name}")
-                return {"error": f"未知工具: {tool_name}"}
+                return {
+                    "success": False,
+                    "error": f"未知工具: {tool_name}",
+                    "error_type": ExpertFailureType.TOOL_ERROR,
+                }
 
             def _run():
                 args = dict(arguments)
@@ -618,12 +820,20 @@ class BaseExpert:
                 span.set_attribute(SpanAttributes.ERROR, True)
                 span.set_attribute(SpanAttributes.ERROR_MESSAGE, f"工具执行超时（>{self.TOOL_TIMEOUT}s）")
                 span.set_attribute(SpanAttributes.TOOL_SUCCESS, False)
-                return {"error": f"工具执行超时（>{self.TOOL_TIMEOUT}s）: {tool_name}"}
+                return {
+                    "success": False,
+                    "error": f"工具执行超时（>{self.TOOL_TIMEOUT}s）: {tool_name}",
+                    "error_type": ExpertFailureType.TOOL_TIMEOUT,
+                }
             except Exception as e:
                 span.set_attribute(SpanAttributes.ERROR, True)
                 span.set_attribute(SpanAttributes.ERROR_MESSAGE, str(e))
                 span.set_attribute(SpanAttributes.TOOL_SUCCESS, False)
-                return {"error": str(e)}
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "error_type": ExpertFailureType.TOOL_ERROR,
+                }
 
     def _extract_finding(self, content: str, expert_name: str) -> str:
         """从分析内容中提取核心发现（一句话摘要）"""

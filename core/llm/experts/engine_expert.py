@@ -6,26 +6,13 @@
 
 from typing import Dict, List, Callable, Optional
 from core.llm.experts.base_expert import (
-    BaseExpert, ExpertConfig, ExpertResult,
+    BaseExpert, ExpertConfig, ExpertResult, CHESS_RULES_BLOCK,
 )
 from core.llm.thinking_templates import PhaseInfo
 
 
-SYSTEM_PROMPT_ENGINE = """# 象棋基础规则 - 铁律，不可违背
-
-**棋子走法**：
-- 车：横竖直线任意格，不能跳越其他棋子
-- 马：日字形（先横/竖一格，再斜一格），蹩马腿则不能走
-- 炮：移动同车（横竖直线），但吃子必须隔一个棋子（炮架）
-- 象/相：田字形（斜走两格），不能过河，塞象眼则不能走
-- 士/仕：斜走一格，不出九宫
-- 将/帅：九宫内横竖一格，将与帅不能照面（在同一列无遮挡）
-
-**硬约束**：
-- 你说任何棋子"保护"另一个棋子，必须先调用工具验证
-- 炮架是被利用的棋子，不等于保护关系
+SYSTEM_PROMPT_ENGINE = CHESS_RULES_BLOCK + """
 - 你解读引擎推荐走法时，必须检查是否符合上述走法规则
-- 不确定的关系，必须调用工具查询，禁止猜测
 
 ---
 
@@ -115,11 +102,40 @@ SYSTEM_PROMPT_ENGINE = """# 象棋基础规则 - 铁律，不可违背
 【详细分析】你的引擎解读过程（200-500字）
 【逻辑验证】用战术或战略逻辑验证引擎推荐的合理性
 【结论可信度】高/中/低（基于工具验证了多少）
+
+---
+
+# 结构化断言（必须）
+
+分析结束时，用以下格式列出你的核心断言（1-3条）：
+
+[CLAIM] 你的一条核心结论
+[EVIDENCE] 支撑该结论的证据来源（哪个工具验证的，或纯推理）
+[CONFIDENCE] 高/中/低
+
+示例：
+[CLAIM] 引擎最佳着 e2e6 比次选强 200 分，有明显优势
+[EVIDENCE] engine_deep_analysis 返回 best=e2e6 cp=+320，次选 cp=+120
+[CONFIDENCE] 高
 """
 
 
 # 引擎专家的工具子集
 ENGINE_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_move_candidates",
+            "description": "获取当前局面的合法候选走法列表。需要验证具体走法时，优先基于 candidate_id 继续分析。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "返回候选数，默认12", "default": 12}
+                },
+                "required": []
+            }
+        }
+    },
     {
         "type": "function",
         "function": {
@@ -152,13 +168,14 @@ ENGINE_TOOLS = [
         "type": "function",
         "function": {
             "name": "analyze_move",
-            "description": "深度分析某步棋的效果。【什么时候用】验证引擎推荐的走法背后的逻辑。",
+            "description": "深度分析某步棋的效果。【什么时候用】验证引擎推荐的走法背后的逻辑。优先传 candidate_id。",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "move": {"type": "string", "description": "UCI格式走法"}
+                    "candidate_id": {"type": "string", "description": "候选走法ID，如cand_1，优先使用"},
+                    "move": {"type": "string", "description": "UCI格式走法，仅兼容旧接口时使用"}
                 },
-                "required": ["move"]
+                "required": []
             }
         }
     },
@@ -166,17 +183,22 @@ ENGINE_TOOLS = [
         "type": "function",
         "function": {
             "name": "compare_moves",
-            "description": "对比多步棋的优劣。【什么时候用】对比引擎候选走法和直觉走法的差异。",
+            "description": "对比多步棋的优劣。【什么时候用】对比引擎候选走法和直觉走法的差异。优先传 candidate_ids。",
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "candidate_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "候选走法ID列表，如['cand_1', 'cand_2']，优先使用"
+                    },
                     "moves": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "UCI格式走法列表"
+                        "description": "UCI格式走法列表，仅兼容旧接口时使用"
                     }
                 },
-                "required": ["moves"]
+                "required": []
             }
         }
     },
@@ -193,6 +215,7 @@ class EngineExpert(BaseExpert):
         system_prompt=SYSTEM_PROMPT_ENGINE,
         tools=ENGINE_TOOLS,
         tool_names=[
+            "get_move_candidates",
             "engine_deep_analysis", "engine_alternatives",
             "analyze_move", "compare_moves",
         ],
@@ -210,6 +233,7 @@ class EngineExpert(BaseExpert):
         engine_eval: Dict = None,
         move: str = None,
         on_thinking: Callable[[str, str], None] = None,
+        evidence_map: Dict = None,
     ) -> ExpertResult:
         """执行引擎专家分析"""
         user_content = self._build_shared_context(
@@ -219,6 +243,7 @@ class EngineExpert(BaseExpert):
             phase_info=phase_info,
             question=question,
             move=move,
+            evidence_map=evidence_map,
         )
 
         # 注入引擎评估数据（引擎专家独特的信息）

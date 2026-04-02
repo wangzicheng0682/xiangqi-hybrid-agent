@@ -358,8 +358,8 @@ class TacticalDetector:
         return new_board
     
     def _get_attacks(self, board: List[List[str]], row: int, col: int) -> List[Tuple[int, int]]:
-        """获取棋子的攻击范围"""
-        return self.rules_engine.get_legal_moves(board, row, col)
+        """获取棋子的攻击范围（不含自将过滤，攻击 ≠ 合法移动）"""
+        return self.rules_engine._get_raw_moves(board, row, col)
     
     def _is_protected(self, board: List[List[str]], row: int, col: int, is_red: bool) -> bool:
         """

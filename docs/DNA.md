@@ -31,7 +31,7 @@ changelog:
 | 模块 | 目录 | 职责 | 可独立开发 |
 |------|------|------|------------|
 | 标签检测器 | `core/rules/` | 38个标签检测逻辑 | ✅ |
-| Agent工具 | `core/llm/agent_tools.py` | 10个LLM可调用工具 | ✅ |
+| Agent工具 | `core/llm/agent_tools.py` | 12个LLM可调用工具 | ✅ |
 | 思维链模板 | `core/llm/thinking_templates.py` | 阶段感知思维框架 | ✅ |
 | 引擎封装 | `core/engine/` | Pikafish引擎集成 | ✅ |
 | 知识图谱 | `core/kg/` | Neo4j棋谱检索 | ✅ |
@@ -329,7 +329,7 @@ class TagDetectionResult:
 
 ---
 
-### 3.3 Agent工具（10个）
+### 3.3 Agent工具（12个）
 
 **设计原则**：
 - 原子化：每个工具只做一件事
@@ -347,9 +347,11 @@ class TagDetectionResult:
 | 走法分析 | `analyze_move` | 深度分析某步棋的效果 |
 | | `compare_moves` | 对比多步棋的优劣 |
 | | `get_forcing_sequence` | 分析强制序列 |
+| 走法模拟 | `simulate_move` | 模拟走棋，对比前后标签/将军/吃子变化 |
 | 引擎分析 | `engine_deep_analysis` | 引擎深度分析 |
 | | `engine_alternatives` | 候选走法对比 |
 | 战略分析 | `analyze_position_strategy` | 局面战略分析 |
+| 知识检索 | `query_chess_principles` | 检索局面适用棋理原则 |
 
 **ToolResult返回格式**：
 
@@ -750,7 +752,7 @@ data: {"type": "result", "explanation": "...", "confidence": "high"}
 你是象棋教练AI，擅长分析局面和讲解棋理。
 
 【你的能力】
-- 你可以调用10个分析工具（见工具列表）
+- 你可以调用12个分析工具（见工具列表）
 - 你会收到Evidence Map（事实锚点），必须基于此回答
 - 你擅长用通俗语言解释复杂的战术和战略
 
@@ -824,7 +826,7 @@ xiangqi-hybrid-agent/
 │   │   └── consistency_checker.py # 一致性检查
 │   ├── llm/                     # LLM相关
 │   │   ├── client.py           # LLM客户端
-│   │   ├── agent_tools.py      # 10个Agent工具（约1020行）
+│   │   ├── agent_tools.py      # 12个Agent工具
 │   │   ├── xiangqi_coach.py   # 单Agent教练（约1070行）
 │   │   ├── multi_agent_orchestrator.py # 多Agent协调器
 │   │   ├── thinking_templates.py # 思维链模板
@@ -903,7 +905,7 @@ xiangqi-hybrid-agent/
 - [x] 标签体系定义（38个）
 - [x] 标签检测器实现
 - [x] 张力检测器实现（6种张力类型）
-- [x] Agent工具实现（10个）
+- [x] Agent工具实现（12个）
 - [x] 多专家并行架构（战术/战略/引擎）
 - [x] 双模式API
 - [x] SSE流式输出
@@ -1001,7 +1003,7 @@ print(f'Agent tools: {len([m for m in dir(tools) if not m.startswith(\"_\")])}')
 | 文档 | 位置 | 内容 |
 |------|------|------|
 | 标签参考 | `docs/reference/tag_reference.md` | 38个标签完整定义 |
-| Agent工具规范 | `docs/reference/agent_tools_spec.md` | 10个工具接口规范 |
+| Agent工具规范 | `docs/reference/agent_tools_spec.md` | 12个工具接口规范 |
 | 思维链框架 | `docs/reference/thinking_framework.md` | 特级大师思维链框架 |
 | Liquid Glass | `docs/reference/liquid_glass.md` | Liquid Glass技术说明 |
 | API契约 | `docs/reference/api_contract.md` | 前后端接口契约 |

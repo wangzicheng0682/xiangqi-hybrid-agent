@@ -2,13 +2,15 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { CSSProperties, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useGameStore } from '../store/useGameStore';
 import { formatMovePairs } from '../utils/moveNotation';
+import RecognitionModal from './RecognitionModal';
 
 interface LeftSidebarProps {
   boardLeft: number;
   onGlassRectChange?: (rect: { x: number; y: number; width: number; height: number; radius: number }) => void;
+  onDeepAnalysis?: () => void;
 }
 
-const SEGMENT_MODES = ['analysis', 'pve_red', 'pvp'] as const;
+const SEGMENT_MODES = ['analysis', 'pve_red', 'pve_black', 'pvp'] as const;
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
@@ -94,13 +96,15 @@ const rectFromElement = (element: HTMLElement, radius: number) => {
   };
 };
 
-export default function LeftSidebar({ boardLeft, onGlassRectChange }: LeftSidebarProps) {
+export default function LeftSidebar({ boardLeft, onGlassRectChange, onDeepAnalysis }: LeftSidebarProps) {
   const {
     gameMode,
     history,
     replayState,
     showArrows,
+    aiDifficulty,
     setGameMode,
+    setAiDifficulty,
     exitReplay,
     toggleFlip,
     toggleShowArrows,
@@ -114,6 +118,8 @@ export default function LeftSidebar({ boardLeft, onGlassRectChange }: LeftSideba
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [isSelectingGame, setIsSelectingGame] = useState(false);
+  const [recognitionOpen, setRecognitionOpen] = useState(false);
+  const [recognitionFile, setRecognitionFile] = useState<File | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -275,23 +281,49 @@ export default function LeftSidebar({ boardLeft, onGlassRectChange }: LeftSideba
                   onClick={(event) => {
                     const rect = event.currentTarget.getBoundingClientRect();
                     const relX = event.clientX - rect.left - 4;
-                    const segIndex = Math.floor(relX / 58);
-                    if (segIndex >= 0 && segIndex < 3) handleSegmentClick(segIndex);
+                    const segWidth = (rect.width - 8) / 4;
+                    const segIndex = Math.floor(relX / segWidth);
+                    if (segIndex >= 0 && segIndex < 4) handleSegmentClick(segIndex);
                   }}
                 >
                   <div
                     className="segment-indicator"
-                    style={{ transform: `translateX(${Math.max(0, Math.min(activeSegIndex, 2)) * 58}px)` }}
+                    style={{ transform: `translateX(${Math.max(0, Math.min(activeSegIndex, 3)) * 46.5}px)` }}
                   />
-                  {['分析', '人机', '双人'].map((label, index) => (
+                  {['分析', '执红', '执黑', '双人'].map((label, index) => (
                     <span key={label} className={`segment-label ${activeSegIndex === index ? 'active' : ''}`}>
                       {label}
                     </span>
                   ))}
                 </div>
 
+                {(gameMode === 'pve_red' || gameMode === 'pve_black') && (
+                  <div style={styles.difficultyRow}>
+                    <span style={styles.difficultyLabel}>难度</span>
+                    <div style={styles.difficultyOptions}>
+                      {([['简单', 4], ['中等', 10], ['困难', 18]] as const).map(([label, val]) => (
+                        <button
+                          key={val}
+                          type="button"
+                          onClick={() => setAiDifficulty(val)}
+                          style={{
+                            ...styles.difficultyChip,
+                            ...(aiDifficulty === val ? styles.difficultyChipActive : null),
+                          }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div style={styles.buttonColumn}>
                   <SidebarButton label="⌕ 打棋谱" onClick={handleOpenSearch} variant="primary" style={styles.heroButton} buttonRef={searchTriggerRef} />
+
+                  {gameMode === 'analysis' && (
+                    <SidebarButton label="◈ AI 深度分析" onClick={onDeepAnalysis} variant="gold" style={styles.fullButton} />
+                  )}
 
                   <div style={styles.buttonRow}>
                     <SidebarButton label="翻转棋盘" onClick={toggleFlip} style={styles.halfButton} />
@@ -440,10 +472,17 @@ export default function LeftSidebar({ boardLeft, onGlassRectChange }: LeftSideba
         onChange={(event) => {
           const file = event.target.files?.[0];
           if (file) {
-            console.log('camera upload:', file.name);
+            setRecognitionFile(file);
+            setRecognitionOpen(true);
           }
           event.target.value = '';
         }}
+      />
+
+      <RecognitionModal
+        open={recognitionOpen}
+        onClose={() => setRecognitionOpen(false)}
+        file={recognitionFile}
       />
     </div>
   );
@@ -616,6 +655,41 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 20,
     fontSize: 14,
   },
+  difficultyRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    flexShrink: 0,
+  },
+  difficultyLabel: {
+    fontSize: 11,
+    color: 'rgba(244, 241, 222, 0.58)',
+    whiteSpace: 'nowrap',
+  } as CSSProperties,
+  difficultyOptions: {
+    display: 'flex',
+    gap: 6,
+    flex: 1,
+  },
+  difficultyChip: {
+    flex: 1,
+    padding: '5px 0',
+    fontSize: 11,
+    fontWeight: 500,
+    borderRadius: 12,
+    border: '1px solid rgba(255,255,255,0.15)',
+    background: 'rgba(255,255,255,0.06)',
+    color: 'rgba(244, 241, 222, 0.72)',
+    cursor: 'pointer',
+    outline: 'none',
+    transition: 'all 0.18s ease',
+  } as CSSProperties,
+  difficultyChipActive: {
+    background: 'linear-gradient(180deg, rgba(212, 175, 55, 0.22) 0%, rgba(184, 140, 40, 0.14) 100%)',
+    borderColor: 'rgba(212, 175, 55, 0.50)',
+    color: 'rgba(255, 230, 150, 0.95)',
+    boxShadow: '0 0 8px rgba(212, 175, 55, 0.18)',
+  } as CSSProperties,
   fullButton: {
     width: '100%',
     minHeight: 42,

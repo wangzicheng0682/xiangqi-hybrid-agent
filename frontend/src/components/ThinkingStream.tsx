@@ -1,34 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useAgentStore } from '../store/useAgentStore';
+import type { ExpertType } from '../components/ExpertCard';
 
 // ============================================================
 // 打字机 Hook
 // ============================================================
-
-function useTypewriter(text: string, speed: number = 30, startDelay: number = 0) {
-  const [displayed, setDisplayed] = useState('');
-
-  useEffect(() => {
-    if (!text) {
-      setDisplayed('');
-      return;
-    }
-    setDisplayed('');
-    const timer = setTimeout(() => {
-      let i = 0;
-      const interval = setInterval(() => {
-        i++;
-        setDisplayed(text.slice(0, i));
-        if (i >= text.length) clearInterval(interval);
-      }, speed);
-      return () => clearInterval(interval);
-    }, startDelay);
-    return () => clearTimeout(timer);
-  }, [text, speed, startDelay]);
-
-  return displayed;
-}
 
 function useNaturalTypewriter(text: string, enabled: boolean, startDelay: number = 0, baseSpeed: number = 20) {
   const [displayed, setDisplayed] = useState('');
@@ -80,8 +57,8 @@ const StepItem: React.FC<{
   status: 'thinking' | 'completed';
   durationMs?: number;
   delay: number;
-}> = ({ title, content, status, durationMs, delay }) => {
-  const displayed = useTypewriter(content, 18, delay);
+}> = ({ title, content, status, durationMs }) => {
+  // 内容已由SSE增量推送，无需typewriter（typewriter会在每次chunk到来时重置导致闪烁）
   const isActive = status === 'thinking';
 
   return (
@@ -96,7 +73,7 @@ const StepItem: React.FC<{
         padding: '10px 12px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: displayed ? 6 : 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: content ? 6 : 0 }}>
         <span style={{ color: isActive ? '#fbbf24' : '#86efac', fontWeight: 700, fontSize: 12 }}>
           {isActive ? '⟳' : '✓'}
         </span>
@@ -109,12 +86,138 @@ const StepItem: React.FC<{
           </span>
         ) : null}
       </div>
-      {displayed ? (
+      {content ? (
         <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.78)', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-          {displayed}
+          {content}
+          {isActive && (
+            <motion.span
+              animate={{ opacity: [1, 0] }}
+              transition={{ duration: 0.7, repeat: Infinity, ease: 'linear' }}
+              style={{ display: 'inline-block', width: 1.5, height: 11, background: 'rgba(251,191,36,0.8)', marginLeft: 1, verticalAlign: 'middle' }}
+            />
+          )}
         </div>
       ) : null}
     </motion.div>
+  );
+};
+
+// ============================================================
+// 专家进度概览（协调者等待阶段）
+// ============================================================
+
+const EXPERT_META: Record<ExpertType, { icon: string; name: string; color: string }> = {
+  tactics: { icon: '⚔️', name: '战术专家', color: '#dc2626' },
+  strategy: { icon: '🎯', name: '战略专家', color: '#a0a0a0' },
+  engine: { icon: '📊', name: '引擎专家', color: '#2563eb' },
+};
+
+const ExpertProgressOverview: React.FC = () => {
+  const experts = useAgentStore((s) => s.experts);
+  const expertTypes: ExpertType[] = ['tactics', 'strategy', 'engine'];
+  const completedCount = expertTypes.filter((t) => experts[t].status === 'completed').length;
+  const allDone = completedCount === 3;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
+      <div style={{
+        borderRadius: 14,
+        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
+        padding: '14px 16px',
+      }}>
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', marginBottom: 10, letterSpacing: '0.08em' }}>
+          {allDone ? '专家分析完成 · 协调者综合中' : '专家分析进行中'}
+        </div>
+
+        {/* 进度条 */}
+        <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', marginBottom: 14, overflow: 'hidden' }}>
+          <motion.div
+            animate={{ width: `${(completedCount / 3) * 100}%` }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            style={{ height: '100%', borderRadius: 2, background: allDone ? '#86efac' : 'linear-gradient(90deg, #fbbf24, #f59e0b)' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {expertTypes.map((type) => {
+            const meta = EXPERT_META[type];
+            const state = experts[type];
+            const isCompleted = state.status === 'completed';
+            const isThinking = state.status === 'thinking';
+            const currentStep = state.steps.length > 0
+              ? state.steps[state.steps.length - 1]
+              : null;
+            const statusText = isCompleted
+              ? '已完成'
+              : isThinking
+                ? (currentStep ? currentStep.title : (state.subtitle || '分析中...'))
+                : '等待中';
+
+            return (
+              <motion.div
+                key={type}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3 }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '8px 10px',
+                  borderRadius: 10,
+                  background: isThinking ? 'rgba(251,191,36,0.05)' : 'rgba(255,255,255,0.02)',
+                  border: `1px solid ${isThinking ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.04)'}`,
+                }}
+              >
+                <span style={{ fontSize: 14, flexShrink: 0 }}>{meta.icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.85)' }}>
+                    {meta.name}
+                  </div>
+                  <div style={{
+                    fontSize: 11,
+                    color: isCompleted ? '#86efac' : 'rgba(255,255,255,0.4)',
+                    marginTop: 2,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}>
+                    {statusText}
+                    {isThinking && (
+                      <motion.span
+                        animate={{ opacity: [1, 0.3] }}
+                        transition={{ duration: 1.2, repeat: Infinity, ease: 'easeInOut' }}
+                      >
+                        ...
+                      </motion.span>
+                    )}
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, color: isCompleted ? '#86efac' : 'rgba(255,255,255,0.25)', fontWeight: 700, flexShrink: 0 }}>
+                  {isCompleted ? '✓' : isThinking ? '⟳' : '○'}
+                </span>
+              </motion.div>
+            );
+          })}
+        </div>
+      </div>
+
+      {allDone && (
+        <motion.div
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            fontSize: 12,
+            color: 'rgba(255,255,255,0.35)',
+            textAlign: 'center',
+            fontFamily: '"Noto Serif SC", serif',
+          }}
+        >
+          协调者正在综合三位专家结论...
+        </motion.div>
+      )}
+    </div>
   );
 };
 
@@ -134,23 +237,28 @@ export const ThinkingStream: React.FC = () => {
     [orchestrator.subtitle, orchestrator.subtitles]
   );
 
+  // 追踪最后一个step的内容长度，用于自动滚动
+  const lastStepContentLen = visibleSteps.length > 0
+    ? visibleSteps[visibleSteps.length - 1].content.length
+    : 0;
+
   useEffect(() => {
     if (contentRef.current) {
       contentRef.current.scrollTo({ top: contentRef.current.scrollHeight, behavior: 'smooth' });
     }
-  }, [typedStreamingContent, visibleSteps.length]);
+  }, [typedStreamingContent, visibleSteps.length, lastStepContentLen]);
 
   if (visibleSteps.length > 0) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%' }}>
-        {visibleSteps.map((step, index) => (
+      <div ref={contentRef} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', overflowY: 'auto', maxHeight: 400 }}>
+        {visibleSteps.map((step) => (
           <StepItem
             key={step.index}
             title={step.title}
             content={step.content}
             status={step.status}
             durationMs={step.durationMs}
-            delay={index * 80}
+            delay={0}
           />
         ))}
       </div>
@@ -242,21 +350,9 @@ export const ThinkingStream: React.FC = () => {
         <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 56, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(255,255,255,0) 0%, rgba(19,26,37,0.18) 72%, rgba(19,26,37,0.34) 100%)' }} />
       </div>
 
-      {/* 当没有任何内容时显示占位提示 */}
+      {/* 当没有任何协调者内容时，显示专家进度概览 */}
       {!currentSubtitle && (!typedStreamingContent || !typedStreamingContent.trim()) && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          style={{
-            fontSize: 12,
-            color: 'rgba(255,255,255,0.3)',
-            fontFamily: '"Noto Serif SC", serif',
-            textAlign: 'center',
-            padding: '20px 0',
-          }}
-        >
-          协调者正在分析...
-        </motion.div>
+        <ExpertProgressOverview />
       )}
     </div>
   );

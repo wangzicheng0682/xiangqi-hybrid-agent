@@ -172,6 +172,87 @@ class PikafishEngine(BaseEngine):
                 depth=info.depth,
                 pv=info.pv,
             )
+
+    def analyze_multipv(self, fen: str, depth: int = 18, num_pv: int = 3) -> List[EngineResult]:
+        """
+        多候选走法分析（MultiPV）
+
+        Args:
+            fen: FEN串
+            depth: 搜索深度
+            num_pv: 候选数量
+
+        Returns:
+            按评分排序的 EngineResult 列表
+        """
+        if not self._initialized:
+            self.start()
+        with self._lock:
+            self._send_command(f"setoption name MultiPV value {num_pv}")
+            self._send_command("isready")
+            self._read_until("readyok")
+            self._send_command(f"position fen {fen}")
+            self._send_command("isready")
+            self._read_until("readyok")
+            self._send_command(f"go depth {depth}")
+            lines = self._read_until("bestmove", timeout=120.0)
+
+            # 恢复 MultiPV=1
+            self._send_command(f"setoption name MultiPV value 1")
+            self._send_command("isready")
+            self._read_until("readyok")
+
+            # 解析每条 PV 线——只取最终深度的结果
+            pv_results: dict = {}  # multipv_index -> info
+            for line in lines:
+                if not line.startswith("info depth"):
+                    continue
+                parts = line.split()
+                mpv_idx = 1
+                cur_depth = 0
+                score_cp = None
+                score_mate = None
+                pv_moves: List[str] = []
+
+                for i, p in enumerate(parts):
+                    if p == "depth" and i + 1 < len(parts):
+                        cur_depth = int(parts[i + 1])
+                    elif p == "multipv" and i + 1 < len(parts):
+                        mpv_idx = int(parts[i + 1])
+                    elif p == "score" and i + 2 < len(parts):
+                        if parts[i + 1] == "cp":
+                            score_cp = int(parts[i + 2])
+                        elif parts[i + 1] == "mate":
+                            score_mate = int(parts[i + 2])
+                    elif p == "pv" and i + 1 < len(parts):
+                        pv_moves = parts[i + 1:]
+
+                # 更新：保留同一 PV 索引最高深度的结果
+                if mpv_idx not in pv_results or cur_depth >= pv_results[mpv_idx]["depth"]:
+                    pv_results[mpv_idx] = {
+                        "depth": cur_depth,
+                        "score_cp": score_cp,
+                        "score_mate": score_mate,
+                        "pv": pv_moves,
+                    }
+
+            results: List[EngineResult] = []
+            for idx in sorted(pv_results.keys()):
+                info = pv_results[idx]
+                score = 0.0
+                if info["score_cp"] is not None:
+                    score = info["score_cp"] / 100.0
+                elif info["score_mate"] is not None:
+                    score = 100.0 if info["score_mate"] > 0 else -100.0
+                bestmove = info["pv"][0] if info["pv"] else ""
+                results.append(EngineResult(
+                    bestmove=bestmove,
+                    score=score,
+                    depth=info["depth"],
+                    pv=info["pv"],
+                ))
+
+            return results
     
     def __enter__(self):
         self.start()

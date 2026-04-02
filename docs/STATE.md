@@ -1,10 +1,23 @@
 ---
 name: 项目状态
 type: state
-version: 3.49
+version: 3.65
 date: 2026-04-02
 owner: AI（自动维护）
 changelog:
+  - v3.65 (2026-04-02): 重构识别为纯YOLO管道 — 新增vision/yolo_recognizer.py(YoloDirectRecognizer)/YOLO检测board类自动定位棋盘/棋子坐标→(col,row)映射/FEN生成/后端/api/recognize改为YOLO本地推理(不再调LLM)/300测试全绿
+  - v3.64 (2026-04-02): 三大Bug修复 — 引擎栏全模式可见(replay除外)+走子后自动刷新评估/GLM-5 Extended Thinking content空响应兜底(reasoning_content回退)/LLM并发限制2→4+熔断阈值5→12+工具超时30→45s/300测试全绿
+  - v3.63 (2026-04-02): 棋盘视觉识别接入 — VisionAnalyzer(GLM-4V-Flash)集成/POST /api/recognize图片上传端点/Apple风格识别弹窗(扫描动画+置信度+一键应用)/前端识别按钮完整联通/RecognitionModal组件/loadFromRecognition状态方法/300测试全绿
+  - v3.62 (2026-04-02): 前后端全面整合 — 4模式选择器(分析/执红/执黑/双人)/难度选择器(简单/中等/困难)/深度分析按钮入左栏/双人模式回合制/AI对弈API双路由兼容(board+fen)/ChromaRAG线程安全/UCI边界校验/plan文档更新/300测试全绿
+  - v3.60 (2026-04-02): 系统能力跃升 — 真实RAG系统(ChromaDB+80+棋理原则向量化)/search_chess_knowledge工具/对弈模式API(三级难度)/引擎评分链路修复/系统能力全面审计/20项新测试(13RAG+7对弈)
+  - v3.58 (2026-04-02): Phase 2 证据裁决化落地 — Claim数据结构/解析器/证据链捕获/合成器证据裁决升级/专家prompt结构化断言/20项Phase2测试
+  - v3.57 (2026-04-02): 规则引擎正确性固化 — 自将过滤/将帅照面/攻击范围vs合法走法分离/15项规则正确性测试
+  - v3.56 (2026-04-02): Phase 1 动作空间约束推进 — candidate_id 协议接入工具/专家/单Agent，RuleEngine 改为稳定合法走法生成，新增候选协议回归测试
+  - v3.55 (2026-04-02): 可靠性重构一期 — 统一LLM可靠性客户端/门控式专家调度/失败感知合成器/结构化状态错误码/6项可靠性测试
+  - v3.54 (2026-04-02): 知识体系深度扩展 — 棋理原则20→80+条/知识库多维检索/引擎MultiPV真多候选/强制序列多深度/开局库29+序列
+  - v3.53 (2026-04-02): 前端UX流式体验升级 — 专家悬浮窗真实时流式/协调者步骤卡片修复/专家进度概览/StepItem去typewriter闪烁
+  - v3.52 (2026-04-02): 多Agent架构深度优化 — Evidence Map结构化管线/新增simulate_move+query_chess_principles工具/引擎连接池/共享规则提取/专家提示词增强
+  - v3.50 (2026-04-02): 深度分析后端 SSE 正式接入新版前端 Agent 面板，按钮点击后可流式展示专家与协调者内容
   - v3.49 (2026-04-02): 搜索栏 WebGL 形变提速并按内容外框包裹 + 搜索亮底字体提亮对比 + 引擎栏恢复大字优势信息 + 协调者流式区去黑框
   - v3.48 (2026-04-01): 引擎栏折线占主体 + 删除大数字胜率 + 删除右栏仿macOS外框 + iOS式搜索缩放动画 + 右栏间距色调统一
   - v3.47 (2026-04-01): 搜索浮层动画提速并收紧 + 引擎栏改为图表优先布局 + 右侧分析栏 macOS 化舞台重构
@@ -30,12 +43,394 @@ changelog:
 
 > 本文档记录当前开发进度，架构详情请阅读 [DNA.md](DNA.md)
 
-**版本**: v3.49
+**版本**: v3.65
 **最后更新**: 2026-04-02
 
 ---
 
 ## 📋 文档更新记录
+
+### 2026-04-02 ✅ 完成：重构识别为纯 YOLO 管道（v3.65）
+
+**根本原因**：后端 `/api/recognize` 接的是 GLM-4V-Flash（LLM API），与项目架构不符。
+棋盘识别应该是 YOLO + 脚本，100% 本地，无幻觉，无网络依赖。
+
+**技术验证**（测试两张真实棋盘照片）：
+- YOLO 模型检测到 `board` 类 → 精确定位棋盘区域
+- 棋子中心坐标 → col/row 格点映射（col: 0=最右~8=最左, row: 0=最上~9=最下）
+- FEN 字符串生成并验证通过（fen_builder 逻辑）
+
+**变更**：
+- 新建 `vision/yolo_recognizer.py`：`YoloDirectRecognizer` 类，懒加载 YOLO 模型，全流程纯本地
+- `api/main.py` `/api/recognize` 端点：`VisionAnalyzer(GLM)` → `YoloDirectRecognizer(YOLO)`
+- 上传图片限制从 10MB → 20MB（手机拍摄的高清图片通常 10-15MB）
+- 300 测试全绿，TypeScript 0 错误
+
+### 2026-04-02 ✅ 完成：三大Bug修复（v3.64）
+
+**引擎栏不更新**:
+- `showEngineDock` 条件从 `gameMode === 'analysis'` → `gameMode !== 'replay'`，所有对弈模式均显示引擎栏
+- useEffect引擎评估触发去除 analysis-only 限制
+- `movePiece` 和 `aiMove` 完成后显式调用 `refreshEngineEvaluation(fen)` 保证每步刷新
+
+**专家分析失败**:
+- GLM-5 Extended Thinking 关键Bug修复：`content=""` 但 `reasoning_content` 含实际分析 → 添加 `effective_content` 回退逻辑
+- `LLM_MAX_PARALLEL_REQUESTS` 默认值 2→4（3专家+合成器并行需求）
+- 熔断器阈值 5→12（3专家×3重试=9次失败不应触发熔断）
+- 工具执行超时 30→45秒（引擎深度分析需要更长时间）
+
+**识别404**:
+- 端点代码确认正确，需重启服务器加载新路由
+
+### 2026-04-02 ✅ 完成：棋盘视觉识别接入（v3.63）
+
+**变更内容**:
+- 后端: `POST /api/recognize` 图片上传端点，调用 `VisionAnalyzer` (GLM-4V-Flash多模态模型) 识别棋盘图片
+- 前端: `RecognitionModal` Apple风格弹窗组件 — 图片预览 / 扫描线动画 / 置信度徽章 / 一键应用到棋盘
+- Store: `loadFromRecognition(board, fen)` 方法，识别结果直接加载到分析模式
+- API Service: `api.recognizeBoard(file)` FormData上传调用
+- 300测试全绿，TypeScript 0 错误
+
+### 2026-04-02 ✅ 完成：前后端全面整合（v3.62）
+
+**前端改进**:
+- 模式选择器从3→4模式：分析/执红/执黑/双人，iOS段控自适应
+- PvE模式下显示难度选择器（简单4/中等10/困难18），金色高亮激活态
+- 深度分析按钮"◈ AI 深度分析"入驻左侧栏（分析模式可见）
+- 双人模式实现回合制（红黑交替，服务端验证走法）
+- `aiDifficulty` 状态管理入Zustand store
+
+**后端修复**:
+- AI对弈端点双路由 `/api/ai-move` + `/api/game/ai-move` 兼容
+- 请求格式兼容：支持 `{fen}` 和 `{board, red_to_move}` 两种
+- 响应格式对齐前端：返回 `from_row/col`, `to_row/col`, `board`, `fen`
+- 难度支持字符串和数字两种格式
+- ChromaRAG `_get_collection()` 添加 `threading.Lock()` 双重检查锁定
+- UCI走法边界校验（列a-i, 行0-9）
+- 300测试全绿（+2新测试）
+
+**Plan文档更新**:
+- `architecture-perfection-blueprint.md`: P2/P3/P4/P5标记为已完成
+- `003-competition-grade-roadmap.md`: 新增Phase 2.5（RAG+对弈，已完成）
+
+### 2026-04-02 ✅ 完成：系统能力跃升（v3.60）
+
+**目标**：补齐系统最大短板——RAG知识检索和对弈模式，修复引擎评分链路。
+
+1. **真实 RAG 系统落地**
+   - 新增 `core/rag/chroma_rag.py`：ChromaDB 向量存储替代 MockRAG
+   - 80+ 棋理原则自动向量化索引（首次访问时懒加载）
+   - 支持 14 万局棋谱开局信息按需索引（`index_game_openings()`）
+   - 三种检索模式：语义/按阶段过滤/按文档类型过滤
+   - 新增 `search_chess_knowledge` Agent 工具，战略专家可调用知识库检索
+
+2. **对弈模式 API**
+   - 新增 `POST /api/game/ai-move`：AI 走棋端点
+   - 三级难度：easy(depth=4) / medium(depth=10) / hard(depth=18)
+   - 返回 UCI 走法 + 中文描述 + 引擎评分 + 走后FEN + 将军/将杀状态
+   - 合法性双重验证（引擎走法 + RuleEngine 校验）
+
+3. **引擎评分链路修复**
+   - 后端：`result.score or 0.0` truthiness bug → `result.score if result.score is not None else 0.0`
+   - 后端：BestMovesResponse 新增 score/depth 字段
+   - 前端：fallback 路径从硬编码 `score: 0` 改为读取服务端真实分数
+
+4. **系统能力全面审计（8个子系统评估）**
+   - 棋力深度 6/10、知识面广度 4→6/10(RAG落地后)、教学能力 7/10
+   - 对弈能力 3→6/10(API落地后)、对局复盘 5/10、自我纠错 6/10
+   - RAG知识检索 2→6/10(ChromaDB落地后)、前端体验 8/10
+
+5. **新增测试**
+   - `tests/test_rag.py`：13 项 RAG 测试（索引/检索/过滤/工具）
+   - `tests/test_ai_play.py`：7 项对弈 API 测试（三难度/黑方/中局/格式）
+
+**验证结果**：`pytest -q` → 298 passed, 0 failed
+
+### 2026-04-02 ✅ 完成：Phase 2 证据裁决化（v3.58）
+
+**目标**：让合成器成为"证据裁判"，而不是"文本合并器"。
+
+1. **结构化断言 (Claim) 系统**
+   - 新增 `core/llm/claim.py`：`Claim` / `EvidenceItem` / `EvidenceChain` 数据结构
+   - 每条断言绑定来源 (`tool_verified` / `reasoning` / `unverified`) 和置信度
+   - `ClaimParser` 支持两种格式：显式 `[CLAIM][EVIDENCE][CONFIDENCE]` 标记 + 传统【节标题】回退
+
+2. **工具调用证据链捕获**
+   - `base_expert.py` 新增 `_backfill_tool_result()` — 工具执行后将 output 回填到 `tool_calls_log`
+   - 新增 `_build_evidence_chain()` — 从 `tool_calls_log` 构建 `EvidenceChain`
+   - 只读工具和串行工具两个执行路径均已接入
+
+3. **ExpertResult v2**
+   - 新增 `claims: List[Claim]` 和 `evidence_chain: Optional[EvidenceChain]` 字段
+   - 两个成功返回路径（正常结束 + 最大轮次强制结束）均填充 claims/evidence_chain
+   - 向后兼容：旧字段 (finding/details/tool_calls) 保持不变
+
+4. **专家 Prompt 结构化断言要求**
+   - 战术/战略/引擎三专家的 system prompt 末尾新增"结构化断言"输出章节
+   - 要求 LLM 在分析结束时输出 `[CLAIM]...[EVIDENCE]...[CONFIDENCE]...` 标记
+   - 如果 LLM 不遵从（旧模型或格式偏差），回退解析器仍能从传统格式提取
+
+5. **合成器证据裁决升级**
+   - `SYNTHESIZER_SYSTEM_PROMPT` 从"综合裁判"升级为"证据裁决者"
+   - 新增断言对齐 + 证据交叉验证 + 证据权重裁决规则
+   - `_format_expert_block()` 优先注入结构化断言和证据链，而非自由文本
+   - 输出格式新增【证据基础】段
+
+6. **Phase 2 测试覆盖**
+   - 新增 `tests/test_claim.py`（20 项测试）
+   - 覆盖：显式标记解析、回退格式解析、证据链构建、回填逻辑、ExpertResult v2 字段、合成器格式化
+
+**验证结果**：`pytest -q` → 278 passed, 0 failed
+
+### 2026-04-02 ✅ 完成：规则引擎正确性固化（v3.57）
+
+**目标**：确保合法走法生成器100%正确——自将过滤、将帅照面、攻击范围分离。
+
+1. **自将过滤修复**（前一 session）
+   - `XiangqiRulesEngine._is_valid_move()` 重写：走后检查己方将/帅是否被攻击
+   - 新增 `_get_raw_moves()` / `_is_square_attacked()` / `_kings_face_each_other()`
+   - 打破递归链：`_is_square_attacked` 使用 `_get_raw_moves`（不含自将过滤）
+
+2. **攻击范围 vs 合法走法分离**
+   - `TacticalDetector._get_attacks()` 改用 `_get_raw_moves()`（攻击范围不过滤自将）
+   - 核心原则：被牵制的棋子虽不能移动，但仍然威胁横向格子
+
+3. **新增 15 项规则正确性测试**
+   - `tests/test_rules_correctness.py`
+   - 覆盖：牵制车/马的自将过滤、帅入将军、被将必须解将、照面检测、棋子不能导致照面、RuleEngine 初始走法数/将死/困毙、合法走法一致性、攻击范围 vs 合法走法分离
+
+**验证结果**：`pytest -q` → 258 passed, 0 failed
+
+### 2026-04-02 ✅ 推进：Phase 1 动作空间约束（v3.56）
+
+**目标**：把系统从“自由写走法再让工具兜底”推进到“先取合法候选，再基于候选分析”的受约束模式。
+
+1. **候选走法服务落地**
+  - 新增 `core/llm/move_candidate_service.py`
+  - 基于合法走法生成稳定 `cand_1 / cand_2 / ...` 编号
+  - 提供 `get_candidates()` 与 `resolve_move()`，作为 candidate_id 协议的统一入口
+
+2. **工具层接入 candidate_id 协议**
+  - `core/llm/agent_tools.py` 新增 `get_move_candidates()`
+  - `analyze_move / compare_moves / get_forcing_sequence / simulate_move` 全部支持 candidate_id 优先
+  - 非法 candidate_id 会显式失败，不再默默回退成“看起来分析成功”
+
+3. **专家链与单Agent链收口**
+  - `core/llm/experts/base_expert.py`、三专家 schema、`core/llm/xiangqi_coach.py` 全部加入 `get_move_candidates`
+  - 共享规则与系统提示词新增硬约束：分析具体走法前优先先拿候选，再传 candidate_id
+  - 目标是从 prompt 层和工具层同时压缩 LLM 自由编造走法的空间
+
+4. **RuleEngine 根因修复**
+  - `core/rules/rule_engine.py` 不再依赖当前环境下不兼容的 `perft 1` 输出解析
+  - 改为直接复用仓库内已有 `XiangqiRulesEngine` 生成合法走法
+  - 修复了 candidate 服务在测试环境中因底层合法走法生成失败而整体不可用的问题
+
+5. **新增候选协议回归测试**
+  - `tests/test_new_tools.py` 新增 candidate_id 协议测试
+  - 覆盖 `get_move_candidates`、`analyze_move(candidate_id)`、`compare_moves(candidate_ids)`、`simulate_move(candidate_id)`、`get_forcing_sequence(candidate_id)`、非法 candidate_id 失败路径
+  - `tests/test_multi_agent.py` 补齐三专家都暴露 `get_move_candidates` 的断言
+
+**当前判断**：
+- Phase 1 主干已经进入可运行状态，但还没有完成“前端显式消费 candidate 来源”和“所有结论都展示候选来源”的终局收口
+- 这一步已经实质性削弱了“模型自由写非法走法”这个核心失真源
+
+**验证结果**：
+- `pytest -q` → 全绿
+
+### 2026-04-02 ✅ 完成：可靠性重构一期（v3.55）
+
+**目标**：先解决“专家经常失败”和“失败后还像成功一样继续输出”的结构性问题。
+
+1. **统一 LLM 可靠性客户端**
+  - 新增 `core/llm/reliable_client.py`
+  - 实现统一 `complete()` / `stream_complete()` 接口
+  - 支持 429/5xx 重试、指数退避、并发信号量、简单 circuit breaker
+  - 专家链、单Agent链、合成器链不再各自裸调 requests
+
+2. **结构化状态与错误码**
+  - 新增 `core/llm/contracts.py`
+  - 引入 `AnalysisStatus` / `ExpertFailureType` / `DegradationLevel`
+  - `ExpertResult` 增强：新增 `status/failure_type/confidence/missing_evidence/retry_count/degraded`
+  - 失败原因不再只靠字符串表达
+
+3. **门控式专家调度**
+  - 新增 `core/llm/analysis_policy.py`
+  - orchestrator 从固定三专家并行，改为按问题类型/阶段/张力选择专家组合
+  - 默认并发度受 `LLM_MAX_PARALLEL_REQUESTS` 控制，限流场景下自动降并发
+  - 未选中的专家不再伪装成功，而是显式标记为 `skipped`
+
+4. **失败感知合成器**
+  - `core/llm/multi_agent_orchestrator.py` 的 `Synthesizer` 改为基于结构化 `ExpertResult` 工作
+  - 成功专家少于2个时，不再继续生成“完整综合讲解”
+  - 改为输出显式降级说明：哪些专家缺失、当前结论来自谁、可信度为何下降
+
+5. **专家链失败治理增强**
+  - `core/llm/experts/base_expert.py` 接入可靠性客户端
+  - 工具错误会被记录为 degraded，而不是悄悄吞掉
+  - 最大轮次后的 final_response 失败路径已修复，不再误报 success
+
+6. **新增可靠性回归测试**
+  - 新增 `tests/test_reliability_refactor.py`
+  - 覆盖 429 重试成功、重试失败、策略选专家、降级合成、orchestrator 裁剪专家 等场景
+
+**验证结果**：
+- `python -m pytest --tb=short` → 237 passed
+
+### 2026-04-02 ✅ 完成：知识体系深度扩展（v3.54）
+
+**知识库全面升级**（5项核心改进）：
+
+1. **棋理原则从20条扩展到80+条 [P0 知识库]**
+   - `core/llm/knowledge_retriever.py` 重写 `TENSION_PRINCIPLES` + `GENERAL_PRINCIPLES`
+   - 原6种张力类型 → 11种（新增 attack_pattern / opening_theory / endgame_theory / defense_pattern / piece_coordination）
+   - 每条原则新增 `phase`（阶段）和 `tags`（关联标签）字段
+   - 原则来源覆盖《橘中秘》《梅花谱》《适情雅趣》等经典棋书 + 公认棋理谚语
+
+2. **知识库多维检索 [P0 查询增强]**
+   - 新增 `query_by_tags()` 方法：按标签名检索所有类型中匹配的原则
+   - `query_for_tension()` 增加阶段过滤：匹配阶段的原则优先返回
+   - 新增 `_normalize_phase()` 支持中英文阶段名互转
+   - Prompt 输出从最多3条扩展到5条，新增出处信息
+
+3. **引擎 MultiPV 真多候选 [P1 tools 修复]**
+   - `core/engine/pikafish_engine.py` 新增 `analyze_multipv()` 方法，使用 UCI MultiPV 参数
+   - `core/engine/pool.py` 新增线程安全的 `analyze_multipv()` 接口
+   - `agent_tools.py` `engine_alternatives()` 从"分析1次返回1个"→"MultiPV返回真实top-N候选"
+   - 每个候选包含：rank/move/eval_cp/pv变例/explanation/risk
+
+4. **强制序列多深度追踪 [P1 tools 修复]**
+   - `agent_tools.py` `get_forcing_sequence()` 从"只检查第1步是否将军"→"递归追踪将军-应将链"
+   - 新增 `_find_best_response()` 引擎+规则双降级寻找应着
+   - 新增 `_find_any_legal_move()` 暴力搜索合法走法（引擎不可用时降级）
+   - 新增 `_get_piece_moves()` 各棋子走法生成 + `_board_to_fen()` 棋盘重建
+   - 可检测将杀（无合法应将 = checkmate）
+
+5. **开局库大幅扩展 [P2 开局识别]**
+   - `core/opening/opening_book.py` 开局序列从10条扩展到29条
+   - 新增体系：中炮vs三步虎/单提马/飞象、飞相局4变化、起马局3变化、仙人指路3变化、过宫炮/士角炮变化、对兵局
+   - 每条开局含详细的战略描述和评估
+
+**新增测试**：28项（`tests/test_knowledge_base.py`）
+- 知识库覆盖率、数据完整性、查询方法、Prompt 生成、开局识别
+
+**验证结果**：
+- `python -m pytest -q` → 231 passed（203 + 28 新增）
+
+### 2026-04-02 ✅ 完成：前端UX流式体验升级（v3.53）
+
+**修复两个核心UX问题**：
+
+1. **专家悬浮窗真实时流式 [Problem 1]**
+   - **根因**: `ExpertHoverStream` 读取 `expertState.finding`（一次性赋值）后用 `useNaturalReveal` 假打字机模拟流式 → 实为「完成后一并显示」
+   - **修复**: 重写 `ExpertHoverStream` 组件，直接订阅 `expertState.steps`（由 `expert_step_content` SSE 增量推送）
+   - 分析中：实时渲染每个步骤卡片 + ⟳/✓ 状态标记 + 闪烁光标
+   - 分析后：显示完整推理步骤链（或回退到 `finding` 文本）
+   - 删除废弃的 `useNaturalReveal` hook
+
+2. **协调者思维链步骤卡片修复 [Problem 2]**
+   - **根因**: `_SUBTITLE_PATTERN`（`## N title`）只触发 `orchestrator_subtitle` 事件，不创建步骤 → 当模型只输出 `##` 标题而省略 `[STEP:]`/`【】` 标记时，`orchestrator.steps` 为空
+   - **修复**: `SynthesisStepStreamParser._process_line()` 中 `## N title` 现在同时创建步骤（`synthesis_step_start`），与 `[STEP:]` 和 `【节标题】` 行为一致
+   - 三种标记格式均可触发步骤卡片渲染
+
+3. **StepItem 去 typewriter 闪烁**
+   - 步骤内容由 SSE 增量推送，`useTypewriter` 在每次 chunk 到来时重置导致闪烁
+   - 改为直接渲染 `content` + 活跃步骤显示闪烁光标
+   - 删除废弃的 `useTypewriter` hook
+
+4. **专家进度概览**
+   - 协调者等待阶段（无 subtitle/content/steps 时）不再显示空白 "协调者正在分析..."
+   - 新增 `ExpertProgressOverview` 组件：三位专家实时状态卡片 + 进度条 + 当前步骤标题
+   - 全部完成后显示 "协调者正在综合三位专家结论..."
+
+**变更文件**：
+- `frontend/src/components/AgentCardFlip.tsx` — ExpertHoverStream 重写 + ExpertGlassPanelFlip 接口更新 + 删除 useNaturalReveal
+- `frontend/src/components/ThinkingStream.tsx` — StepItem 去 typewriter + ExpertProgressOverview + 自动滚动优化 + 删除 useTypewriter
+- `core/llm/multi_agent_orchestrator.py` — SynthesisStepStreamParser `## N title` 同时创建步骤
+
+**验证结果**：
+- `cd frontend && npm run build` → 通过
+- `python -m pytest -q` → 203 passed
+
+### 2026-04-02 ✅ 完成：多Agent架构深度优化（v3.52）
+
+**架构级改造**（6项关键优化）：
+
+1. **结构化Evidence Map管线 [P0]**
+   - `core/llm/multi_agent_orchestrator.py` 新增 `_build_structured_evidence_map()` 方法
+   - 构建包含 tags/bind_pieces/tensions/engine/piece_count 的 JSON 结构
+   - `core/llm/experts/base_expert.py` 的 `_build_shared_context()` 支持双路径：结构化EM（优先）vs 文本tag_summary（回退）
+   - 解决原来38个标签被压缩为纯文本丢失结构的 P0 问题
+
+2. **新增2个Agent工具 [P2+P4]**
+   - `simulate_move`：模拟走棋并对比前后标签差异、将军检测、吃子信息
+   - `query_chess_principles`：检索局面适用的棋理原则（按张力类型过滤）
+   - Agent工具总数 10→12，工具注册表（TOOL_META/READONLY_TOOLS/_tool_functions/AGENT_TOOLS）全部更新
+
+3. **引擎连接池 [P5]**
+   - 新建 `core/engine/pool.py`，`EnginePool` 单例 + `analyze_lock` 并发安全
+   - `api/main.py` 所有 `PikafishEngine()` 替换为 `engine_analyze()`，消除每次请求 ~200ms 启动开销
+   - 移除所有 `engine.start()` / `engine.stop()` 手动生命周期管理
+
+4. **共享规则提取 [prompt优化]**
+   - `base_expert.py` 新增 `CHESS_RULES_BLOCK` 常量（~800 tokens）
+   - 三专家从各自内联字符串改为引用共享常量，消除 3x 重复
+   - 每次多Agent调用节省约 1600 tokens
+
+5. **专家提示词增强**
+   - 战术专家：`simulate_move` 使用指引写入验证步骤
+   - 战略专家：`query_chess_principles` 写入评估维度 + `simulate_move` 写入计划推演
+   - 引擎专家：添加引擎走法规则校验硬约束
+
+6. **Synthesizer证据链 [P3]**
+   - `Synthesizer.synthesize()` 现在接收各专家的 `tool_calls` 列表
+   - 综合分析时包含真实工具调用数据作为论据，而非仅靠文本摘要
+
+**新增测试**: 17个测试覆盖 simulate_move / query_chess_principles / Evidence Map 构建 / 专家上下文双路径 / 引擎池单例
+
+**验证结果**：
+- `python -m pytest -q` → 203 passed（186原有 + 17新增）
+
+### 2026-04-02 ✅ 完成：修复深度分析上下文错位与重复综合结论（v3.51）
+
+**本次改造**：
+- `frontend/src/App.tsx`
+  - 无走子上下文时不再使用 `previousFen || fen`，改为严格分析当前 `fen`
+  - 问题文案改为“严格基于当前棋盘局面进行分析，不要假设刚刚已经走过某一步”
+  - 协调者正文只接收真正的 `synthesis_chunk`，不再把“启动分析/检测局面/分析进行中”这类通用进度词拼进最终结论
+  - `result.explanation` 仅在协调者正文为空时兜底追加，避免前端重复拼接最终结论
+- `frontend/src/store/useGameStore.ts`
+  - `resetGame / loadGameFromNeo4j / loadGameFromPGN / navigateReplay / exitReplay` 时统一清空 `previousFen`
+  - AI 走子时补齐 `previousFen`，避免后续上一手点评语境错乱
+- `api/main.py`
+  - 移除 deep-stream 结束阶段的二次 `result` 发送，避免后端重复输出同一份综合结论
+
+**当前结果**：
+- 开局未走子时，分析请求会基于当前局面本身，而不是误带上一手语境
+- 协调者区不再出现整段综合结论被重复粘贴两遍的情况
+- 通用进度提示会作为阶段提示，而不是污染最终正文
+
+**验证结果**：
+- `cd frontend && npm run build` → 通过
+- `python -m pytest -q` → 全绿
+
+### 2026-04-02 ✅ 完成：深度分析后端流式接入新版前端 Agent 面板（v3.50）
+
+**本次改造**：
+- `frontend/src/App.tsx`
+  - 修复“点分析只开面板、不发请求”的断链问题
+  - 将旧 `DeepAnalysisPanel` 中真正负责 SSE 分析的逻辑接到当前 App 的 `triggerDeepAnalysis()`
+  - 点击右上角 `深度分析` 后，现有新版右侧扑克牌/协调者面板会直接接收后端 `/api/analyze/deep-stream` 的流式事件
+  - 接入事件映射：`expert_start / expert_result / expert_step_* / synthesis_* / orchestrator_subtitle / thinking_chunk`
+  - 分析失败时不再静默无响应，而是在协调者区显示失败文本
+  - 面板关闭时主动关闭活跃 `EventSource`，避免残留连接
+
+**当前结果**：
+- 点击分析会真正触发后端深度分析
+- 三专家卡片与协调者区可消费后端流式内容，而不是只播放空动画
+
+**验证结果**：
+- `cd frontend && npm run build` → 通过
+- `python -m pytest -q` → 全绿
 
 ### 2026-04-02 ✅ 完成：搜索栏液态节奏校准 + 引擎栏大字回归 + 协调者内容区去黑框（v3.49）
 

@@ -98,23 +98,94 @@ class XiangqiRulesEngine:
 
         return valid_moves
 
+    # -----------------------------------------------------------------
+    # 底层原始走法 — 仅依赖棋子步法规则，不含将军过滤，用于攻击检测
+    # -----------------------------------------------------------------
+
+    @staticmethod
+    def _get_raw_moves(board: List[List[str]], row: int, col: int) -> List[Tuple[int, int]]:
+        """获取棋子原始走法（不过滤自将），供攻击检测使用。"""
+        piece = board[row][col]
+        if not piece:
+            return []
+        is_red = XiangqiRulesEngine.is_red(piece)
+        piece_type = piece.lower()
+        if piece_type == 'k':
+            return XiangqiRulesEngine._king_moves(board, row, col, is_red)
+        elif piece_type == 'a':
+            return XiangqiRulesEngine._advisor_moves(board, row, col, is_red)
+        elif piece_type == 'b':
+            return XiangqiRulesEngine._elephant_moves(board, row, col, is_red)
+        elif piece_type == 'r':
+            return XiangqiRulesEngine._rook_moves(board, row, col)
+        elif piece_type == 'c':
+            return XiangqiRulesEngine._cannon_moves(board, row, col)
+        elif piece_type == 'n':
+            return XiangqiRulesEngine._knight_moves(board, row, col, is_red)
+        elif piece_type == 'p':
+            return XiangqiRulesEngine._pawn_moves(board, row, col, is_red)
+        return []
+
+    @staticmethod
+    def _is_square_attacked(board: List[List[str]], row: int, col: int,
+                            by_red: bool) -> bool:
+        """判断某个格子是否被指定方的某棋子攻击到（基于原始走法，无递归）。"""
+        for r in range(10):
+            for c in range(9):
+                piece = board[r][c]
+                if piece and XiangqiRulesEngine.is_red(piece) == by_red:
+                    if (row, col) in XiangqiRulesEngine._get_raw_moves(board, r, c):
+                        return True
+        return False
+
+    @staticmethod
+    def _kings_face_each_other(board: List[List[str]]) -> bool:
+        """检查将帅是否照面（同列无遮挡）。"""
+        red_king = XiangqiRulesEngine._find_king(board, True)
+        black_king = XiangqiRulesEngine._find_king(board, False)
+        if not red_king or not black_king:
+            return False
+        if red_king[1] != black_king[1]:
+            return False
+        min_row = min(red_king[0], black_king[0])
+        max_row = max(red_king[0], black_king[0])
+        for r in range(min_row + 1, max_row):
+            if board[r][red_king[1]]:
+                return False
+        return True
+
+    # -----------------------------------------------------------------
+    # 走法合法性验证 — 模拟走棋，检查自将与照面
+    # -----------------------------------------------------------------
+
     @staticmethod
     def _is_valid_move(board: List[List[str]], from_row: int, from_col: int,
                        to_row: int, to_col: int, is_red: bool) -> bool:
         """
-        验证走法是否合法（不让自己被将军）
+        验证走法是否合法：走后不能自将，不能将帅照面。
 
-        简化版本：只检查基本规则，不做将军检测
+        使用 _is_square_attacked（基于 _get_raw_moves）检测，无递归风险。
         """
-        # 移动棋子到临时位置
-        moving_piece = board[from_row][from_col]
         target = board[to_row][to_col]
-
-        # 不能吃自己的棋子
         if target and XiangqiRulesEngine.is_red(target) == is_red:
             return False
 
-        # 简单验证：不检查将军（避免递归）
+        # 模拟走棋
+        new_board = [row[:] for row in board]
+        new_board[to_row][to_col] = new_board[from_row][from_col]
+        new_board[from_row][from_col] = ''
+
+        # 走后己方帅/将不能被对方攻击
+        king_pos = XiangqiRulesEngine._find_king(new_board, is_red)
+        if king_pos is None:
+            return False
+        if XiangqiRulesEngine._is_square_attacked(new_board, king_pos[0], king_pos[1], not is_red):
+            return False
+
+        # 走后不能将帅照面
+        if XiangqiRulesEngine._kings_face_each_other(new_board):
+            return False
+
         return True
 
     @staticmethod
@@ -142,25 +213,9 @@ class XiangqiRulesEngine:
         """
         检查将/帅是否被将军
 
-        Args:
-            board: 棋盘
-            king_row: 将/帅行号
-            king_col: 将/帅列号
-            is_attacking_red: 攻击方是否为红方
-
-        Returns:
-            是否被将军
+        委派到 _is_square_attacked（基于原始走法、无递归）。
         """
-        # 遍历攻击方的所有棋子，检查是否能攻击到将/帅
-        for r in range(10):
-            for c in range(9):
-                piece = board[r][c]
-                if piece and XiangqiRulesEngine.is_red(piece) == is_attacking_red:
-                    # 这是一个攻击方的棋子，检查是否能攻击到将/帅
-                    moves = XiangqiRulesEngine.get_legal_moves(board, r, c)
-                    if (king_row, king_col) in moves:
-                        return True
-        return False
+        return XiangqiRulesEngine._is_square_attacked(board, king_row, king_col, is_attacking_red)
 
     @staticmethod
     def _king_moves(board: List[List[str]], row: int, col: int, is_red: bool) -> List[Tuple[int, int]]:

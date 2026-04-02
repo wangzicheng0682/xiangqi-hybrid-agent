@@ -16,7 +16,6 @@ import os
 import json
 from typing import Optional, List, Dict, Any, Callable
 from dataclasses import dataclass, field
-import requests
 from dotenv import load_dotenv
 
 # 加载环境变量
@@ -42,6 +41,7 @@ from core.llm.fewshot_examples import (
     get_examples_by_phase,
 )
 from core.llm.analysis_recorder import AnalysisRecorder
+from core.llm.reliable_client import ReliableLLMClient
 from core.rules.tension_detector import (
     TensionDetector,
     Tension,
@@ -152,6 +152,14 @@ SYSTEM_PROMPT = """
 - 任何走法的具体效果
 - 任何引擎评估数值
 
+**关于具体走法的硬规则**：
+如果你要分析、比较、模拟某一步具体走法，优先先调用 `get_move_candidates` 获取合法候选，
+再把返回的 `candidate_id` 传给 `analyze_move`、`compare_moves`、`get_forcing_sequence` 或 `simulate_move`。
+
+**禁止**：
+- 不要自由编造 UCI 走法再直接分析
+- 不要在没有候选依据时声称某步棋合法
+
 **关于"保护"关系的硬规则**：
 如果你在分析中提到"保护"这个词，必须满足以下条件之一：
 1. 调用 `get_piece_defenders` 工具并得到 `defender_count > 0` 的结果
@@ -194,6 +202,32 @@ SELF_REFLECTION_PROMPT = """
 
 
 TOOLS_SCHEMA = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_move_candidates",
+            "description": """获取当前局面的合法候选走法列表，并返回稳定的 candidate_id。
+
+【什么时候用】
+- 你要分析具体走法之前
+- 你要比较多个候选时
+- 你不确定走法是否合法时
+
+【高优先级规则】
+先拿候选，再把 candidate_id 传给 analyze_move / compare_moves / get_forcing_sequence / simulate_move。""",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {
+                        "type": "integer",
+                        "description": "返回候选数，默认12",
+                        "default": 12
+                    }
+                },
+                "required": []
+            }
+        }
+    },
     {
         "type": "function",
         "function": {
@@ -317,12 +351,16 @@ TOOLS_SCHEMA = [
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "candidate_id": {
+                        "type": "string",
+                        "description": "候选走法ID，如'cand_1'，优先使用"
+                    },
                     "move": {
                         "type": "string",
-                        "description": "UCI格式走法，如'h2e2'"
+                        "description": "UCI格式走法，如'h2e2'；仅兼容旧接口时使用"
                     }
                 },
-                "required": ["move"]
+                "required": []
             }
         }
     },
@@ -342,13 +380,18 @@ TOOLS_SCHEMA = [
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "candidate_ids": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "候选走法ID列表，如['cand_1', 'cand_2']，优先使用"
+                    },
                     "moves": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "UCI格式走法列表，如['h2e2', 'h2h6']"
+                        "description": "UCI格式走法列表，如['h2e2', 'h2h6']；仅兼容旧接口时使用"
                     }
                 },
-                "required": ["moves"]
+                "required": []
             }
         }
     },
@@ -368,9 +411,13 @@ TOOLS_SCHEMA = [
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "candidate_id": {
+                        "type": "string",
+                        "description": "候选走法ID，如'cand_1'，优先使用"
+                    },
                     "move": {
                         "type": "string",
-                        "description": "UCI格式走法"
+                        "description": "UCI格式走法；仅兼容旧接口时使用"
                     },
                     "depth": {
                         "type": "integer",
@@ -378,7 +425,7 @@ TOOLS_SCHEMA = [
                         "default": 3
                     }
                 },
-                "required": ["move"]
+                "required": []
             }
         }
     },
@@ -505,8 +552,16 @@ class XiangqiCoachAgent:
         self.enable_recording = enable_recording
         self.recorder = AnalysisRecorder() if enable_recording else None
         self._current_request_id = None
+        self.llm_client = ReliableLLMClient(
+            api_key=self.api_key,
+            base_url=self.base_url,
+            model=self.model,
+            timeout=120,
+            max_retries=2,
+        )
 
         self._tool_functions = {
+            "get_move_candidates": self.tools.get_move_candidates,
             "get_piece_attacks": self.tools.get_piece_attacks,
             "get_piece_defenders": self.tools.get_piece_defenders,
             "get_threats_to_piece": self.tools.get_threats_to_piece,
@@ -638,61 +693,35 @@ class XiangqiCoachAgent:
     
     def _call_api(self, messages: List[Dict], tools = None) -> AgentResponse:
         """调用LLM API"""
-        if not self.api_key:
-            return AgentResponse(content="API Key未配置", finish_reason="error")
-        
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 1024,
-        }
-        
-        if tools:
-            payload["tools"] = tools
-            payload["tool_choice"] = "auto"
-        
-        try:
-            session = requests.Session()
-            session.trust_env = False
-            response = session.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-                timeout=60,
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                choice = result.get("choices", [{}])[0]
-                message = choice.get("message", {})
-                
-                tool_calls = []
-                if "tool_calls" in message:
-                    for tc in message["tool_calls"]:
-                        tool_calls.append(ToolCall(
-                            id=tc["id"],
-                            name=tc["function"]["name"],
-                            arguments=json.loads(tc["function"]["arguments"])
-                        ))
-                
-                return AgentResponse(
-                    content=message.get("content", ""),
-                    tool_calls=tool_calls,
-                    finish_reason=choice.get("finish_reason", "stop")
-                )
-            else:
-                print(f"LLM API error: {response.status_code} - {response.text}")
-                return AgentResponse(content=f"API错误: {response.status_code}", finish_reason="error")
-                
-        except Exception as e:
-            print(f"LLM request failed: {e}")
-            return AgentResponse(content=f"请求失败: {str(e)}", finish_reason="error")
+        response = self.llm_client.complete(
+            messages=messages,
+            tools=tools,
+            temperature=0.7,
+            max_tokens=1024,
+            thinking_enabled=False,
+        )
+        if not response.success:
+            return AgentResponse(content=response.error_message, finish_reason="error")
+
+        tool_calls = []
+        for tc in response.tool_calls:
+            try:
+                arguments = tc.get("function", {}).get("arguments", {})
+                if isinstance(arguments, str):
+                    arguments = json.loads(arguments) if arguments else {}
+                tool_calls.append(ToolCall(
+                    id=tc["id"],
+                    name=tc["function"]["name"],
+                    arguments=arguments,
+                ))
+            except Exception:
+                continue
+
+        return AgentResponse(
+            content=response.content,
+            tool_calls=tool_calls,
+            finish_reason=response.finish_reason,
+        )
 
     def _call_api_stream(
         self,
@@ -711,132 +740,36 @@ class XiangqiCoachAgent:
         Returns:
             完整的AgentResponse
         """
-        if not self.api_key:
-            return AgentResponse(content="API Key未配置", finish_reason="error")
+        response = self.llm_client.stream_complete(
+            messages=messages,
+            tools=tools,
+            temperature=0.7,
+            max_tokens=1024,
+            thinking_enabled=False,
+            on_chunk=on_chunk,
+        )
+        if not response.success:
+            return AgentResponse(content=response.error_message, finish_reason="error")
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-
-        payload = {
-            "model": self.model,
-            "messages": messages,
-            "temperature": 0.7,
-            "max_tokens": 1024,
-            "stream": True,  # 开启流式输出
-        }
-
-        if tools:
-            payload["tools"] = tools
-            payload["tool_choice"] = "auto"
-
-        try:
-            session = requests.Session()
-            session.trust_env = False
-            response = session.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-                stream=True,  # requests 流式模式
-                timeout=120,
-            )
-
-            if response.status_code != 200:
-                print(f"LLM API error: {response.status_code} - {response.text}")
-                return AgentResponse(content=f"API错误: {response.status_code}", finish_reason="error")
-
-            # 收集完整响应
-            full_content = []
-            tool_calls_data = {}  # id -> {name, arguments}
-            finish_reason = "stop"
-
-            for line in response.iter_lines():
-                if not line:
-                    continue
-
-                line = line.decode('utf-8')
-                if not line.startswith('data: '):
-                    continue
-
-                data_str = line[6:]  # 移除 'data: ' 前缀
-                if data_str == '[DONE]':
-                    break
-
-                try:
-                    data = json.loads(data_str)
-                except json.JSONDecodeError:
-                    continue
-
-                choices = data.get("choices", [])
-                if not choices:
-                    continue
-
-                delta = choices[0].get("delta", {})
-                finish_reason = choices[0].get("finish_reason") or finish_reason
-
-                # 处理内容片段
-                content_chunk = delta.get("content", "")
-                if content_chunk:
-                    full_content.append(content_chunk)
-                    if on_chunk:
-                        on_chunk(content_chunk)
-
-                # 处理工具调用（流式）
-                tool_calls_chunks = delta.get("tool_calls", [])
-                for tc_chunk in tool_calls_chunks:
-                    tc_id = tc_chunk.get("id")
-                    tc_index = tc_chunk.get("index", 0)
-
-                    if tc_id:
-                        # 新工具调用
-                        if tc_id not in tool_calls_data:
-                            tool_calls_data[tc_id] = {
-                                "id": tc_id,
-                                "name": "",
-                                "arguments": ""
-                            }
-                        tool_calls_data[tc_id]["id"] = tc_id
-
-                    func = tc_chunk.get("function", {})
-                    if func.get("name"):
-                        # 找到对应的工具调用并更新名称
-                        for tid in tool_calls_data:
-                            if tool_calls_data[tid]["name"] == "" or tc_index == list(tool_calls_data.keys()).index(tid):
-                                tool_calls_data[tid]["name"] = func["name"]
-                                break
-                    if func.get("arguments"):
-                        # 追加参数
-                        for tid in tool_calls_data:
-                            if tool_calls_data[tid]["name"] == func.get("name", "") or tc_index < len(tool_calls_data):
-                                # 按index顺序追加
-                                tids = list(tool_calls_data.keys())
-                                if tc_index < len(tids):
-                                    tool_calls_data[tids[tc_index]]["arguments"] += func["arguments"]
-                                break
-
-            # 构建最终响应
-            tool_calls = []
-            for tc_id, tc_data in tool_calls_data.items():
-                try:
-                    args = json.loads(tc_data["arguments"]) if tc_data["arguments"] else {}
-                except json.JSONDecodeError:
-                    args = {}
+        tool_calls = []
+        for tc in response.tool_calls:
+            try:
+                arguments = tc.get("function", {}).get("arguments", {})
+                if isinstance(arguments, str):
+                    arguments = json.loads(arguments) if arguments else {}
                 tool_calls.append(ToolCall(
-                    id=tc_data["id"],
-                    name=tc_data["name"],
-                    arguments=args
+                    id=tc["id"],
+                    name=tc["function"]["name"],
+                    arguments=arguments,
                 ))
+            except Exception:
+                continue
 
-            return AgentResponse(
-                content="".join(full_content),
-                tool_calls=tool_calls,
-                finish_reason=finish_reason or "stop"
-            )
-
-        except Exception as e:
-            print(f"LLM stream request failed: {e}")
-            return AgentResponse(content=f"请求失败: {str(e)}", finish_reason="error")
+        return AgentResponse(
+            content=response.content,
+            tool_calls=tool_calls,
+            finish_reason=response.finish_reason or "stop",
+        )
 
     def _execute_tool(self, tool_call: ToolCall, fen: str) -> Dict[str, Any]:
         """执行工具调用"""

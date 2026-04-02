@@ -103,6 +103,7 @@ class TestExpertConfig:
         from core.llm.experts.tactics_expert import TacticsExpert, TACTICS_TOOLS
 
         tool_names = [t["function"]["name"] for t in TACTICS_TOOLS]
+        assert "get_move_candidates" in tool_names
         assert "get_piece_attacks" in tool_names
         assert "get_piece_defenders" in tool_names
         assert "get_threats_to_piece" in tool_names
@@ -115,6 +116,7 @@ class TestExpertConfig:
         from core.llm.experts.strategy_expert import StrategyExpert, STRATEGY_TOOLS
 
         tool_names = [t["function"]["name"] for t in STRATEGY_TOOLS]
+        assert "get_move_candidates" in tool_names
         assert "analyze_position_strategy" in tool_names
         assert "compare_moves" in tool_names
         assert "get_piece_attacks" in tool_names
@@ -125,6 +127,7 @@ class TestExpertConfig:
         from core.llm.experts.engine_expert import EngineExpert, ENGINE_TOOLS
 
         tool_names = [t["function"]["name"] for t in ENGINE_TOOLS]
+        assert "get_move_candidates" in tool_names
         assert "engine_deep_analysis" in tool_names
         assert "engine_alternatives" in tool_names
         assert "analyze_move" in tool_names

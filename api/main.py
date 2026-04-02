@@ -16,10 +16,10 @@ API端点:
 from dotenv import load_dotenv
 load_dotenv()  # 加载.env环境变量
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 import sys
 from pathlib import Path
 
@@ -43,7 +43,7 @@ from core.llm.xiangqi_coach import create_coach_agent
 from core.llm.multi_agent_orchestrator import MultiAgentOrchestrator
 from core.rules.tactical_detector import TacticalDetector
 from core.rules.tension_detector import detect_tensions, get_primary_tension
-from core.engine import PikafishEngine
+from core.engine.pool import get_engine, engine_analyze
 
 
 PIECE_NAMES = {
@@ -286,12 +286,10 @@ async def get_position_analysis(request: PositionAnalysisRequest):
     基于引擎真值，不自行计算攻击/防御关系
     """
     try:
-        from core.engine import PikafishEngine
         from core.rules import get_legal_moves
         
-        # 获取引擎分析
-        engine = PikafishEngine()
-        engine_result = engine.analyze(request.fen, depth=15)
+        # 获取引擎分析（使用连接池）
+        engine_result = engine_analyze(request.fen, depth=15)
         
         # 获取合法走法
         legal_moves_result = get_legal_moves(request.fen)
@@ -359,30 +357,22 @@ async def engine_evaluate(request: EngineEvaluationRequest):
 
     仅返回 Pikafish 的核心评估信息，避免 position-analysis 混入规则层失败。
     """
-    engine = None
     try:
-        from core.engine import PikafishEngine
-
-        engine = PikafishEngine()
-        result = engine.analyze(request.fen, depth=request.depth)
+        result = engine_analyze(request.fen, depth=request.depth)
         turn = "red" if request.fen.strip().endswith(" w") else "black"
 
         return EngineEvaluationResponse(
             fen=request.fen,
             turn=turn,
             bestmove=result.bestmove or "",
-            score=result.score or 0.0,
-            depth=result.depth or request.depth,
+            score=result.score if result.score is not None else 0.0,
+            depth=result.depth if result.depth is not None else request.depth,
             pv=result.pv if hasattr(result, 'pv') and result.pv else [],
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
-        if engine is not None:
-            try:
-                engine.stop()
-            except Exception:
-                pass
+        pass
 
 
 class AIMoveRequest(BaseModel):
@@ -415,6 +405,8 @@ class BestMovesResponse(BaseModel):
     black_best_to_row: int
     black_best_to_col: int
     current_turn: str
+    score: float = 0.0
+    depth: int = 0
 
 
 @app.post("/api/best-moves", response_model=BestMovesResponse)
@@ -425,12 +417,9 @@ async def get_best_moves(request: AIMoveRequest):
     返回红方和黑方的最佳走法，用于在棋盘上显示箭头
     """
     try:
-        from core.engine import PikafishEngine
-        
-        engine = PikafishEngine()
         fen = board_to_fen(request.board, request.red_to_move)
         
-        result = engine.analyze(fen, depth=15)
+        result = engine_analyze(fen, depth=15)
         current_best = result.bestmove
         
         current_turn = "red" if request.red_to_move else "black"
@@ -505,7 +494,9 @@ async def get_best_moves(request: AIMoveRequest):
             black_best_from_col=black_from_col,
             black_best_to_row=black_to_row,
             black_best_to_col=black_to_col,
-            current_turn=current_turn
+            current_turn=current_turn,
+            score=result.score if result.score is not None else 0.0,
+            depth=result.depth if result.depth is not None else 0,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -673,12 +664,9 @@ async def ai_move(request: AIMoveRequest):
     根据当前局面，AI选择最佳走法并执行
     """
     try:
-        from core.engine import PikafishEngine
-        
-        engine = PikafishEngine()
         fen = board_to_fen(request.board, request.red_to_move)
         
-        result = engine.analyze(fen, depth=request.difficulty)
+        result = engine_analyze(fen, depth=request.difficulty)
         bestmove = result.bestmove
         
         if not bestmove or len(bestmove) < 4:
@@ -1398,9 +1386,7 @@ async def analyze_deep(request: DeepAnalyzeRequest):
                         tag_summary.append(tag_info)
 
                     # 执行引擎评估
-                    engine = PikafishEngine()
-                    engine.start()
-                    analysis = engine.analyze(request.fen, depth=15)
+                    analysis = engine_analyze(request.fen, depth=15)
                     if analysis and hasattr(analysis, 'score') and analysis.score is not None:
                         cp_value = int(analysis.score * 100) if analysis.score else 0
                         engine_eval = {
@@ -1510,8 +1496,6 @@ async def analyze_deep(request: DeepAnalyzeRequest):
             # 检查是否有错误
             if result_holder['error']:
                 yield f"data: {json.dumps({'type': 'error', 'message': result_holder['error']}, ensure_ascii=False)}\n\n"
-            elif result_holder['result']:
-                yield f"data: {json.dumps({'type': 'result', 'explanation': result_holder['result'], 'confidence': 'high'}, ensure_ascii=False)}\n\n"
 
         except Exception as e:
             import traceback
@@ -1590,9 +1574,7 @@ async def analyze_deep_stream(
                             tag_info += f"（{', '.join(t.bind_pieces[:2])}）"
                         tag_summary.append(tag_info)
 
-                    engine = PikafishEngine()
-                    engine.start()
-                    analysis = engine.analyze(fen, depth=15)
+                    analysis = engine_analyze(fen, depth=15)
                     if analysis and hasattr(analysis, 'score') and analysis.score is not None:
                         cp_value = int(analysis.score * 100) if analysis.score else 0
                         engine_eval = {"cp": cp_value, "best": analysis.bestmove if hasattr(analysis, 'bestmove') else None}
@@ -2044,3 +2026,232 @@ async def load_glass_preset():
         return {"exists": True, "data": data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# =========================================================================
+# 对弈模式 API
+# =========================================================================
+
+class AIPlayRequest(BaseModel):
+    """AI 对弈请求 — 兼容前端board格式和直接FEN格式"""
+    board: Optional[List[List[str]]] = None  # 前端棋盘二维数组
+    red_to_move: Optional[bool] = None  # 当前走棋方
+    fen: Optional[str] = None  # 直接 FEN
+    difficulty: Union[str, int] = "medium"  # easy/medium/hard 或 4/10/18
+
+
+class AIPlayResponse(BaseModel):
+    """AI 对弈响应"""
+    move: str  # UCI 格式走法（如 "h2e2"）
+    from_row: int = 0
+    from_col: int = 0
+    to_row: int = 0
+    to_col: int = 0
+    board: List[List[str]] = []  # 走完后的棋盘
+    fen: str = ""  # 走完后的 FEN
+    score: float = 0.0  # 引擎评分
+    explanation: str = ""  # 中文走法描述
+    in_check: bool = False  # 走完后对方是否被将军
+    game_over: bool = False  # 是否将杀/和棋
+
+
+@app.post("/api/ai-move", response_model=AIPlayResponse)
+@app.post("/api/game/ai-move", response_model=AIPlayResponse)
+async def ai_move(request: AIPlayRequest):
+    """
+    AI 走一步棋。
+
+    支持三种难度:
+      - easy/4: 搜索深度 4（业余初级）
+      - medium/10: 搜索深度 10（业余中级）
+      - hard/18: 搜索深度 18（强业余/准专业）
+    """
+    # 解析难度
+    difficulty_map_str = {"easy": 4, "medium": 10, "hard": 18}
+    difficulty_map_int = {4: 4, 10: 10, 18: 18, 15: 15, 12: 12}
+    if isinstance(request.difficulty, str):
+        depth = difficulty_map_str.get(request.difficulty, 10)
+    else:
+        depth = difficulty_map_int.get(request.difficulty, 10)
+
+    # 解析 FEN
+    if request.fen:
+        fen = request.fen
+    elif request.board is not None and request.red_to_move is not None:
+        # 从棋盘重建 FEN
+        rows = []
+        for row in request.board:
+            fen_row = ""
+            empty = 0
+            for cell in row:
+                if cell and cell.strip():
+                    if empty:
+                        fen_row += str(empty)
+                        empty = 0
+                    fen_row += cell
+                else:
+                    empty += 1
+            if empty:
+                fen_row += str(empty)
+            rows.append(fen_row)
+        turn = "w" if request.red_to_move else "b"
+        fen = "/".join(rows) + f" {turn} - - 0 1"
+    else:
+        raise HTTPException(status_code=400, detail="需要提供 fen 或 board + red_to_move")
+
+    try:
+        result = engine_analyze(fen, depth=depth)
+
+        if not result or not result.bestmove:
+            raise HTTPException(status_code=500, detail="引擎未返回走法")
+
+        bestmove = result.bestmove
+        score = result.score if result.score is not None else 0.0
+
+        # 解析走法并生成走后 FEN
+        from core.rules.rule_engine import RuleEngine
+        board = RuleEngine._fen_to_board(fen)
+        is_red = " w " in fen
+
+        # 验证走法合法性
+        legal_result = RuleEngine.get_legal_moves(fen)
+        legal_ucis = [m.uci for m in legal_result.moves]
+        if bestmove not in legal_ucis:
+            if legal_ucis:
+                bestmove = legal_ucis[0]
+            else:
+                return AIPlayResponse(
+                    move="", game_over=True,
+                    explanation="无合法走法",
+                )
+
+        # 执行走法（含边界验证）
+        if len(bestmove) < 4:
+            raise HTTPException(status_code=500, detail=f"引擎返回无效走法格式: {bestmove}")
+        src_col = ord(bestmove[0]) - ord('a')
+        src_row = 9 - int(bestmove[1])
+        dst_col = ord(bestmove[2]) - ord('a')
+        dst_row = 9 - int(bestmove[3])
+
+        if not (0 <= src_col <= 8 and 0 <= src_row <= 9 and 0 <= dst_col <= 8 and 0 <= dst_row <= 9):
+            raise HTTPException(status_code=500, detail=f"引擎返回越界走法: {bestmove}")
+
+        piece = board[src_row][src_col]
+        new_board = [row[:] for row in board]
+        new_board[dst_row][dst_col] = piece
+        new_board[src_row][src_col] = '.'
+
+        # 生成走后 FEN
+        new_turn = "b" if is_red else "w"
+        rows = []
+        for row in new_board:
+            fen_row = ""
+            empty = 0
+            for cell in row:
+                if cell and cell != '.':
+                    if empty:
+                        fen_row += str(empty)
+                        empty = 0
+                    fen_row += cell
+                else:
+                    empty += 1
+            if empty:
+                fen_row += str(empty)
+            rows.append(fen_row)
+        fen_after = "/".join(rows) + f" {new_turn} - - 0 1"
+
+        # 检查走后状态
+        opponent_in_check = is_in_check(
+            [[c if c != '.' else '' for c in row] for row in new_board],
+            not is_red
+        )
+
+        # 检查是否将杀（对方无合法走法）
+        opponent_legal = RuleEngine.get_legal_moves(fen_after)
+        game_over = len(opponent_legal.moves) == 0
+
+        # 生成中文走法描述
+        from core.llm.agent_tools import AgentTools
+        try:
+            at = AgentTools()
+            move_chinese = at._to_chinese_move(board, bestmove, piece)
+        except Exception:
+            move_chinese = bestmove
+
+        # 转换棋盘为前端格式（空位用 '' 代替 '.'）
+        board_for_frontend = [[c if c != '.' else '' for c in row] for row in new_board]
+
+        return AIPlayResponse(
+            move=bestmove,
+            from_row=src_row,
+            from_col=src_col,
+            to_row=dst_row,
+            to_col=dst_col,
+            board=board_for_frontend,
+            fen=fen_after,
+            score=round(score, 2),
+            explanation=move_chinese,
+            in_check=opponent_in_check,
+            game_over=game_over,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI走棋失败: {str(e)}")
+
+
+# ========== 棋盘图像识别 ==========
+
+class RecognizeResponse(BaseModel):
+    fen: str = ""
+    board: List[List[str]] = []
+    description: str = ""
+    confidence: float = 0.0
+    pieces_detected: int = 0
+    annotated_image: str = ""   # YOLO 标注图 base64 (WebP)
+
+
+@app.post("/api/recognize", response_model=RecognizeResponse)
+async def recognize_board(file: UploadFile = File(...)):
+    """
+    上传棋盘图片，使用 YOLO 模型识别棋子位置，返回 FEN 和棋盘数组。
+    纯本地推理，无需网络请求。
+    """
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="请上传图片文件")
+
+    try:
+        from PIL import Image
+        import io
+        from vision.yolo_recognizer import YoloDirectRecognizer
+
+        contents = await file.read()
+        if len(contents) > 20 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="图片大小不能超过20MB")
+
+        image = Image.open(io.BytesIO(contents))
+        recognizer = YoloDirectRecognizer()
+        result = recognizer.recognize_image(image)
+
+        if not result.fen or result.pieces_count == 0:
+            return RecognizeResponse(
+                description="未检测到棋子，请确保图片清晰且包含完整棋盘",
+            )
+
+        # 把 FEN 转成前端 board 数组
+        board = fen_to_board(result.fen)
+
+        return RecognizeResponse(
+            fen=result.fen,
+            board=board,
+            description=result.description,
+            confidence=result.confidence,
+            pieces_detected=result.pieces_count,
+            annotated_image=result.annotated_image_b64,
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"图像识别失败: {str(e)}")

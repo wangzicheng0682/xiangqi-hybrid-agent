@@ -6,26 +6,12 @@
 
 from typing import Dict, List, Callable, Optional
 from core.llm.experts.base_expert import (
-    BaseExpert, ExpertConfig, ExpertResult,
+    BaseExpert, ExpertConfig, ExpertResult, CHESS_RULES_BLOCK,
 )
 from core.llm.thinking_templates import PhaseInfo
 
 
-SYSTEM_PROMPT_TACTICS = """# 象棋基础规则 - 铁律，不可违背
-
-**棋子走法**：
-- 车：横竖直线任意格，不能跳越其他棋子
-- 马：日字形（先横/竖一格，再斜一格），蹩马腿则不能走
-- 炮：移动同车（横竖直线），但吃子必须隔一个棋子（炮架）
-- 象/相：田字形（斜走两格），不能过河，塞象眼则不能走
-- 士/仕：斜走一格，不出九宫
-- 将/帅：九宫内横竖一格，将与帅不能照面（在同一列无遮挡）
-
-**硬约束**：
-- 你说任何棋子"保护"另一个棋子，必须先调用工具验证
-- 炮架是被利用的棋子，不等于保护关系
-- 你说任何走法合法，必须符合上述走法规则，否则禁止提及
-- 不确定的关系，必须调用工具查询，禁止猜测
+SYSTEM_PROMPT_TACTICS = CHESS_RULES_BLOCK + """
 
 ---
 
@@ -48,6 +34,7 @@ SYSTEM_PROMPT_TACTICS = """# 象棋基础规则 - 铁律，不可违背
 **验证**：调用工具验证你的假设。
 - 工具结果支持假设 → 说清楚为什么支持
 - 工具结果推翻假设 → 明确说"我之前判断错了"
+- 当你想对比"走这步前后局面有什么变化"时，使用 `simulate_move` 工具
 
 **深入**：如果发现战术机会，必须完成**对手处境分析**：
 
@@ -109,11 +96,44 @@ SYSTEM_PROMPT_TACTICS = """# 象棋基础规则 - 铁律，不可违背
 【对手处境】对手选项分析（必须填写，不能跳过）
 【详细分析】你的战术分析过程（200-500字）
 【结论可信度】高/中/低（基于你有多少工具验证）
+
+---
+
+# 结构化断言（必须）
+
+分析结束时，用以下格式列出你的核心断言（1-3条）：
+
+[CLAIM] 你的一条核心结论
+[EVIDENCE] 支撑该结论的证据来源（哪个工具验证的，或纯推理）
+[CONFIDENCE] 高/中/低
+
+示例：
+[CLAIM] 红车d8控制将门，黑将无法逃离
+[EVIDENCE] get_piece_attacks(红车) 显示攻击范围覆盖黑将所在行
+[CONFIDENCE] 高
+
+[CLAIM] 黑马被牵制，无法参与防守
+[EVIDENCE] 通过 simulate_move 验证黑马移动后红车直接将军
+[CONFIDENCE] 高
 """
 
 
 # 战术专家的工具子集
 TACTICS_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_move_candidates",
+            "description": "获取当前局面的合法候选走法列表。【高优先级】当你想分析具体走法时，先拿候选，再用 candidate_id 调其他工具，禁止自由编造走法。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "返回候选数，默认12", "default": 12}
+                },
+                "required": []
+            }
+        }
+    },
     {
         "type": "function",
         "function": {
@@ -174,13 +194,14 @@ TACTICS_TOOLS = [
         "type": "function",
         "function": {
             "name": "analyze_move",
-            "description": "深度分析某步棋的效果和质量。【什么时候用】用户问'这步棋怎么样'、评估走法质量。",
+            "description": "深度分析某步棋的效果和质量。【什么时候用】用户问'这步棋怎么样'、评估走法质量。优先传 candidate_id，不要自由编造走法。",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "move": {"type": "string", "description": "UCI格式走法，如h2e2"}
+                    "candidate_id": {"type": "string", "description": "候选走法ID，如cand_1，优先使用"},
+                    "move": {"type": "string", "description": "UCI格式走法，如h2e2；仅兼容旧接口时使用"}
                 },
-                "required": ["move"]
+                "required": []
             }
         }
     },
@@ -188,14 +209,30 @@ TACTICS_TOOLS = [
         "type": "function",
         "function": {
             "name": "get_forcing_sequence",
-            "description": "分析走法后的强制序列（将军、捉子等）。【什么时候用】分析连续将军、验证战术组合。",
+            "description": "分析走法后的强制序列（将军、捉子等）。【什么时候用】分析连续将军、验证战术组合。优先传 candidate_id。",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "move": {"type": "string", "description": "UCI格式走法"},
+                    "candidate_id": {"type": "string", "description": "候选走法ID，如cand_1，优先使用"},
+                    "move": {"type": "string", "description": "UCI格式走法，仅兼容旧接口时使用"},
                     "depth": {"type": "integer", "description": "分析深度，默认3", "default": 3}
                 },
-                "required": ["move"]
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "simulate_move",
+            "description": "模拟走一步棋，对比走棋前后局面标签变化。【什么时候用】验证'走这步后局面会怎样'、分析走法的实际效果。优先传 candidate_id。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "candidate_id": {"type": "string", "description": "候选走法ID，如cand_1，优先使用"},
+                    "move": {"type": "string", "description": "UCI格式走法，如h2e2；仅兼容旧接口时使用"}
+                },
+                "required": []
             }
         }
     },
@@ -212,9 +249,11 @@ class TacticsExpert(BaseExpert):
         system_prompt=SYSTEM_PROMPT_TACTICS,
         tools=TACTICS_TOOLS,
         tool_names=[
+            "get_move_candidates",
             "get_piece_attacks", "get_piece_defenders",
             "get_threats_to_piece", "get_piece_relations",
             "analyze_move", "get_forcing_sequence",
+            "simulate_move",
         ],
         max_rounds=3,
         max_tokens=1024,
@@ -229,6 +268,7 @@ class TacticsExpert(BaseExpert):
         phase_info: PhaseInfo,
         move: str = None,
         on_thinking: Callable[[str, str], None] = None,
+        evidence_map: Dict = None,
     ) -> ExpertResult:
         """执行战术专家分析"""
         user_content = self._build_shared_context(
@@ -238,6 +278,7 @@ class TacticsExpert(BaseExpert):
             phase_info=phase_info,
             question=question,
             move=move,
+            evidence_map=evidence_map,
         )
 
         return self._call_expert(

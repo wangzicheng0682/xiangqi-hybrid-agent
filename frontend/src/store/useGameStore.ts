@@ -63,6 +63,8 @@ interface GameState {
   isBoardCollapsed: boolean;
   setBoardCollapsed: (v: boolean) => void;
   toggleBoardCollapsed: () => void;
+  aiDifficulty: number;
+  setAiDifficulty: (d: number) => void;
   bestMoves: BestMovesResponse | null;
   replayState: ReplayState;
   highlightedPieces: { row: number; col: number; type: 'attack' | 'target' | 'defense' }[];
@@ -91,6 +93,7 @@ interface GameState {
   loadGameFromPGN: (pgnContent: string) => Promise<void>;
   navigateReplay: (direction: 'prev' | 'next' | 'start' | 'end' | 'goto', index?: number) => Promise<void>;
   exitReplay: () => void;
+  loadFromRecognition: (board: string[][], fen: string) => void;
 }
 
 function flipBoard(board: string[][]): string[][] {
@@ -115,6 +118,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   isBoardCollapsed: false,
   setBoardCollapsed: (v) => set({ isBoardCollapsed: v }),
   toggleBoardCollapsed: () => set(s => ({ isBoardCollapsed: !s.isBoardCollapsed })),
+  aiDifficulty: 10,
+  setAiDifficulty: (d) => set({ aiDifficulty: d }),
   replayState: {
     games: [],
     selectedGame: null,
@@ -286,7 +291,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (gameMode === 'pve_red' && !isRedPiece) return;
     if (gameMode === 'pve_black' && isRedPiece) return;
     
-    if (isRedPiece !== redToMove && gameMode === 'analysis') return;
+    if (isRedPiece !== redToMove && (gameMode === 'analysis' || gameMode === 'pvp')) return;
 
     set({ selectedPos: { row: actualRow, col: actualCol }, legalMoves: [], error: null });
     
@@ -359,6 +364,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         get().fetchBestMoves();
       }
 
+      // 走棋后刷新引擎评估
+      get().refreshEngineEvaluation(res.fen);
+
       if (gameMode === 'pve_red' || gameMode === 'pve_black') {
         setTimeout(() => {
           get().aiMove();
@@ -371,7 +379,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   aiMove: async () => {
-    const { board, redToMove, gameMode, flipped } = get();
+    const { board, redToMove, gameMode, flipped, fen: currentFen } = get();
     
     if ((gameMode === 'pve_red' && redToMove) || (gameMode === 'pve_black' && !redToMove)) {
       return;
@@ -387,7 +395,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const res: AIMoveResponse = await api.aiMove({
         board: actualBoard,
         red_to_move: redToMove,
-        difficulty: 10
+        difficulty: get().aiDifficulty
       });
 
       const fromColChar = String.fromCharCode(97 + res.from_col);
@@ -409,6 +417,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         board: newBoard,
         fen: res.fen,
+        previousFen: currentFen,
         selectedPos: null,
         legalMoves: [],
         isLoading: false,
@@ -416,6 +425,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         history: [...get().history, moveStr],
         lastMove: newLastMove
       });
+
+      // AI走棋后刷新引擎评估
+      get().refreshEngineEvaluation(res.fen);
     } catch (e: any) {
       set({ isLoading: false, error: e.response?.data?.detail || 'AI走棋失败' });
     }
@@ -425,6 +437,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       board: initialBoard,
       fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w',
+      previousFen: '',
       history: [],
       legalMoves: [],
       selectedPos: null,
@@ -477,6 +490,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         board: initialBoard,
         fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w',
+        previousFen: '',
         history: [],
         redToMove: true,
         selectedPos: null,
@@ -535,6 +549,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         board: initialBoard,
         fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w',
+        previousFen: '',
         history: [],
         redToMove: true,
         selectedPos: null,
@@ -604,6 +619,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         board: navRes.board,
         fen: navRes.fen,
+        previousFen: '',
         redToMove: newIndex % 2 === 0,
         history: moves.slice(0, newIndex),
         lastMove: lastMoveInfo,
@@ -621,6 +637,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({
       board: initialBoard,
       fen: 'rnbakabnr/9/1c5c1/p1p1p1p1p/9/9/P1P1P1P1P/1C5C1/9/RNBAKABNR w',
+      previousFen: '',
       history: [],
       redToMove: true,
       selectedPos: null,
@@ -650,5 +667,41 @@ export const useGameStore = create<GameState>((set, get) => ({
         isLoadingGames: false
       }
     });
-  }
+  },
+
+  loadFromRecognition: (board: string[][], fen: string) => {
+    const isRedTurn = fen.includes(' w ') || fen.endsWith(' w');
+    set({
+      board,
+      fen,
+      previousFen: '',
+      history: [],
+      legalMoves: [],
+      selectedPos: null,
+      isLoading: false,
+      redToMove: isRedTurn,
+      error: null,
+      lastMove: null,
+      bestMoves: null,
+      evalHistory: [],
+      gameMode: 'analysis',
+      enginePanel: {
+        ...get().enginePanel,
+        fen: '',
+        bestmove: '',
+        score: 0,
+        depth: 0,
+        pv: [],
+        legalMoveCount: 0,
+        isCheck: false,
+        isCheckmate: false,
+        isLoading: false,
+        error: null,
+      },
+    });
+    get().refreshEngineEvaluation(fen);
+    if (get().showArrows) {
+      get().fetchBestMoves();
+    }
+  },
 }));

@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from core.rules.tactical_detector import TacticalDetector
 from core.rules.xiangqi_rules import XiangqiRulesEngine
+from core.llm.move_candidate_service import MoveCandidateService
 
 
 @dataclass
@@ -50,6 +51,43 @@ class AgentTools:
     def __init__(self):
         self.detector = TacticalDetector()
         self.rules_engine = XiangqiRulesEngine()
+        self.move_candidates = MoveCandidateService()
+
+    # =========================================================================
+    # 第零类：候选走法服务
+    # =========================================================================
+
+    def get_move_candidates(self, fen: str, limit: int = 12) -> ToolResult:
+        """
+        获取当前局面的合法候选走法，供后续工具使用 candidate_id。
+
+        Args:
+            fen: 当前局面FEN
+            limit: 返回候选数上限
+
+        Returns:
+            ToolResult: 包含 candidate_id -> move 映射
+        """
+        try:
+            candidates = self.move_candidates.get_candidates(fen, limit=limit)
+            return ToolResult(
+                success=True,
+                data={
+                    "candidates": [candidate.__dict__ for candidate in candidates],
+                    "count": len(candidates),
+                },
+                message="\n".join(
+                    f"{candidate.candidate_id}: {candidate.display}" for candidate in candidates
+                ) if candidates else "无合法候选走法",
+                thinking_hint=f"获取到{len(candidates)}个合法候选走法",
+            )
+        except Exception as e:
+            return ToolResult(
+                success=False,
+                data={},
+                message=f"获取候选走法失败: {str(e)}",
+                thinking_hint="获取候选走法时出错",
+            )
 
     # =========================================================================
     # 第一类：棋子关系查询（原子工具）
@@ -344,41 +382,51 @@ class AgentTools:
     # 第二类：走法分析工具
     # =========================================================================
 
-    def analyze_move(self, fen: str, move: str) -> ToolResult:
+    def analyze_move(self, fen: str, move: str = None, candidate_id: str = None) -> ToolResult:
         """
         深度分析某步棋的效果
 
         Args:
             fen: 走法前的局面FEN
             move: UCI格式走法 (如 "h2e2")
+            candidate_id: 候选走法ID，优先于 move
 
         Returns:
             ToolResult: 包含走法分析结果
         """
         try:
+            resolved_move = self.move_candidates.resolve_move(fen, move=move, candidate_id=candidate_id)
+            if not resolved_move:
+                return ToolResult(
+                    success=False,
+                    data={},
+                    message=f"无法解析候选走法: move={move}, candidate_id={candidate_id}",
+                    thinking_hint="未提供合法候选走法",
+                )
+
             board = self.detector._fen_to_board(fen)
             is_red_turn = self.detector._is_red_turn(fen)
 
             # 解析走法
-            (from_row, from_col), (to_row, to_col) = self.detector._parse_uci(move)
+            (from_row, from_col), (to_row, to_col) = self.detector._parse_uci(resolved_move)
             moving_piece = board[from_row][from_col]
 
             if not moving_piece:
                 return ToolResult(
                     success=False,
                     data={},
-                    message=f"无效走法: {move}",
-                    thinking_hint=f"解析走法 {move} 失败"
+                    message=f"无效走法: {resolved_move}",
+                    thinking_hint=f"解析走法 {resolved_move} 失败"
                 )
 
             piece_name = self._get_piece_name(moving_piece)
-            move_chinese = self._to_chinese_move(board, move, moving_piece)
+            move_chinese = self._to_chinese_move(board, resolved_move, moving_piece)
 
             # 执行走法
-            new_board = self.detector._apply_move(board, move)
+            new_board = self.detector._apply_move(board, resolved_move)
 
             # 分析走法质量
-            quality_tags = self.detector.detect_move_quality(fen, move)
+            quality_tags = self.detector.detect_move_quality(fen, resolved_move)
             detected_tags = [t.tag.name for t in quality_tags if t.detected]
 
             # 检测是否是开局阶段（简化判断：看棋子数量）
@@ -495,6 +543,8 @@ class AgentTools:
                 success=True,
                 data={
                     "move": move,
+                    "resolved_move": resolved_move,
+                    "candidate_id": candidate_id,
                     "move_chinese": move_chinese,
                     "piece": piece_name,
                     "quality": quality,
@@ -514,13 +564,14 @@ class AgentTools:
                 thinking_hint=f"分析走法时出错"
             )
 
-    def compare_moves(self, fen: str, moves: List[str]) -> ToolResult:
+    def compare_moves(self, fen: str, moves: List[str] = None, candidate_ids: List[str] = None) -> ToolResult:
         """
         对比多步棋的优劣
 
         Args:
             fen: 局面FEN
             moves: UCI格式走法列表
+            candidate_ids: 候选走法ID列表
 
         Returns:
             ToolResult: 包含对比结果
@@ -528,12 +579,31 @@ class AgentTools:
         try:
             comparisons = []
 
-            for move in moves:
-                result = self.analyze_move(fen, move)
+            resolved_moves: List[str] = []
+            if candidate_ids:
+                for candidate_id in candidate_ids:
+                    resolved = self.move_candidates.resolve_move(fen, candidate_id=candidate_id)
+                    if resolved:
+                        resolved_moves.append(resolved)
+            if moves:
+                for move_item in moves:
+                    resolved = self.move_candidates.resolve_move(fen, move=move_item)
+                    if resolved:
+                        resolved_moves.append(resolved)
+
+            seen = set()
+            normalized_moves = []
+            for resolved in resolved_moves:
+                if resolved not in seen:
+                    normalized_moves.append(resolved)
+                    seen.add(resolved)
+
+            for move_item in normalized_moves:
+                result = self.analyze_move(fen, move=move_item)
                 if result.success:
                     comparisons.append({
-                        "move": move,
-                        "move_chinese": result.data.get("move_chinese", move),
+                        "move": move_item,
+                        "move_chinese": result.data.get("move_chinese", move_item),
                         "quality": result.data.get("quality", "unknown"),
                         "score": self._quality_to_score(result.data.get("quality", "ok")),
                         "pros": result.data.get("why", "").split("，") if result.data.get("why") else [],
@@ -554,10 +624,11 @@ class AgentTools:
                 data={
                     "comparisons": comparisons,
                     "best": best,
-                    "reason": reason
+                    "reason": reason,
+                    "candidate_ids": candidate_ids or [],
                 },
                 message=f"对比{len(comparisons)}步棋，最佳: {best}",
-                thinking_hint=f"对比分析{len(moves)}步候选走法"
+                thinking_hint=f"对比分析{len(normalized_moves)}步候选走法"
             )
 
         except Exception as e:
@@ -568,52 +639,102 @@ class AgentTools:
                 thinking_hint=f"对比走法时出错"
             )
 
-    def get_forcing_sequence(self, fen: str, move: str, depth: int = 3) -> ToolResult:
+    def get_forcing_sequence(self, fen: str, move: str = None, depth: int = 3, candidate_id: str = None) -> ToolResult:
         """
-        分析走法后的强制序列
+        分析走法后的强制序列（递归追踪将军-应将链）
 
         Args:
             fen: 走法前的局面FEN
             move: UCI格式走法
-            depth: 分析深度
+            depth: 追踪深度（半步数）
+            candidate_id: 候选走法ID，优先于 move
 
         Returns:
             ToolResult: 包含强制序列
         """
         try:
+            resolved_move = self.move_candidates.resolve_move(fen, move=move, candidate_id=candidate_id)
+            if not resolved_move:
+                return ToolResult(
+                    success=False,
+                    data={},
+                    message=f"无法解析候选走法: move={move}, candidate_id={candidate_id}",
+                    thinking_hint="未提供合法候选走法",
+                )
             board = self.detector._fen_to_board(fen)
             is_red_turn = self.detector._is_red_turn(fen)
 
             sequence = []
             current_board = board
             current_turn = is_red_turn
-            current_fen = fen
+            current_move = resolved_move
+            is_forcing = False
+            outcome = "非强制序列"
 
-            # 执行第一步
-            new_board = self.detector._apply_move(current_board, move)
-            move_chinese = self._to_chinese_move(current_board, move, current_board[self.detector._parse_uci(move)[0][0]][self.detector._parse_uci(move)[0][1]])
+            for ply in range(depth):
+                try:
+                    src, dst = self.detector._parse_uci(current_move)
+                    piece = current_board[src[0]][src[1]]
+                    if piece == '.':
+                        break
+                    new_board = self.detector._apply_move(current_board, current_move)
+                    move_chinese = self._to_chinese_move(current_board, current_move, piece)
 
-            # 检查是否将军
-            gives_check = self.detector._is_in_check(new_board, not current_turn)
+                    gives_check = self.detector._is_in_check(new_board, not current_turn)
+                    is_capture = current_board[dst[0]][dst[1]] != '.'
 
-            sequence.append({
-                "move": move,
-                "move_chinese": move_chinese,
-                "type": "check" if gives_check else "normal",
-                "must_respond": gives_check
-            })
+                    move_type = "check" if gives_check else ("capture" if is_capture else "normal")
 
-            is_forcing = gives_check
+                    sequence.append({
+                        "ply": ply + 1,
+                        "move": current_move,
+                        "move_chinese": move_chinese,
+                        "type": move_type,
+                        "must_respond": gives_check,
+                        "side": "红" if (is_red_turn == (ply % 2 == 0)) else "黑",
+                    })
+
+                    if ply == 0 and gives_check:
+                        is_forcing = True
+
+                    if not gives_check and ply > 0:
+                        # 不再是将军链，停止追踪
+                        break
+
+                    # 找对方应将/最佳回应
+                    if ply + 1 < depth:
+                        next_turn = not current_turn
+                        # 用引擎找最佳应着（如果引擎可用），否则用规则找应将着法
+                        response_move = self._find_best_response(new_board, next_turn)
+                        if response_move is None:
+                            # 无合法走法 = 将杀
+                            if gives_check:
+                                outcome = "将杀！对方无合法应将"
+                                is_forcing = True
+                            break
+                        current_board = new_board
+                        current_turn = next_turn
+                        current_move = response_move
+                    else:
+                        current_board = new_board
+                        break
+
+                except Exception:
+                    break
+
+            if is_forcing and outcome == "非强制序列":
+                checks_in_seq = sum(1 for s in sequence if s["type"] == "check")
+                outcome = f"强制序列：{checks_in_seq}步将军" + ("，对方必须逐一应将" if checks_in_seq > 1 else "，对方必须应将")
 
             return ToolResult(
                 success=True,
                 data={
                     "is_forcing": is_forcing,
                     "sequence": sequence,
-                    "depth_analyzed": 1,
-                    "outcome": "形成将军，对方必须应将" if is_forcing else "非强制序列"
+                    "depth_analyzed": len(sequence),
+                    "outcome": outcome,
                 },
-                message=f"分析完成: {'强制序列' if is_forcing else '非强制'}",
+                message=f"分析完成: {'强制序列' if is_forcing else '非强制'}，深度{len(sequence)}",
                 thinking_hint=f"分析走法后的强制序列"
             )
 
@@ -624,6 +745,155 @@ class AgentTools:
                 message=f"分析失败: {str(e)}",
                 thinking_hint=f"分析强制序列时出错"
             )
+
+    def _find_best_response(self, board, is_red_turn: bool) -> Optional[str]:
+        """找到最佳应着（优先引擎，降级为规则找合法走法）"""
+        try:
+            # 尝试用引擎
+            from core.engine.pool import EnginePool
+            # 重建 FEN
+            fen = self._board_to_fen(board, is_red_turn)
+            pool = EnginePool.get_pool()
+            result = pool.analyze(fen, depth=10)
+            if result.bestmove:
+                return result.bestmove
+        except Exception:
+            pass
+
+        # 降级：规则层找合法走法（暴力搜索所有己方棋子的合法走法）
+        return self._find_any_legal_move(board, is_red_turn)
+
+    def _find_any_legal_move(self, board, is_red_turn: bool) -> Optional[str]:
+        """找到一个合法走法（暴力搜索）"""
+        for r in range(10):
+            for c in range(9):
+                piece = board[r][c]
+                if piece == '.':
+                    continue
+                if is_red_turn and not piece.isupper():
+                    continue
+                if not is_red_turn and not piece.islower():
+                    continue
+                # 生成该棋子的所有目标位置并检查合法性
+                targets = self._get_piece_moves(board, r, c, piece)
+                for tr, tc in targets:
+                    move_uci = f"{chr(ord('a') + c)}{9 - r}{chr(ord('a') + tc)}{9 - tr}"
+                    try:
+                        new_board = self.detector._apply_move(board, move_uci)
+                        # 走后自己不能被将
+                        if not self.detector._is_in_check(new_board, is_red_turn):
+                            return move_uci
+                    except Exception:
+                        continue
+        return None
+
+    def _get_piece_moves(self, board, row: int, col: int, piece: str):
+        """获取棋子的候选目标格（简化版，不做完全合法性检查）"""
+        p = piece.upper()
+        targets = []
+        if p == 'R':  # 车
+            for d in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                r, c = row + d[0], col + d[1]
+                while 0 <= r < 10 and 0 <= c < 9:
+                    if board[r][c] == '.':
+                        targets.append((r, c))
+                    else:
+                        # 可以吃对方棋子
+                        if piece.isupper() != board[r][c].isupper():
+                            targets.append((r, c))
+                        break
+                    r += d[0]
+                    c += d[1]
+        elif p == 'N':  # 马
+            for dr, dc, br, bc in [(-2, -1, -1, 0), (-2, 1, -1, 0), (2, -1, 1, 0), (2, 1, 1, 0),
+                                     (-1, -2, 0, -1), (-1, 2, 0, 1), (1, -2, 0, -1), (1, 2, 0, 1)]:
+                nr, nc = row + dr, col + dc
+                block_r, block_c = row + br, col + bc
+                if 0 <= nr < 10 and 0 <= nc < 9 and board[block_r][block_c] == '.':
+                    if board[nr][nc] == '.' or (piece.isupper() != board[nr][nc].isupper()):
+                        targets.append((nr, nc))
+        elif p == 'C':  # 炮
+            for d in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                r, c = row + d[0], col + d[1]
+                found_platform = False
+                while 0 <= r < 10 and 0 <= c < 9:
+                    if not found_platform:
+                        if board[r][c] == '.':
+                            targets.append((r, c))
+                        else:
+                            found_platform = True
+                    else:
+                        if board[r][c] != '.':
+                            if piece.isupper() != board[r][c].isupper():
+                                targets.append((r, c))
+                            break
+                    r += d[0]
+                    c += d[1]
+        elif p == 'P':  # 兵/卒
+            if piece.isupper():  # 红兵，向上走
+                if row - 1 >= 0:
+                    targets.append((row - 1, col))
+                if row <= 4:  # 过河后可以横走
+                    if col - 1 >= 0:
+                        targets.append((row, col - 1))
+                    if col + 1 < 9:
+                        targets.append((row, col + 1))
+            else:  # 黑卒，向下走
+                if row + 1 < 10:
+                    targets.append((row + 1, col))
+                if row >= 5:  # 过河后可以横走
+                    if col - 1 >= 0:
+                        targets.append((row, col - 1))
+                    if col + 1 < 9:
+                        targets.append((row, col + 1))
+        elif p == 'K':  # 将/帅
+            for dr, dc in [(0, 1), (0, -1), (1, 0), (-1, 0)]:
+                nr, nc = row + dr, col + dc
+                if piece.isupper():  # 帅在行7-9，列3-5
+                    if 7 <= nr <= 9 and 3 <= nc <= 5:
+                        targets.append((nr, nc))
+                else:  # 将在行0-2，列3-5
+                    if 0 <= nr <= 2 and 3 <= nc <= 5:
+                        targets.append((nr, nc))
+        elif p == 'A':  # 士/仕
+            for dr, dc in [(-1, -1), (-1, 1), (1, -1), (1, 1)]:
+                nr, nc = row + dr, col + dc
+                if piece.isupper():
+                    if 7 <= nr <= 9 and 3 <= nc <= 5:
+                        targets.append((nr, nc))
+                else:
+                    if 0 <= nr <= 2 and 3 <= nc <= 5:
+                        targets.append((nr, nc))
+        elif p == 'B':  # 相/象
+            for dr, dc, er, ec in [(-2, -2, -1, -1), (-2, 2, -1, 1), (2, -2, 1, -1), (2, 2, 1, 1)]:
+                nr, nc = row + dr, col + dc
+                eye_r, eye_c = row + er, col + ec
+                if 0 <= nr < 10 and 0 <= nc < 9 and board[eye_r][eye_c] == '.':
+                    if piece.isupper() and nr >= 5:
+                        targets.append((nr, nc))
+                    elif piece.islower() and nr <= 4:
+                        targets.append((nr, nc))
+        # 过滤：不能吃自己的子
+        return [(r, c) for r, c in targets if board[r][c] == '.' or (piece.isupper() != board[r][c].isupper())]
+
+    def _board_to_fen(self, board, is_red_turn: bool) -> str:
+        """将棋盘数组重建为FEN字符串"""
+        rows = []
+        for r in range(10):
+            empty = 0
+            row_str = ""
+            for c in range(9):
+                if board[r][c] == '.':
+                    empty += 1
+                else:
+                    if empty > 0:
+                        row_str += str(empty)
+                        empty = 0
+                    row_str += board[r][c]
+            if empty > 0:
+                row_str += str(empty)
+            rows.append(row_str)
+        return "/".join(rows) + (" w" if is_red_turn else " b") + " - - 0 1"
 
     # =========================================================================
     # 第三类：引擎深度分析
@@ -703,7 +973,7 @@ class AgentTools:
 
     def engine_alternatives(self, fen: str, top_n: int = 3) -> ToolResult:
         """
-        引擎候选走法对比
+        引擎候选走法对比（使用 MultiPV 获取真实 top-N）
 
         Args:
             fen: 局面FEN
@@ -714,27 +984,37 @@ class AgentTools:
         """
         try:
             try:
-                from core.engine import PikafishEngine
-                engine = PikafishEngine()
+                from core.engine.pool import EnginePool
+                pool = EnginePool.get_pool()
 
-                # 获取多个候选
+                # 使用 MultiPV 获取真实多候选
+                results = pool.analyze_multipv(fen, depth=18, num_pv=min(top_n, 5))
+
                 moves_data = []
-                # 这里简化处理，实际引擎可能需要多次调用
-                result = engine.analyze(fen, depth=18)
-                best_move = result.bestmove if result.bestmove else ""
-                eval_cp = int(result.score) if result.score else 0
-
-                if best_move:
-                    move_chinese = self._to_chinese_move_from_fen(fen, best_move)
+                for i, r in enumerate(results):
+                    if not r.bestmove:
+                        continue
+                    move_chinese = self._to_chinese_move_from_fen(fen, r.bestmove)
+                    eval_cp = int(r.score * 100)
                     moves_data.append({
-                        "move": best_move,
+                        "rank": i + 1,
+                        "move": r.bestmove,
                         "move_chinese": move_chinese,
                         "eval_cp": eval_cp,
-                        "explanation": self._explain_move(fen, best_move),
-                        "risk": "low" if abs(eval_cp) < 100 else "medium"
+                        "pv": " ".join(r.pv[:6]),
+                        "explanation": self._explain_move(fen, r.bestmove),
+                        "risk": "low" if abs(eval_cp) < 100 else ("medium" if abs(eval_cp) < 300 else "high")
                     })
 
-                recommendation = f"{best_move}是最佳选择" if best_move else "无法获取推荐"
+                if moves_data:
+                    best = moves_data[0]
+                    recommendation = f"最佳: {best['move_chinese']}({best['move']})，评分{best['eval_cp']}分"
+                    if len(moves_data) > 1:
+                        diff = abs(moves_data[0]["eval_cp"] - moves_data[1]["eval_cp"])
+                        if diff < 30:
+                            recommendation += f"；次选{moves_data[1]['move_chinese']}评分接近，差距仅{diff}分"
+                else:
+                    recommendation = "引擎无法获取候选走法"
 
             except Exception:
                 moves_data = []
@@ -854,6 +1134,254 @@ class AgentTools:
             )
 
     # =========================================================================
+    # 第五类：走法模拟（走一步看变化）
+    # =========================================================================
+
+    def simulate_move(self, fen: str, move: str = None, candidate_id: str = None) -> ToolResult:
+        """
+        模拟走一步棋，对比走棋前后的局面变化
+
+        这个工具回答"如果走这步，局面会怎样变化？"
+
+        Args:
+            fen: 当前局面FEN
+            move: UCI格式走法，如 h2e2
+            candidate_id: 候选走法ID，优先于 move
+
+        Returns:
+            ToolResult: 包含走棋前后标签差异、子力变化
+        """
+        try:
+            resolved_move = self.move_candidates.resolve_move(fen, move=move, candidate_id=candidate_id)
+            if not resolved_move:
+                return ToolResult(
+                    success=False, data={},
+                    message=f"无法解析候选走法: move={move}, candidate_id={candidate_id}",
+                    thinking_hint="走法格式错误"
+                )
+            board_before = self.detector._fen_to_board(fen)
+            is_red_turn = self.detector._is_red_turn(fen)
+
+            # 验证走法格式
+            parsed = self.detector._parse_uci(resolved_move)
+            if not parsed:
+                return ToolResult(
+                    success=False, data={},
+                    message=f"无法解析走法: {resolved_move}",
+                    thinking_hint="走法格式错误"
+                )
+
+            (from_row, from_col), (to_row, to_col) = parsed
+            moving_piece = board_before[from_row][from_col]
+            if not moving_piece:
+                return ToolResult(
+                    success=False, data={},
+                    message=f"起始位置无棋子: {resolved_move}",
+                    thinking_hint="起始位置没有棋子"
+                )
+
+            captured_piece = board_before[to_row][to_col]
+            move_chinese = self._to_chinese_move(board_before, resolved_move, moving_piece)
+
+            # 走棋前标签
+            tags_before = self.detector.detect_static(fen)
+            before_names = {t.tag.name for t in tags_before.tags if t.detected}
+
+            # 执行走棋
+            board_after = self.detector._apply_move(board_before, resolved_move)
+
+            # 构造走棋后的FEN
+            rows = []
+            for row in board_after:
+                fen_row = ""
+                empty = 0
+                for cell in row:
+                    if cell:
+                        if empty:
+                            fen_row += str(empty)
+                            empty = 0
+                        fen_row += cell
+                    else:
+                        empty += 1
+                if empty:
+                    fen_row += str(empty)
+                rows.append(fen_row)
+            next_turn = "b" if is_red_turn else "w"
+            fen_after = "/".join(rows) + f" {next_turn} - - 0 1"
+
+            # 走棋后标签
+            tags_after = self.detector.detect_static(fen_after)
+            after_names = {t.tag.name for t in tags_after.tags if t.detected}
+
+            # 计算差异
+            new_tags = after_names - before_names
+            lost_tags = before_names - after_names
+
+            # 吃子信息
+            captured_info = None
+            if captured_piece:
+                cap_name = self._get_piece_name(captured_piece)
+                cap_value = self.PIECE_VALUES.get(captured_piece.lower(), 0)
+                captured_info = {"piece": cap_name, "value": cap_value}
+
+            # 检查是否将军
+            gives_check = self.detector._is_in_check(board_after, not is_red_turn)
+
+            # 生成人类可读摘要
+            summary_parts = [f"{move_chinese}"]
+            if captured_info:
+                summary_parts.append(f"吃{captured_info['piece']}(值{captured_info['value']})")
+            if gives_check:
+                summary_parts.append("形成将军")
+            if new_tags:
+                summary_parts.append(f"新增标签: {', '.join(list(new_tags)[:3])}")
+            if lost_tags:
+                summary_parts.append(f"消失标签: {', '.join(list(lost_tags)[:3])}")
+
+            return ToolResult(
+                success=True,
+                data={
+                    "move": resolved_move,
+                    "candidate_id": candidate_id,
+                    "move_chinese": move_chinese,
+                    "captured": captured_info,
+                    "gives_check": gives_check,
+                    "tags_before": sorted(before_names),
+                    "tags_after": sorted(after_names),
+                    "new_tags": sorted(new_tags),
+                    "lost_tags": sorted(lost_tags),
+                    "fen_after": fen_after,
+                },
+                message="→".join(summary_parts),
+                thinking_hint=f"模拟{move_chinese}后局面变化"
+            )
+
+        except Exception as e:
+            return ToolResult(
+                success=False, data={},
+                message=f"模拟走法失败: {str(e)}",
+                thinking_hint="模拟走法时出错"
+            )
+
+    # =========================================================================
+    # 第六类：知识检索
+    # =========================================================================
+
+    def query_chess_principles(self, fen: str, tension_type: str = None) -> ToolResult:
+        """
+        根据当前局面的张力类型查询适用的象棋原则
+
+        Args:
+            fen: 当前局面FEN
+            tension_type: 张力类型（可选，如 material_vs_initiative, hidden_imbalance 等）
+
+        Returns:
+            ToolResult: 包含适用的棋理原则
+        """
+        try:
+            from core.llm.knowledge_retriever import ChessKnowledgeBase
+            kb = ChessKnowledgeBase()
+
+            principles = []
+
+            if tension_type:
+                tension_principles = kb.query_for_tension(tension_type)
+                principles.extend(tension_principles)
+
+            # 补充通用原则
+            general = kb.query_general_principles(2)
+            principles.extend(general)
+
+            if not principles:
+                return ToolResult(
+                    success=True,
+                    data={"principles": [], "count": 0},
+                    message="未找到特定原则，使用通用分析",
+                    thinking_hint="当前张力类型无特定原则"
+                )
+
+            principles_data = []
+            principles_text = []
+            for i, p in enumerate(principles[:5], 1):
+                principles_data.append(p.to_dict())
+                text = f"{i}. {p.content}（{p.applies_when}）"
+                if p.counter_case and p.counter_case != "无":
+                    text += f" [例外: {p.counter_case}]"
+                principles_text.append(text)
+
+            return ToolResult(
+                success=True,
+                data={
+                    "principles": principles_data,
+                    "count": len(principles_data),
+                    "tension_type": tension_type or "general",
+                },
+                message="\n".join(principles_text),
+                thinking_hint=f"检索到{len(principles_data)}条棋理原则"
+            )
+
+        except Exception as e:
+            return ToolResult(
+                success=False, data={},
+                message=f"知识检索失败: {str(e)}",
+                thinking_hint="检索棋理原则时出错"
+            )
+
+    def search_chess_knowledge(self, query: str, top_k: int = 5) -> ToolResult:
+        """
+        语义检索象棋知识库（棋理原则 + 经典棋谱开局）
+
+        Args:
+            query: 自然语言查询（如"中炮开局"、"马后炮杀法"、"车马冷着配合"）
+            top_k: 返回数量
+
+        Returns:
+            ToolResult: 包含检索结果
+        """
+        try:
+            from core.rag.chroma_rag import ChromaRAG
+            rag = ChromaRAG()
+            results = rag.retrieve(query, top_k=top_k)
+
+            if not results:
+                return ToolResult(
+                    success=True,
+                    data={"results": [], "count": 0},
+                    message="未检索到相关知识",
+                    thinking_hint="知识库中无匹配内容"
+                )
+
+            results_data = []
+            results_text = []
+            for i, r in enumerate(results, 1):
+                results_data.append({
+                    "source": r.book_name,
+                    "content": r.content,
+                    "relevance": r.relevance,
+                })
+                results_text.append(
+                    f"{i}. [{r.book_name}] {r.content[:150]}（相关度: {r.relevance:.2f}）"
+                )
+
+            return ToolResult(
+                success=True,
+                data={
+                    "results": results_data,
+                    "count": len(results_data),
+                    "query": query,
+                },
+                message="\n".join(results_text),
+                thinking_hint=f"检索到{len(results_data)}条相关知识"
+            )
+
+        except Exception as e:
+            return ToolResult(
+                success=False, data={},
+                message=f"知识库检索失败: {str(e)}",
+                thinking_hint="检索知识库时出错"
+            )
+
+    # =========================================================================
     # 辅助方法
     # =========================================================================
 
@@ -946,7 +1474,7 @@ class AgentTools:
 
     def _explain_move(self, fen: str, move: str) -> str:
         """生成走法解释"""
-        result = self.analyze_move(fen, move)
+        result = self.analyze_move(fen, move=move)
         if result.success:
             return result.data.get("why", "正常走法")
         return "无法分析"
@@ -957,6 +1485,11 @@ class AgentTools:
 # =============================================================================
 
 AGENT_TOOLS = {
+    "get_move_candidates": {
+        "function": AgentTools.get_move_candidates,
+        "description": "获取当前局面的合法候选走法列表，返回稳定的 candidate_id。后续分析走法时应优先使用 candidate_id。",
+        "parameters": ["fen", "limit"]
+    },
     # 棋子关系查询
     "get_piece_attacks": {
         "function": AgentTools.get_piece_attacks,
@@ -1010,7 +1543,24 @@ AGENT_TOOLS = {
         "function": AgentTools.analyze_position_strategy,
         "description": "局面战略分析。获取阶段、主动权、关键特征等信息。",
         "parameters": ["fen"]
-    }
+    },
+    # 走法模拟
+    "simulate_move": {
+        "function": AgentTools.simulate_move,
+        "description": "模拟走一步棋，对比走棋前后的局面标签变化。",
+        "parameters": ["fen", "move"]
+    },
+    # 知识检索
+    "query_chess_principles": {
+        "function": AgentTools.query_chess_principles,
+        "description": "根据张力类型查询适用的象棋原则和棋理。",
+        "parameters": ["fen", "tension_type"]
+    },
+    "search_chess_knowledge": {
+        "function": AgentTools.search_chess_knowledge,
+        "description": "语义检索象棋知识库，可查询棋理原则和经典棋谱开局。",
+        "parameters": ["query", "top_k"]
+    },
 }
 
 
