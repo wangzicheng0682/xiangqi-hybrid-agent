@@ -9,7 +9,6 @@
   2. data/init_data/ 中 14 万局棋谱的开局摘要（按需构建）
 """
 
-import os
 import re
 import threading
 from pathlib import Path
@@ -49,11 +48,24 @@ def _get_collection() -> chromadb.Collection:
             metadata={"hnsw:space": "cosine"},
         )
 
-        # 如果集合是空的，自动索引棋理原则
-        if _collection.count() == 0:
-            _index_principles(_collection)
+        _ensure_collection_seeded(_collection)
 
     return _collection
+
+
+def _ensure_collection_seeded(collection: chromadb.Collection) -> None:
+    if collection.count() == 0:
+        _index_principles(collection)
+        _index_opening_knowledge(collection)
+        return
+
+    principle_probe = collection.get(where={"type": "principle"}, limit=1)
+    if not principle_probe or not principle_probe.get("ids"):
+        _index_principles(collection)
+
+    opening_probe = collection.get(where={"type": "opening_principle"}, limit=1)
+    if not opening_probe or not opening_probe.get("ids"):
+        _index_opening_knowledge(collection)
 
 
 def _index_principles(collection: chromadb.Collection) -> None:
@@ -93,6 +105,44 @@ def _index_principles(collection: chromadb.Collection) -> None:
             metadatas=metadatas,
             ids=ids,
         )
+
+
+def _index_opening_knowledge(collection: chromadb.Collection) -> None:
+    from core.llm.opening_knowledge import OPENING_PRINCIPLES, OPENING_SYSTEMS
+
+    documents = []
+    metadatas = []
+    ids = []
+
+    for item in OPENING_PRINCIPLES:
+        doc = f"开局原则：{item['name']}。{item['description']}。要点：{'；'.join(item.get('tips', []))}。常见错误：{'；'.join(item.get('common_mistakes', []))}"
+        documents.append(doc)
+        metadatas.append({
+            "source": "开局知识库",
+            "type": "opening_principle",
+            "phase": "opening",
+            "tags": item["name"],
+        })
+        ids.append(f"opening_principle_{item['id']}")
+
+    for index, system in enumerate(OPENING_SYSTEMS.values()):
+        doc = (
+            f"开局体系：{system.name}。首步：{system.first_move}。{system.description}。"
+            f"特点：{'；'.join(system.characteristics)}。"
+            f"主要变例：{'；'.join(system.variations[:5]) if system.variations else '无'}。"
+            f"适合：{system.suitable_for or '通用'}"
+        )
+        documents.append(doc)
+        metadatas.append({
+            "source": "开局体系库",
+            "type": "opening_system",
+            "phase": "opening",
+            "tags": system.name,
+        })
+        ids.append(f"opening_system_{index}")
+
+    if documents:
+        collection.add(documents=documents, metadatas=metadatas, ids=ids)
 
 
 def index_game_openings(max_games: int = 5000) -> int:

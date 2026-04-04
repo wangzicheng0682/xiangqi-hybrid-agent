@@ -4,6 +4,7 @@
 像数据分析师一样精准。
 """
 
+import os
 from typing import Dict, List, Callable, Optional
 from core.llm.experts.base_expert import (
     BaseExpert, ExpertConfig, ExpertResult, CHESS_RULES_BLOCK,
@@ -208,6 +209,9 @@ ENGINE_TOOLS = [
 class EngineExpert(BaseExpert):
     """引擎专家"""
 
+    DEFAULT_MODEL = os.getenv("ENGINE_EXPERT_MODEL", os.getenv("EXPERT_LLM_MODEL", "glm-4-flash"))
+    DEFAULT_BASE_URL = os.getenv("ENGINE_EXPERT_BASE_URL", os.getenv("EXPERT_LLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/"))
+
     CONFIG = ExpertConfig(
         name="engine",
         display_name="引擎专家",
@@ -219,9 +223,24 @@ class EngineExpert(BaseExpert):
             "engine_deep_analysis", "engine_alternatives",
             "analyze_move", "compare_moves",
         ],
+        required_sections=["【引擎解读】", "【候选分析】", "【详细分析】", "【逻辑验证】", "【结论可信度】"],
         max_rounds=3,
         max_tokens=1024,
     )
+
+    def __init__(
+        self,
+        api_key: str = None,
+        model: str = None,
+        base_url: str = None,
+        debug_logger=None,
+    ):
+        super().__init__(
+            api_key=api_key,
+            model=model or self.DEFAULT_MODEL,
+            base_url=base_url or self.DEFAULT_BASE_URL,
+            debug_logger=debug_logger,
+        )
 
     def analyze(
         self,

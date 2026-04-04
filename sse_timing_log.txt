@@ -1,0 +1,804 @@
+[19:38:51] 连接 http://127.0.0.1:8005/api/analyze/deep-stream
+  +  0.03s (gap 0.033s) thinking: 启动分析...
+  +  0.03s (gap 0.000s) thinking: 检测局面...
+  +  0.09s (gap 0.055s) thinking: 引擎评估...
+  +  0.16s (gap 0.069s) thinking: AI分析中...
+  +  0.21s (gap 0.057s) dispatch_info: 
+  +  0.21s (gap 0.000s) orchestrator_subtitle: 协调中局分析：先建立证据底座
+  +  0.21s (gap 0.000s) [START] expert_start: 
+  +  0.21s (gap 0.000s) [STEP] expert_step_start: 
+  +  0.21s (gap 0.000s) [STEP] expert_step_content: 
+  +  0.21s (gap 0.001s) [STEP] expert_step_end: 
+  +  0.21s (gap 0.000s) [START] expert_start: 
+  +  0.21s (gap 0.000s) [STEP] expert_step_start: 
+  +  0.21s (gap 0.000s) [STEP] expert_step_content: 
+  +  0.21s (gap 0.000s) [STEP] expert_step_end: 
+  +  0.21s (gap 0.000s) thinking: 分析进行中...
+  +  0.73s (gap 0.515s) thinking: 分析进行中...
+  +  1.25s (gap 0.524s) dispatch_info: 
+  +  1.28s (gap 0.027s) [START] expert_start: 
+  +  1.28s (gap 0.000s) [STEP] expert_step_start: 
+  +  1.28s (gap 0.001s) [STEP] expert_step_content: 
+  +  1.28s (gap 0.001s) [STEP] expert_step_end: 
+  +  1.28s (gap 0.000s) [CHUNK] expert_tactics_thinking: [战术专家] 第1轮分析...
+  +  1.28s (gap 0.000s) [START] expert_start: 
+  +  1.28s (gap 0.000s) [STEP] expert_step_start: 
+  +  1.28s (gap 0.000s) [STEP] expert_step_content: 
+  +  1.28s (gap 0.001s) [STEP] expert_step_end: 
+  +  1.28s (gap 0.000s) [CHUNK] expert_strategy_thinking: [战略专家] 第1轮分析...
+  +  2.41s (gap 1.126s) [CHUNK] expert_tactics_chunk: ##
+  +  2.44s (gap 0.032s) [CHUNK] expert_strategy_chunk: ##
+  +  2.48s (gap 0.043s) [CHUNK] expert_tactics_chunk:  1 扫描战术机会
+  +  2.51s (gap 0.025s) [CHUNK] expert_strategy_chunk:  1 判断相位与
+  +  2.59s (gap 0.079s) [CHUNK] expert_tactics_chunk: 
+
+[STEP:
+  +  2.70s (gap 0.113s) thinking: 专家分析中...
+  +  2.76s (gap 0.063s) [CHUNK] expert_strategy_chunk: 整体态势
+
+[STEP
+  +  2.76s (gap 0.001s) [CHUNK] expert_strategy_chunk: :
+  +  2.81s (gap 0.046s) [CHUNK] expert_tactics_chunk:  扫描局面找
+  +  2.85s (gap 0.042s) [CHUNK] expert_strategy_chunk:  判断当前属于开局
+  +  2.91s (gap 0.056s) [CHUNK] expert_tactics_chunk: 将军和捉子威胁]
+
+当前
+  +  3.08s (gap 0.166s) [CHUNK] expert_strategy_chunk: 中局还是残局]
+当前
+  +  3.15s (gap 0.074s) [CHUNK] expert_strategy_chunk: 回合数为5，剩余
+  +  3.22s (gap 0.071s) [CHUNK] expert_tactics_chunk: 局面中，红方
+  +  3.22s (gap 0.003s) [CHUNK] expert_tactics_chunk: 有多种战术机会：
+
+1
+  +  3.31s (gap 0.085s) [CHUNK] expert_tactics_chunk: . **炮串打**
+  +  3.36s (gap 0.049s) [CHUNK] expert_strategy_chunk: 棋子约为30，属于
+  +  3.37s (gap 0.016s) [CHUNK] expert_tactics_chunk: ：
+  +  3.40s (gap 0.023s) [CHUNK] expert_strategy_chunk: 中局阶段。
+
+[
+  +  3.40s (gap 0.001s) [CHUNK] expert_strategy_chunk: STEP:
+  +  3.58s (gap 0.178s) [CHUNK] expert_tactics_chunk: 红方拥有两门炮，
+  +  3.75s (gap 0.172s) [CHUNK] expert_strategy_chunk:  评估
+  +  3.75s (gap 0.001s) [CHUNK] expert_tactics_chunk: 分别位于(5,
+  +  3.75s (gap 0.006s) [CHUNK] expert_strategy_chunk: 双方子力和空间失衡
+  +  3.87s (gap 0.116s) thinking: 专家分析中...
+  +  3.98s (gap 0.113s) [CHUNK] expert_strategy_chunk: ]
+红方和黑方各有
+  +  3.99s (gap 0.006s) [CHUNK] expert_tactics_chunk: 3)和(8
+  +  4.05s (gap 0.063s) [CHUNK] expert_strategy_chunk: 15个子力，双方
+  +  4.06s (gap 0.012s) [CHUNK] expert_tactics_chunk: ,3)，可以形成
+  +  4.12s (gap 0.057s) [CHUNK] expert_strategy_chunk: 实力相当。
+  +  4.29s (gap 0.169s) [CHUNK] expert_strategy_chunk: 从空间控制来看，
+  +  4.38s (gap 0.088s) [CHUNK] expert_strategy_chunk: 红方在左路有一定
+  +  4.38s (gap 0.005s) [CHUNK] expert_tactics_chunk: 炮串打，威胁黑方的
+  +  4.59s (gap 0.205s) [CHUNK] expert_strategy_chunk: 优势，黑方在
+  +  4.66s (gap 0.070s) [CHUNK] expert_strategy_chunk: 右路略占优势。
+
+【
+  +  4.66s (gap 0.006s) [CHUNK] expert_tactics_chunk: 多个棋子。
+2
+  +  4.84s (gap 0.175s) [CHUNK] expert_strategy_chunk: 战略评估】红方在
+  +  4.88s (gap 0.044s) [CHUNK] expert_strategy_chunk: 左路有一定优势，
+  +  4.97s (gap 0.085s) [CHUNK] expert_tactics_chunk: . **
+  +  5.07s (gap 0.107s) thinking: 专家分析中...
+  +  5.14s (gap 0.061s) [CHUNK] expert_strategy_chunk: 黑方在右路略占优势
+  +  5.31s (gap 0.170s) [CHUNK] expert_tactics_chunk: 马脚
+  +  5.31s (gap 0.001s) [CHUNK] expert_strategy_chunk: ，双方处于中局
+  +  5.35s (gap 0.042s) [CHUNK] expert_strategy_chunk: 均势状态。
+
+##
+  +  5.43s (gap 0.081s) [CHUNK] expert_strategy_chunk:  2 识别战略失衡
+  +  5.49s (gap 0.064s) [CHUNK] expert_strategy_chunk: 点
+
+[STEP
+  +  5.58s (gap 0.082s) [CHUNK] expert_strategy_chunk: :
+  +  5.65s (gap 0.074s) [CHUNK] expert_tactics_chunk: 被别
+  +  5.65s (gap 0.001s) [CHUNK] expert_strategy_chunk:  评估双方子力和
+  +  5.76s (gap 0.107s) [CHUNK] expert_strategy_chunk: 空间失衡]
+红方
+  +  5.94s (gap 0.183s) [CHUNK] expert_tactics_chunk: **：
+  +  5.99s (gap 0.050s) [CHUNK] expert_strategy_chunk: 在左路有红马
+  +  6.11s (gap 0.122s) thinking: 专家分析中...
+  +  6.17s (gap 0.060s) [CHUNK] expert_tactics_chunk: 黑马
+  +  6.17s (gap 0.000s) [CHUNK] expert_strategy_chunk: 、红车和红炮协同
+  +  6.20s (gap 0.029s) [CHUNK] expert_tactics_chunk: 位于(3,8)，
+  +  6.24s (gap 0.041s) [CHUNK] expert_strategy_chunk: ，对黑方左翼形成
+  +  6.31s (gap 0.066s) [CHUNK] expert_strategy_chunk: 威胁。
+  +  6.35s (gap 0.044s) [CHUNK] expert_tactics_chunk: 其马脚被黑卒(3
+  +  6.53s (gap 0.177s) [CHUNK] expert_tactics_chunk: ,7)占据，导致
+  +  6.53s (gap 0.001s) [CHUNK] expert_strategy_chunk: 黑方在右路有黑车
+  +  6.56s (gap 0.026s) [CHUNK] expert_tactics_chunk: 黑马无法正常移动
+  +  6.66s (gap 0.105s) [CHUNK] expert_strategy_chunk: 和黑炮，对红方右
+  +  6.72s (gap 0.060s) [CHUNK] expert_strategy_chunk: 翼形成牵制。
+
+[
+  +  6.74s (gap 0.015s) [CHUNK] expert_tactics_chunk: 。
+3. **子
+  +  6.79s (gap 0.053s) [CHUNK] expert_strategy_chunk: STEP:
+  +  6.82s (gap 0.025s) [CHUNK] expert_tactics_chunk: 力协同**：
+  +  6.87s (gap 0.050s) [CHUNK] expert_strategy_chunk:  分析棋子活动性
+  +  6.93s (gap 0.067s) [CHUNK] expert_strategy_chunk: ]
+红方子力活跃
+  +  7.02s (gap 0.084s) [CHUNK] expert_tactics_chunk: 红马(3,3)和
+  +  7.12s (gap 0.105s) thinking: 专家分析中...
+  +  7.22s (gap 0.097s) [CHUNK] expert_strategy_chunk: ，红车和红
+  +  7.28s (gap 0.066s) [CHUNK] expert_strategy_chunk: 炮可自由移动，红
+  +  7.35s (gap 0.066s) [CHUNK] expert_strategy_chunk: 马可灵活支援左右
+  +  7.38s (gap 0.028s) [CHUNK] expert_tactics_chunk: 红车(1,1)
+  +  7.42s (gap 0.039s) [CHUNK] expert_strategy_chunk: 两翼。
+  +  7.45s (gap 0.033s) [CHUNK] expert_tactics_chunk: 可以协同攻击黑方的
+  +  7.53s (gap 0.081s) [CHUNK] expert_tactics_chunk: 右翼。
+
+## 2
+  +  7.55s (gap 0.015s) [CHUNK] expert_strategy_chunk: 黑方子力相对固定
+  +  7.71s (gap 0.167s) [CHUNK] expert_tactics_chunk:  验证关键攻防关系
+  +  7.76s (gap 0.043s) [CHUNK] expert_tactics_chunk: 
+
+[STEP:
+  +  7.93s (gap 0.176s) [CHUNK] expert_strategy_chunk: ，黑车和黑炮受制
+  +  8.04s (gap 0.106s) [CHUNK] expert_tactics_chunk:  调
+  +  8.13s (gap 0.094s) [CHUNK] expert_strategy_chunk: 于对方棋子，
+  +  8.24s (gap 0.109s) thinking: 专家分析中...
+  +  8.34s (gap 0.102s) [CHUNK] expert_tactics_chunk: 用工具
+  +  8.40s (gap 0.061s) [CHUNK] expert_strategy_chunk: 黑马
+  +  8.65s (gap 0.245s) [CHUNK] expert_tactics_chunk: 验证牵
+  +  8.70s (gap 0.055s) [CHUNK] expert_strategy_chunk: 受制
+  +  8.98s (gap 0.272s) [CHUNK] expert_tactics_chunk: 制与
+  +  9.00s (gap 0.021s) [CHUNK] expert_strategy_chunk: 于红
+  +  9.21s (gap 0.213s) [CHUNK] expert_tactics_chunk: 保护
+  +  9.32s (gap 0.111s) thinking: 专家分析中...
+  +  9.49s (gap 0.169s) [CHUNK] expert_strategy_chunk: 车。
+
+【
+  +  9.71s (gap 0.217s) [CHUNK] expert_strategy_chunk: 战略
+  +  9.78s (gap 0.068s) [CHUNK] expert_tactics_chunk: 关系]
+
+为了
+  +  9.86s (gap 0.080s) [CHUNK] expert_tactics_chunk: 更准确地分析局面
+  +  9.96s (gap 0.102s) [CHUNK] expert_strategy_chunk: 失衡点
+  +  9.96s (gap 0.001s) [CHUNK] expert_tactics_chunk: ，我将调用工具来
+  + 10.03s (gap 0.068s) [CHUNK] expert_strategy_chunk: 】红方在左路的子
+  + 10.21s (gap 0.179s) [CHUNK] expert_tactics_chunk: 验证以下关键攻防
+  + 10.23s (gap 0.022s) [CHUNK] expert_strategy_chunk: 力协同和活跃度略
+  + 10.35s (gap 0.118s) thinking: 专家分析中...
+  + 10.41s (gap 0.062s) [CHUNK] expert_tactics_chunk: 关系：
+
+1
+  + 10.41s (gap 0.001s) [CHUNK] expert_strategy_chunk: 占优势，黑方在右
+  + 10.51s (gap 0.097s) [CHUNK] expert_strategy_chunk: 路的子力牵制和固定
+  + 10.69s (gap 0.179s) [CHUNK] expert_tactics_chunk: . **红炮
+  + 10.76s (gap 0.071s) [CHUNK] expert_strategy_chunk: 性略占优势。
+
+##
+  + 10.94s (gap 0.180s) [CHUNK] expert_tactics_chunk: (5
+  + 11.03s (gap 0.098s) [CHUNK] expert_strategy_chunk:  3 推演双方计划
+  + 11.12s (gap 0.084s) [CHUNK] expert_strategy_chunk: 
+
+【优势方计划
+  + 11.23s (gap 0.112s) [CHUNK] expert_tactics_chunk: ,3
+  + 11.40s (gap 0.172s) [CHUNK] expert_strategy_chunk: 】
+- 红
+  + 11.51s (gap 0.109s) thinking: 专家分析中...
+  + 11.57s (gap 0.062s) [CHUNK] expert_strategy_chunk: 方应继续发挥左路
+  + 11.57s (gap 0.001s) [CHUNK] expert_tactics_chunk: )是否
+  + 11.74s (gap 0.171s) [CHUNK] expert_strategy_chunk: 优势，寻求突破黑
+  + 11.80s (gap 0.055s) [CHUNK] expert_strategy_chunk: 方右翼防线。
+-
+  + 11.83s (gap 0.034s) [CHUNK] expert_tactics_chunk: 保护红
+  + 11.94s (gap 0.104s) [CHUNK] expert_strategy_chunk:  具体路线：
+  + 12.01s (gap 0.071s) [CHUNK] expert_tactics_chunk: 兵(3,5)**
+  + 12.01s (gap 0.001s) [CHUNK] expert_tactics_chunk: ：
+  + 12.01s (gap 0.001s) [CHUNK] expert_strategy_chunk: 红马可支援红车，
+  + 12.03s (gap 0.019s) [CHUNK] expert_tactics_chunk: 这将帮助我们判断
+  + 12.37s (gap 0.338s) [CHUNK] expert_strategy_chunk: 红炮可攻击黑
+  + 12.37s (gap 0.000s) [CHUNK] expert_tactics_chunk: 红炮是否
+  + 12.44s (gap 0.069s) [CHUNK] expert_strategy_chunk: 车，红车可寻找突破口
+  + 12.54s (gap 0.102s) thinking: 专家分析中...
+  + 12.62s (gap 0.086s) [CHUNK] expert_tactics_chunk: 可以安全
+  + 12.67s (gap 0.047s) [CHUNK] expert_strategy_chunk: 。
+
+【劣势方挣扎
+  + 12.70s (gap 0.028s) [CHUNK] expert_tactics_chunk: 地移动或被攻击。
+2
+  + 12.74s (gap 0.042s) [CHUNK] expert_strategy_chunk: 】
+- 黑方应加强
+  + 12.92s (gap 0.177s) [CHUNK] expert_strategy_chunk: 右翼防守，同时寻找
+  + 12.97s (gap 0.049s) [CHUNK] expert_tactics_chunk: . **黑车(
+  + 13.06s (gap 0.087s) [CHUNK] expert_tactics_chunk: 1,10)是否被
+  + 13.12s (gap 0.068s) [CHUNK] expert_tactics_chunk: 保护**：
+  + 13.18s (gap 0.052s) [CHUNK] expert_strategy_chunk: 反击机会。
+-
+  + 13.21s (gap 0.035s) [CHUNK] expert_tactics_chunk: 这将帮助我们判断
+  + 13.28s (gap 0.072s) [CHUNK] expert_tactics_chunk: 黑车是否安全或是否
+  + 13.36s (gap 0.080s) [CHUNK] expert_tactics_chunk: 可以攻击。
+
+##
+  + 13.47s (gap 0.106s) [CHUNK] expert_strategy_chunk:  具
+  + 13.57s (gap 0.106s) thinking: 专家分析中...
+  + 13.63s (gap 0.062s) [CHUNK] expert_tactics_chunk:  3 评估对手应
+  + 13.74s (gap 0.101s) [CHUNK] expert_strategy_chunk: 体手段
+  + 13.90s (gap 0.168s) [CHUNK] expert_tactics_chunk: 着
+
+[
+  + 13.90s (gap 0.001s) [CHUNK] expert_strategy_chunk: ：
+  + 13.90s (gap 0.000s) [CHUNK] expert_tactics_chunk: STEP:
+  + 14.17s (gap 0.263s) [CHUNK] expert_tactics_chunk:  站
+  + 14.18s (gap 0.015s) [CHUNK] expert_strategy_chunk: 黑车可支援黑
+  + 14.35s (gap 0.167s) [CHUNK] expert_strategy_chunk: 炮，黑炮可攻击红
+  + 14.35s (gap 0.001s) [CHUNK] expert_tactics_chunk: 在对手视角检查主要
+  + 14.41s (gap 0.056s) [CHUNK] expert_tactics_chunk: 应着]
+
+面对红
+  + 14.43s (gap 0.020s) [CHUNK] expert_strategy_chunk: 车，黑马可支援黑
+  + 14.50s (gap 0.070s) [CHUNK] expert_strategy_chunk: 车。
+
+【关键转折
+  + 14.61s (gap 0.117s) thinking: 专家分析中...
+  + 14.68s (gap 0.062s) [CHUNK] expert_tactics_chunk: 方的威胁，黑方有以下
+  + 14.74s (gap 0.066s) [CHUNK] expert_strategy_chunk: 点】
+- 红
+  + 14.75s (gap 0.002s) [CHUNK] expert_tactics_chunk: 几种应着：
+
+1
+  + 14.83s (gap 0.081s) [CHUNK] expert_strategy_chunk: 方成功突破黑方右
+  + 14.83s (gap 0.005s) [CHUNK] expert_tactics_chunk: . **平车捉炮
+  + 15.01s (gap 0.175s) [CHUNK] expert_strategy_chunk: 翼防线，形成攻势
+  + 15.02s (gap 0.018s) [CHUNK] expert_tactics_chunk: **：
+  + 15.08s (gap 0.057s) [CHUNK] expert_strategy_chunk: 。
+- 黑方成功
+  + 15.26s (gap 0.175s) [CHUNK] expert_strategy_chunk: 反击，扭转局势。
+
+##
+  + 15.31s (gap 0.051s) [CHUNK] expert_tactics_chunk: 黑车(1,10)
+  + 15.36s (gap 0.054s) [CHUNK] expert_strategy_chunk:  4 战略建议
+
+【
+  + 15.53s (gap 0.172s) [CHUNK] expert_strategy_chunk: 优势方建议】
+-
+  + 15.58s (gap 0.043s) [CHUNK] expert_tactics_chunk: 可以平移到(
+  + 15.66s (gap 0.081s) [CHUNK] expert_tactics_chunk: 2,10)或(3
+  + 15.67s (gap 0.017s) [CHUNK] expert_strategy_chunk:  红方应充分发挥
+  + 15.78s (gap 0.109s) thinking: 专家分析中...
+  + 15.85s (gap 0.063s) [CHUNK] expert_strategy_chunk: 红车、红炮和红马
+  + 15.88s (gap 0.033s) [CHUNK] expert_strategy_chunk: 的优势，寻求突破
+  + 15.94s (gap 0.057s) [CHUNK] expert_tactics_chunk: ,10
+  + 16.11s (gap 0.177s) [CHUNK] expert_tactics_chunk: )来捉住红炮(5
+  + 16.11s (gap 0.001s) [CHUNK] expert_strategy_chunk: 黑方右翼防线。
+
+【
+  + 16.18s (gap 0.069s) [CHUNK] expert_strategy_chunk: 劣势方建议】
+-
+  + 16.25s (gap 0.068s) [CHUNK] expert_tactics_chunk: ,3)。
+2. **
+  + 16.34s (gap 0.090s) [CHUNK] expert_strategy_chunk:  黑方应加强右翼
+  + 16.51s (gap 0.174s) [CHUNK] expert_strategy_chunk: 防守，同时寻找反击
+  + 16.55s (gap 0.040s) [CHUNK] expert_tactics_chunk: 跳马解围**
+  + 16.55s (gap 0.001s) [CHUNK] expert_tactics_chunk: ：
+  + 16.61s (gap 0.059s) [CHUNK] expert_strategy_chunk: 机会，力求扭转局势
+  + 16.78s (gap 0.166s) [CHUNK] expert_strategy_chunk: 。
+
+【结论可信
+  + 16.82s (gap 0.044s) [CHUNK] expert_tactics_chunk: 黑马(3,8)可以
+  + 16.94s (gap 0.112s) thinking: 专家分析中...
+  + 17.02s (gap 0.080s) [CHUNK] expert_strategy_chunk: 度】高
+
+[
+  + 17.11s (gap 0.096s) [CHUNK] expert_tactics_chunk: 跳到
+  + 17.21s (gap 0.095s) [CHUNK] expert_strategy_chunk: CLAIM] 红
+  + 17.28s (gap 0.070s) [CHUNK] expert_strategy_chunk: 方在左路有一定优势
+  + 17.45s (gap 0.174s) [CHUNK] expert_tactics_chunk: (3
+  + 17.46s (gap 0.007s) [CHUNK] expert_strategy_chunk: ，黑方在右路略占
+  + 17.52s (gap 0.065s) [CHUNK] expert_strategy_chunk: 优势，双方处于中
+  + 17.60s (gap 0.079s) [CHUNK] expert_tactics_chunk: ,6)或(3,4
+  + 17.70s (gap 0.103s) [CHUNK] expert_strategy_chunk: 局均势状态。
+[E
+  + 17.81s (gap 0.101s) [CHUNK] expert_tactics_chunk: )来解救被
+  + 17.85s (gap 0.043s) [CHUNK] expert_strategy_chunk: VIDENCE]
+  + 17.85s (gap 0.003s) [CHUNK] expert_strategy_chunk:  棋子布局和引擎
+  + 17.96s (gap 0.112s) thinking: 专家分析中...
+  + 18.05s (gap 0.085s) [CHUNK] expert_strategy_chunk: 评估数据
+[CONF
+  + 18.05s (gap 0.003s) [CHUNK] expert_strategy_chunk: IDENCE] 高
+  + 18.05s (gap 0.001s) [CHUNK] expert_strategy_chunk: 
+
+[CLAIM
+  + 18.23s (gap 0.177s) [CHUNK] expert_strategy_chunk: ] 红方应充分发挥
+  + 18.23s (gap 0.001s) [CHUNK] expert_tactics_chunk: 别住的马脚。
+3
+  + 18.45s (gap 0.226s) [CHUNK] expert_strategy_chunk: 左路优势
+  + 18.47s (gap 0.014s) [CHUNK] expert_tactics_chunk: . **
+  + 18.52s (gap 0.056s) [CHUNK] expert_strategy_chunk: ，寻求突破黑方右
+  + 18.55s (gap 0.023s) [CHUNK] expert_tactics_chunk: 平炮打车**：
+  + 18.59s (gap 0.045s) [CHUNK] expert_strategy_chunk: 翼防线。
+[EVID
+  + 18.76s (gap 0.165s) [CHUNK] expert_strategy_chunk: ENCE] 棋子
+  + 18.77s (gap 0.013s) [CHUNK] expert_tactics_chunk: 黑炮(5
+  + 18.80s (gap 0.027s) [CHUNK] expert_strategy_chunk: 布局和引擎评估数据
+  + 18.85s (gap 0.054s) [CHUNK] expert_tactics_chunk: ,8)可以平移到
+  + 18.95s (gap 0.101s) [CHUNK] expert_strategy_chunk: 
+[CONFID
+  + 19.02s (gap 0.067s) [CHUNK] expert_strategy_chunk: ENCE] 高
+
+[
+  + 19.11s (gap 0.088s) [CHUNK] expert_strategy_chunk: CLAIM] 黑
+  + 19.11s (gap 0.009s) [CHUNK] expert_tactics_chunk: (4,8)
+  + 19.24s (gap 0.123s) thinking: 专家分析中...
+  + 19.39s (gap 0.148s) [CHUNK] expert_tactics_chunk: 或(5,7
+  + 19.39s (gap 0.008s) [CHUNK] expert_strategy_chunk: 方应加强右翼防守
+  + 19.46s (gap 0.071s) [CHUNK] expert_tactics_chunk: )来攻击红车(1
+  + 19.57s (gap 0.101s) [CHUNK] expert_strategy_chunk: ，同时寻找反击机会
+  + 19.73s (gap 0.169s) [CHUNK] expert_strategy_chunk: ，力求扭转局势。
+[E
+  + 19.77s (gap 0.033s) [CHUNK] expert_tactics_chunk: ,1)。
+
+我将
+  + 19.80s (gap 0.036s) [CHUNK] expert_strategy_chunk: VIDENCE]
+  + 19.89s (gap 0.089s) [CHUNK] expert_tactics_chunk: 使用工具来分析这些
+  + 19.93s (gap 0.032s) [CHUNK] expert_strategy_chunk:  棋子布局和引擎
+  + 20.09s (gap 0.168s) [CHUNK] expert_strategy_chunk: 评估数据
+[CONF
+  + 20.13s (gap 0.035s) [CHUNK] expert_tactics_chunk: 应着的后果，并判断
+  + 20.20s (gap 0.075s) [CHUNK] expert_strategy_chunk: IDENCE] 高
+  + 20.23s (gap 0.024s) [STEP] expert_step_start: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_content: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_end: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_start: 
+  + 20.23s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.23s (gap 0.000s) [STEP] expert_step_end: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_start: 
+  + 20.23s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_end: 
+  + 20.23s (gap 0.000s) [STEP] expert_step_start: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_content: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_end: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_start: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_content: 
+  + 20.23s (gap 0.000s) [STEP] expert_step_end: 
+  + 20.23s (gap 0.000s) [STEP] expert_step_start: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_content: 
+  + 20.23s (gap 0.000s) [STEP] expert_step_end: 
+  + 20.23s (gap 0.000s) [STEP] expert_step_start: 
+  + 20.23s (gap 0.001s) [STEP] expert_step_content: 
+  + 20.23s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.001s) [STEP] expert_step_end: 
+  + 20.24s (gap 0.001s) [STEP] expert_step_start: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.001s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_end: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_start: 
+  + 20.24s (gap 0.001s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_end: 
+  + 20.24s (gap 0.001s) [STEP] expert_step_start: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_end: 
+  + 20.24s (gap 0.001s) [STEP] expert_step_start: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_end: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_start: 
+  + 20.24s (gap 0.002s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.001s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.001s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.000s) [STEP] expert_step_content: 
+  + 20.24s (gap 0.001s) [STEP] expert_step_end: 
+  + 20.34s (gap 0.098s) thinking: 专家分析中...
+  + 20.45s (gap 0.109s) [CHUNK] expert_tactics_chunk: 对手是否
+  + 20.55s (gap 0.099s) [CHUNK] expert_tactics_chunk: 被锁死。
+
+##
+  + 20.62s (gap 0.073s) [CHUNK] expert_tactics_chunk:  【战术发现】
+
+红
+  + 20.96s (gap 0.340s) [CHUNK] expert_tactics_chunk: 方拥有炮串打、
+  + 21.18s (gap 0.214s) [CHUNK] expert_tactics_chunk: 马脚被别和子力协同
+  + 21.46s (gap 0.284s) [CHUNK] expert_tactics_chunk: 等战术机会，而
+  + 21.54s (gap 0.080s) [CHUNK] expert_tactics_chunk: 黑方则需要应对红
+  + 21.65s (gap 0.106s) thinking: 专家分析中...
+  + 21.71s (gap 0.061s) [CHUNK] expert_tactics_chunk: 方的威胁。
+
+##
+  + 21.76s (gap 0.054s) [CHUNK] expert_tactics_chunk:  【对手处境】
+
+-
+  + 21.86s (gap 0.101s) [CHUNK] expert_tactics_chunk:  对手可选：
+  + 22.04s (gap 0.173s) [CHUNK] expert_tactics_chunk: A、平车捉炮；
+  + 22.29s (gap 0.258s) [CHUNK] expert_tactics_chunk: B、跳马
+  + 22.64s (gap 0.351s) [CHUNK] expert_tactics_chunk: 解围
+  + 22.73s (gap 0.084s) [CHUNK] expert_tactics_chunk: ；
+  + 22.85s (gap 0.119s) thinking: 专家分析中...
+  + 23.08s (gap 0.234s) [CHUNK] expert_tactics_chunk: C、
+  + 23.13s (gap 0.044s) [CHUNK] expert_tactics_chunk: 平炮打车。
+- A
+  + 23.30s (gap 0.172s) [CHUNK] expert_tactics_chunk: 后果：
+  + 23.64s (gap 0.343s) [CHUNK] expert_tactics_chunk: 红炮(5,3)
+  + 23.92s (gap 0.281s) thinking: 专家分析中...
+  + 24.02s (gap 0.101s) [CHUNK] expert_tactics_chunk: 被捉，红方的
+  + 24.11s (gap 0.088s) [CHUNK] expert_tactics_chunk: 炮串打被破坏。
+-
+  + 24.11s (gap 0.005s) [CHUNK] expert_tactics_chunk:  B后果：
+  + 24.33s (gap 0.219s) [CHUNK] expert_tactics_chunk: 黑马
+  + 24.57s (gap 0.238s) [CHUNK] expert_tactics_chunk: (3
+  + 24.75s (gap 0.176s) [CHUNK] expert_tactics_chunk: ,8)解围，但其
+  + 25.03s (gap 0.282s) thinking: 专家分析中...
+  + 25.18s (gap 0.146s) [CHUNK] expert_tactics_chunk: 活动性仍然受限。
+-
+  + 25.51s (gap 0.334s) [CHUNK] expert_tactics_chunk:  C后果
+  + 25.60s (gap 0.096s) [CHUNK] expert_tactics_chunk: ：
+  + 25.95s (gap 0.348s) [CHUNK] expert_tactics_chunk: 红车
+  + 26.07s (gap 0.116s) thinking: 专家分析中...
+  + 26.13s (gap 0.062s) [CHUNK] expert_tactics_chunk: (1,1)被攻击
+  + 26.30s (gap 0.173s) [CHUNK] expert_tactics_chunk: ，红方的子力协同
+  + 26.53s (gap 0.226s) [CHUNK] expert_tactics_chunk: 被破坏。
+
+##
+  + 26.83s (gap 0.299s) [CHUNK] expert_tactics_chunk:  【详细
+  + 27.11s (gap 0.283s) thinking: 专家分析中...
+  + 27.35s (gap 0.234s) [CHUNK] expert_tactics_chunk: 分析】
+
+当前
+  + 27.69s (gap 0.340s) [CHUNK] expert_tactics_chunk: 局面中
+  + 28.03s (gap 0.341s) [CHUNK] expert_tactics_chunk: ，红
+  + 28.14s (gap 0.109s) thinking: 专家分析中...
+  + 28.20s (gap 0.063s) [CHUNK] expert_tactics_chunk: 方
+  + 28.54s (gap 0.342s) [CHUNK] expert_tactics_chunk: 拥有多个
+  + 28.73s (gap 0.188s) [CHUNK] expert_tactics_chunk: 战术机会
+  + 28.90s (gap 0.167s) [CHUNK] expert_tactics_chunk: ，包括炮串打、马
+  + 29.13s (gap 0.234s) [CHUNK] expert_tactics_chunk: 脚被别和子
+  + 29.13s (gap 0.001s) [CHUNK] expert_tactics_chunk: 力协同。
+  + 29.24s (gap 0.109s) thinking: 专家分析中...
+  + 29.39s (gap 0.149s) [CHUNK] expert_tactics_chunk: 红方
+  + 29.57s (gap 0.179s) [CHUNK] expert_tactics_chunk: 可以使用炮串打威胁
+  + 29.74s (gap 0.170s) [CHUNK] expert_tactics_chunk: 黑方的多个棋子，
+  + 30.01s (gap 0.269s) [CHUNK] expert_tactics_chunk: 同时利用马脚被
+  + 30.20s (gap 0.198s) [CHUNK] expert_tactics_chunk: 别限制黑马的移动
+  + 30.21s (gap 0.009s) [CHUNK] expert_tactics_chunk: 。
+  + 30.28s (gap 0.072s) [CHUNK] expert_tactics_chunk: 红方的子力协同也
+  + 30.39s (gap 0.106s) thinking: 专家分析中...
+  + 30.63s (gap 0.234s) [CHUNK] expert_tactics_chunk: 使得黑方难以应对
+  + 30.80s (gap 0.173s) [CHUNK] expert_tactics_chunk: 红方的攻击。
+
+黑
+  + 30.89s (gap 0.091s) [CHUNK] expert_tactics_chunk: 方需要应对红方的
+  + 30.97s (gap 0.077s) [CHUNK] expert_tactics_chunk: 威胁，可以选择平
+  + 31.31s (gap 0.346s) [CHUNK] expert_tactics_chunk: 车捉炮、
+  + 31.42s (gap 0.107s) thinking: 专家分析中...
+  + 31.53s (gap 0.112s) [CHUNK] expert_tactics_chunk: 跳马解围或
+  + 31.87s (gap 0.341s) [CHUNK] expert_tactics_chunk: 平炮
+  + 32.14s (gap 0.265s) [CHUNK] expert_tactics_chunk: 打车。
+  + 32.50s (gap 0.360s) [CHUNK] expert_tactics_chunk: 平车
+  + 32.60s (gap 0.105s) thinking: 专家分析中...
+  + 32.84s (gap 0.235s) [CHUNK] expert_tactics_chunk: 捉炮可以破坏红
+  + 33.01s (gap 0.176s) [CHUNK] expert_tactics_chunk: 方的炮串打，但
+  + 33.35s (gap 0.341s) [CHUNK] expert_tactics_chunk: 可能会暴露
+  + 33.59s (gap 0.238s) [CHUNK] expert_tactics_chunk: 黑车
+  + 33.71s (gap 0.116s) thinking: 专家分析中...
+  + 33.77s (gap 0.064s) [CHUNK] expert_tactics_chunk: ；
+  + 33.96s (gap 0.185s) [CHUNK] expert_tactics_chunk: 跳马解围可以
+  + 34.13s (gap 0.174s) [CHUNK] expert_tactics_chunk: 解救被别住的马脚
+  + 34.34s (gap 0.204s) [CHUNK] expert_tactics_chunk: ，
+  + 34.34s (gap 0.004s) [CHUNK] expert_tactics_chunk: 但黑马的活动性仍然
+  + 34.34s (gap 0.001s) [CHUNK] expert_tactics_chunk: 受限；
+  + 34.55s (gap 0.215s) [CHUNK] expert_tactics_chunk: 平炮打车可以攻击
+  + 34.68s (gap 0.121s) [CHUNK] expert_tactics_chunk: 红车，但可能会破坏
+  + 34.80s (gap 0.125s) thinking: 专家分析中...
+  + 34.89s (gap 0.090s) [CHUNK] expert_tactics_chunk: 黑方的阵型。
+
+##
+  + 35.14s (gap 0.247s) [CHUNK] expert_tactics_chunk:  【结论
+  + 35.31s (gap 0.177s) [CHUNK] expert_tactics_chunk: 可信度】
+
+中
+
+##
+  + 35.57s (gap 0.260s) [CHUNK] expert_tactics_chunk:  结构化断言
+
+[
+  + 35.75s (gap 0.173s) [CHUNK] expert_tactics_chunk: CLAIM] 红
+  + 35.86s (gap 0.111s) thinking: 专家分析中...
+  + 36.01s (gap 0.155s) [CHUNK] expert_tactics_chunk: 方拥有炮串打、马
+  + 36.12s (gap 0.103s) [CHUNK] expert_tactics_chunk: 脚被别和子力协同
+  + 36.36s (gap 0.245s) [CHUNK] expert_tactics_chunk: 等战术机会，黑
+  + 36.57s (gap 0.207s) [CHUNK] expert_tactics_chunk: 方需要应对红
+  + 36.75s (gap 0.179s) [CHUNK] expert_tactics_chunk: 方的威胁。
+[E
+  + 36.75s (gap 0.001s) [CHUNK] expert_tactics_chunk: VIDENCE]
+  + 36.92s (gap 0.170s) [CHUNK] expert_tactics_chunk:  通过分析棋子位置
+  + 37.03s (gap 0.111s) thinking: 专家分析中...
+  + 37.11s (gap 0.081s) [CHUNK] expert_tactics_chunk: 和攻击范围得出
+  + 37.28s (gap 0.168s) [CHUNK] expert_tactics_chunk: 。
+[CONFID
+  + 37.47s (gap 0.191s) [CHUNK] expert_tactics_chunk: ENCE]
+  + 37.54s (gap 0.074s) [CHUNK] expert_tactics_chunk:  中
+
+[CLAIM
+  + 37.65s (gap 0.107s) [CHUNK] expert_tactics_chunk: ] 黑方可以选择
+  + 37.88s (gap 0.232s) [CHUNK] expert_tactics_chunk: 平车捉炮、跳马解
+  + 37.96s (gap 0.079s) [CHUNK] expert_tactics_chunk: 围或平炮打车来应对
+  + 38.07s (gap 0.109s) thinking: 专家分析中...
+  + 38.30s (gap 0.234s) [CHUNK] expert_tactics_chunk: 红方的威胁。
+[E
+  + 38.57s (gap 0.268s) [CHUNK] expert_tactics_chunk: VIDENCE
+  + 38.93s (gap 0.358s) [CHUNK] expert_tactics_chunk: ] 通过
+  + 38.97s (gap 0.043s) [RESULT] expert_result: 
+  + 39.08s (gap 0.113s) thinking: 专家分析中...
+  + 39.17s (gap 0.090s) [CHUNK] expert_tactics_chunk: 分析棋
+  + 39.38s (gap 0.206s) [CHUNK] expert_tactics_chunk: 子
+  + 39.73s (gap 0.346s) [CHUNK] expert_tactics_chunk: 位置和
+  + 40.07s (gap 0.343s) [CHUNK] expert_tactics_chunk: 攻击范围
+  + 40.18s (gap 0.110s) thinking: 专家分析中...
+  + 40.34s (gap 0.161s) [CHUNK] expert_tactics_chunk: 得出
+  + 40.41s (gap 0.074s) [CHUNK] expert_tactics_chunk: 。
+[CONFID
+  + 40.69s (gap 0.279s) [CHUNK] expert_tactics_chunk: ENCE]
+  + 40.95s (gap 0.252s) [CHUNK] expert_tactics_chunk:  中
+  + 40.95s (gap 0.001s) [STEP] expert_step_start: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_end: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_start: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_end: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_start: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.95s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.001s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.000s) [STEP] expert_step_content: 
+  + 40.96s (gap 0.000s) [STEP] expert_step_end: 
+  + 40.98s (gap 0.019s) [RESULT] expert_result: 
+  + 41.25s (gap 0.274s) thinking: 专家分析中...
+  + 42.28s (gap 1.027s) thinking: 专家分析中...
+  + 43.31s (gap 1.030s) thinking: 专家分析中...
+  + 44.34s (gap 1.025s) thinking: 专家分析中...
+  + 45.38s (gap 1.041s) thinking: 专家分析中...
+  + 46.40s (gap 1.026s) thinking: 专家分析中...
+  + 47.43s (gap 1.030s) thinking: 专家分析中...
+  + 48.46s (gap 1.027s) thinking: 专家分析中...
+  + 49.49s (gap 1.026s) thinking: 专家分析中...
+  + 50.51s (gap 1.027s) thinking: 专家分析中...
+  + 51.54s (gap 1.027s) thinking: 专家分析中...
+  + 52.58s (gap 1.041s) thinking: 专家分析中...
+  + 53.61s (gap 1.028s) thinking: 专家分析中...
+  + 54.64s (gap 1.028s) thinking: 专家分析中...
+  + 55.66s (gap 1.027s) thinking: 专家分析中...
+  + 56.70s (gap 1.041s) thinking: 专家分析中...
+  + 57.73s (gap 1.025s) thinking: 专家分析中...
+  + 58.76s (gap 1.028s) thinking: 专家分析中...
+  + 59.79s (gap 1.030s) thinking: 专家分析中...
+  + 60.82s (gap 1.028s) thinking: 专家分析中...
+  + 61.84s (gap 1.023s) thinking: 专家分析中...
+  + 62.86s (gap 1.026s) thinking: 专家分析中...
+  + 63.89s (gap 1.028s) thinking: 专家分析中...
+  + 64.92s (gap 1.027s) thinking: 专家分析中...
+  + 65.95s (gap 1.030s) thinking: 专家分析中...
+  + 66.98s (gap 1.028s) thinking: 专家分析中...
+  + 68.01s (gap 1.028s) thinking: 专家分析中...
+  + 69.05s (gap 1.043s) thinking: 专家分析中...
+  + 70.08s (gap 1.028s) thinking: 专家分析中...
+  + 71.10s (gap 1.028s) thinking: 专家分析中...
+  + 72.13s (gap 1.030s) thinking: 专家分析中...
+  + 73.17s (gap 1.031s) thinking: 专家分析中...
+  + 74.20s (gap 1.033s) thinking: 专家分析中...
+  + 75.22s (gap 1.026s) thinking: 专家分析中...
+  + 76.27s (gap 1.046s) thinking: 专家分析中...
+  + 77.28s (gap 1.006s) thinking: 专家分析中...
+  + 78.30s (gap 1.027s) thinking: 专家分析中...
+  + 79.35s (gap 1.043s) thinking: 专家分析中...
+  + 80.38s (gap 1.029s) thinking: 专家分析中...
+  + 81.40s (gap 1.028s) thinking: 专家分析中...
+  + 82.43s (gap 1.028s) thinking: 专家分析中...
+  + 83.47s (gap 1.036s) thinking: 专家分析中...
+  + 84.50s (gap 1.029s) thinking: 专家分析中...
+  + 85.52s (gap 1.027s) thinking: 专家分析中...
+  + 86.57s (gap 1.043s) thinking: 专家分析中...
+  + 87.59s (gap 1.027s) thinking: 专家分析中...
+  + 88.62s (gap 1.027s) thinking: 专家分析中...
+  + 89.66s (gap 1.039s) thinking: 专家分析中...
+  + 90.69s (gap 1.027s) thinking: 专家分析中...
+  + 91.71s (gap 1.027s) thinking: 专家分析中...
+  + 92.74s (gap 1.029s) thinking: 专家分析中...
+  + 93.78s (gap 1.041s) thinking: 专家分析中...
+  + 94.81s (gap 1.022s) thinking: 专家分析中...
+  + 95.83s (gap 1.023s) thinking: 专家分析中...
+  + 96.86s (gap 1.026s) thinking: 专家分析中...
+  + 97.88s (gap 1.026s) thinking: 专家分析中...
+  + 98.92s (gap 1.040s) thinking: 专家分析中...
+  + 99.95s (gap 1.030s) thinking: 专家分析中...
+  +100.98s (gap 1.024s) thinking: 专家分析中...
+  +102.02s (gap 1.045s) thinking: 专家分析中...
+  +103.05s (gap 1.029s) thinking: 专家分析中...
+  +104.08s (gap 1.028s) thinking: 专家分析中...
+  +105.10s (gap 1.027s) thinking: 专家分析中...
+  +106.13s (gap 1.028s) thinking: 专家分析中...
+  +107.17s (gap 1.042s) thinking: 专家分析中...
+  +108.20s (gap 1.025s) thinking: 专家分析中...
+  +109.23s (gap 1.028s) thinking: 专家分析中...
+  +110.25s (gap 1.024s) thinking: 专家分析中...
+  +111.28s (gap 1.027s) thinking: 专家分析中...
+  +112.31s (gap 1.029s) thinking: 专家分析中...
+  +113.33s (gap 1.022s) thinking: 专家分析中...
+  +114.36s (gap 1.028s) thinking: 专家分析中...
+  +115.38s (gap 1.025s) thinking: 专家分析中...
+  +116.41s (gap 1.030s) thinking: 专家分析中...
+  +117.46s (gap 1.043s) thinking: 专家分析中...
+  +118.48s (gap 1.028s) thinking: 专家分析中...
+  +119.51s (gap 1.026s) thinking: 专家分析中...
+  +120.54s (gap 1.029s) thinking: 专家分析中...
+  +121.58s (gap 1.041s) thinking: 专家分析中...
+  +122.61s (gap 1.026s) thinking: 专家分析中...
+  +123.63s (gap 1.027s) thinking: 专家分析中...
+  +124.67s (gap 1.037s) thinking: 专家分析中...
+  +125.70s (gap 1.027s) thinking: 专家分析中...
+  +126.74s (gap 1.039s) thinking: 专家分析中...
+  +127.76s (gap 1.027s) thinking: 专家分析中...
+  +128.79s (gap 1.031s) thinking: 专家分析中...
+  +129.82s (gap 1.030s) thinking: 专家分析中...
+  +130.88s (gap 1.055s) thinking: 专家分析中...
+  +131.93s (gap 1.046s) thinking: 专家分析中...
+  +132.95s (gap 1.025s) thinking: 专家分析中...
+  +133.99s (gap 1.037s) thinking: 专家分析中...
+  +135.01s (gap 1.023s) thinking: 专家分析中...
+  +136.05s (gap 1.041s) thinking: 专家分析中...
+  +137.08s (gap 1.031s) thinking: 专家分析中...
+  +138.11s (gap 1.027s) thinking: 专家分析中...
+  +139.14s (gap 1.029s) thinking: 专家分析中...
+  +140.17s (gap 1.027s) thinking: 专家分析中...
+  +141.19s (gap 1.027s) thinking: 专家分析中...
+  +142.22s (gap 1.025s) thinking: 专家分析中...
+  +143.25s (gap 1.030s) thinking: 专家分析中...
+  +144.28s (gap 1.034s) thinking: 专家分析中...
+  +145.31s (gap 1.029s) thinking: 专家分析中...
+  +146.34s (gap 1.028s) thinking: 专家分析中...
+  +147.37s (gap 1.030s) thinking: 专家分析中...
+  +148.41s (gap 1.043s) thinking: 专家分析中...
+  +149.44s (gap 1.026s) thinking: 专家分析中...
+  +150.46s (gap 1.028s) thinking: 专家分析中...
+  +151.49s (gap 1.028s) thinking: 专家分析中...
+  +152.53s (gap 1.042s) thinking: 专家分析中...
+  +153.56s (gap 1.024s) thinking: 专家分析中...
+  +153.86s (gap 0.302s) [STEP] synthesis_step_start: 
+  +153.86s (gap 0.004s) [STEP] synthesis_step_content: 
+  +153.86s (gap 0.001s) [STEP] synthesis_step_end: 
+  +153.87s (gap 0.004s) [RESULT] result: 
+
+======================================================================
+总计: 577 事件, 耗时 153.9s
+
+--- 专家 Chunk 分布 ---
+  strategy: 122 chunks, first=1.28s, last=20.20s, total_chars=914, max_gap=1.16s(at +2.44s)
+  tactics: 193 chunks, first=1.28s, last=40.95s, total_chars=1181, max_gap=1.13s(at +2.41s)
+
+--- Step 事件到达时间 ---
+  +  0.21s  expert_step_start: 
+  +  0.21s  expert_step_content: 
+  +  0.21s  expert_step_end: 
+  +  0.21s  expert_step_start: 
+  +  0.21s  expert_step_content: 
+  +  0.21s  expert_step_end: 
+  +  1.28s  expert_step_start: 
+  +  1.28s  expert_step_content: 
+  +  1.28s  expert_step_end: 
+  +  1.28s  expert_step_start: 
+  +  1.28s  expert_step_content: 
+  +  1.28s  expert_step_end: 
+  + 20.23s  expert_step_start: 
+  + 20.23s  expert_step_content: 
+  + 20.23s  expert_step_end: 
+  + 20.23s  expert_step_start: 
+  + 20.23s  expert_step_content: 
+  + 20.23s  expert_step_end: 
+  + 20.23s  expert_step_start: 
+  + 20.23s  expert_step_content: 
+  + 20.23s  expert_step_end: 
+  + 20.23s  expert_step_start: 
+  + 20.23s  expert_step_content: 
+  + 20.23s  expert_step_end: 
+  + 20.23s  expert_step_start: 
+  + 20.23s  expert_step_content: 
+  + 20.23s  expert_step_end: 
+  + 20.23s  expert_step_start: 
+  + 20.23s  expert_step_content: 
+  + 20.23s  expert_step_end: 
+  + 20.23s  expert_step_start: 
+  + 20.23s  expert_step_content: 
+  + 20.23s  expert_step_content: 
+  + 20.24s  expert_step_end: 
+  + 20.24s  expert_step_start: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_end: 
+  + 20.24s  expert_step_start: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_end: 
+  + 20.24s  expert_step_start: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_end: 
+  + 20.24s  expert_step_start: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_end: 
+  + 20.24s  expert_step_start: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_content: 
+  + 20.24s  expert_step_end: 
+  + 40.95s  expert_step_start: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_end: 
+  + 40.95s  expert_step_start: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_end: 
+  + 40.95s  expert_step_start: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.95s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_content: 
+  + 40.96s  expert_step_end: 
+  +153.86s  synthesis_step_start: 
+  +153.86s  synthesis_step_content: 
+  +153.86s  synthesis_step_end: 
+  BATCH count: 96/101 step events arrived in batch (<50ms apart)
+

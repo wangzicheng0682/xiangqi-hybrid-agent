@@ -240,6 +240,7 @@ class ReliableLLMClient:
         max_tokens: int = 1024,
         thinking_enabled: bool = False,
         on_chunk: Optional[Callable[[str], None]] = None,
+        on_reasoning_chunk: Optional[Callable[[str], None]] = None,
     ) -> ReliableLLMResponse:
         if not self.api_key:
             return ReliableLLMResponse(
@@ -254,6 +255,7 @@ class ReliableLLMClient:
 
         for attempt in range(self.max_retries + 1):
             try:
+                request_started_at = time.time()
                 with self._request_semaphore:
                     session = requests.Session()
                     session.trust_env = False
@@ -285,11 +287,15 @@ class ReliableLLMClient:
                 reasoning_parts: List[str] = []
                 tool_calls_data: Dict[str, Dict[str, str]] = {}
                 finish_reason = "stop"
+                first_content_chunk_at: Optional[float] = None
+                first_reasoning_chunk_at: Optional[float] = None
+                chunk_count = 0
 
-                for line in response.iter_lines():
+                response.encoding = "utf-8"
+                for line in response.iter_lines(chunk_size=1, decode_unicode=True):
                     if not line:
                         continue
-                    decoded = line.decode("utf-8")
+                    decoded = line
                     if not decoded.startswith("data: "):
                         continue
                     data_str = decoded[6:]
@@ -307,13 +313,20 @@ class ReliableLLMClient:
 
                     content_chunk = delta.get("content", "")
                     if content_chunk:
+                        chunk_count += 1
+                        if first_content_chunk_at is None:
+                            first_content_chunk_at = time.time()
                         full_content.append(content_chunk)
                         if on_chunk:
                             on_chunk(content_chunk)
 
                     reasoning_chunk = delta.get("reasoning_content", "")
                     if reasoning_chunk:
+                        if first_reasoning_chunk_at is None:
+                            first_reasoning_chunk_at = time.time()
                         reasoning_parts.append(reasoning_chunk)
+                        if on_reasoning_chunk:
+                            on_reasoning_chunk(reasoning_chunk)
 
                     for tc_chunk in delta.get("tool_calls", []):
                         tc_id = tc_chunk.get("id") or f"index_{tc_chunk.get('index', 0)}"
@@ -347,6 +360,19 @@ class ReliableLLMClient:
                     retry_count=attempt,
                     degraded=attempt > 0,
                     degradation_level=DegradationLevel.RETRIED if attempt > 0 else DegradationLevel.NONE,
+                    metadata={
+                        "chunk_count": chunk_count,
+                        "first_content_chunk_ms": (
+                            int((first_content_chunk_at - request_started_at) * 1000)
+                            if first_content_chunk_at is not None
+                            else None
+                        ),
+                        "first_reasoning_chunk_ms": (
+                            int((first_reasoning_chunk_at - request_started_at) * 1000)
+                            if first_reasoning_chunk_at is not None
+                            else None
+                        ),
+                    },
                 )
             except Exception as exc:
                 if self._should_retry(None, exc, attempt):

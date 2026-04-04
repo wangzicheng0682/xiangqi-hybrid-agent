@@ -13,8 +13,12 @@ _rag_instance = None
 def get_rag():
     global _rag_instance
     if _rag_instance is None:
-        from core.rag import MockRAG
-        _rag_instance = MockRAG()
+        try:
+            from core.rag import ChromaRAG
+            _rag_instance = ChromaRAG()
+        except Exception:
+            from core.rag import MockRAG
+            _rag_instance = MockRAG()
     return _rag_instance
 
 

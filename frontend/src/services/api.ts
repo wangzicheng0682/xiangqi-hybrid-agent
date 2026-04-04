@@ -55,6 +55,8 @@ export interface AIMoveResponse {
   fen: string;
   score: number;
   explanation: string;
+  in_check: boolean;
+  game_over: boolean;
 }
 
 export interface BestMovesResponse {
@@ -327,7 +329,7 @@ export const api = {
   // 深度分析 - 使用 EventSource API (原生 SSE 支持)
   // 添加连接管理，防止连接泄漏
   analyzeDeep: async (
-    data: { fen: string; move?: string; show_thinking?: boolean; question?: string },
+    data: { fen: string; move?: string; history?: string[]; show_thinking?: boolean; question?: string },
     onThinking: (msg: {
       type: string;
       stage?: number;
@@ -342,6 +344,13 @@ export const api = {
       duration_ms?: number;
       details?: string;
       success?: boolean;
+      reason?: string;
+      mode?: string;
+      phase?: string;
+      move_count?: number;
+      parallelism?: number;
+      opening_name?: string;
+      selected_experts?: string[];
     }) => void,
     onResult: (result: { explanation: string; confidence: string }) => void,
     onError: (error: string) => void
@@ -364,6 +373,9 @@ export const api = {
       });
       if (data.move) {
         params.append('move', data.move);
+      }
+      if (data.history?.length) {
+        params.append('history', data.history.join(','));
       }
 
       // 使用与 API_BASE 相同的 origin
@@ -394,7 +406,7 @@ export const api = {
               json.type === 'expert_start' || json.type === 'expert_result' ||
               json.type.startsWith('expert_') ||
               // 协调者思维流事件
-              json.type === 'synthesis_chunk' || json.type === 'orchestrator_subtitle' ||
+              json.type === 'synthesis_chunk' || json.type === 'orchestrator_subtitle' || json.type === 'dispatch_info' ||
               json.type.startsWith('synthesis_')) {
             onThinking(json);
           } else if (json.type === 'result') {

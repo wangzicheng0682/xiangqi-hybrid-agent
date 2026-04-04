@@ -41,6 +41,8 @@ from core.utils.board_text import fen_to_board
 # 深度分析模块 - 预导入避免每次请求重新加载
 from core.llm.xiangqi_coach import create_coach_agent
 from core.llm.multi_agent_orchestrator import MultiAgentOrchestrator
+from core.llm.analysis_policy import choose_analysis_policy
+from core.llm.thinking_templates import PhaseDetector, PhaseInfo
 from core.rules.tactical_detector import TacticalDetector
 from core.rules.tension_detector import detect_tensions, get_primary_tension
 from core.engine.pool import get_engine, engine_analyze
@@ -73,6 +75,18 @@ def board_to_fen(board: List[List[str]], red_to_move: bool = True) -> str:
     
     turn = "w" if red_to_move else "b"
     return "/".join(rows) + f" {turn} - - 0 1"
+
+
+def estimate_move_count(fen: str, move_history: Optional[List[str]] = None) -> int:
+    history_count = len(move_history or [])
+    fen_count = PhaseDetector._extract_move_count_from_fen(fen)
+    return max(history_count, fen_count)
+
+
+def detect_phase_info(fen: str, move_history: Optional[List[str]] = None) -> PhaseInfo:
+    history_count = len(move_history or [])
+    move_count_source = "history" if history_count > 0 else "fen"
+    return PhaseDetector.detect(fen, history_count, move_count_source=move_count_source)
 
 
 app = FastAPI(
@@ -1355,7 +1369,7 @@ async def analyze_deep(request: DeepAnalyzeRequest):
         try:
             # 创建事件队列
             event_queue = queue.Queue()
-            result_holder = {'result': None, 'error': None}
+            result_holder = {'result': None, 'error': None, 'precompute_error': None}
             analysis_completed = False
             analysis_data = None
 
@@ -1403,7 +1417,7 @@ async def analyze_deep(request: DeepAnalyzeRequest):
                     analysis_data = (evidence_map, tag_summary, engine_eval, tensions)
                 except Exception as e:
                     print(f"[DEBUG] 后台分析失败: {e}")
-                    result_holder['error'] = str(e)
+                    result_holder['precompute_error'] = str(e)
                 finally:
                     analysis_completed = True
 
@@ -1493,7 +1507,7 @@ async def analyze_deep(request: DeepAnalyzeRequest):
                     await asyncio.sleep(0.05)
                     continue
 
-            # 检查是否有错误
+            # 检查是否有错误。预分析失败只做降级，不中断整条深度分析链路。
             if result_holder['error']:
                 yield f"data: {json.dumps({'type': 'error', 'message': result_holder['error']}, ensure_ascii=False)}\n\n"
 
@@ -1519,6 +1533,7 @@ async def analyze_deep(request: DeepAnalyzeRequest):
 async def analyze_deep_stream(
     fen: str,
     move: Optional[str] = None,
+    history: Optional[str] = None,
     question: str = "请分析当前局面",
     show_thinking: bool = True,
     debug: bool = False  # 新增：是否返回调试日志
@@ -1539,6 +1554,8 @@ async def analyze_deep_stream(
 
     request_start = time.time()
     debug_logger = AgentDebugLogger(enabled=debug)  # 创建调试日志记录器
+    move_history = [item.strip() for item in (history or "").split(",") if item.strip()]
+    estimated_move_count = estimate_move_count(fen, move_history)
 
     async def generate():
         # 立即发送初始提示
@@ -1549,15 +1566,33 @@ async def analyze_deep_stream(
 
         try:
             event_queue = queue.Queue()
-            result_holder = {'result': None, 'error': None}
+            result_holder = {'result': None, 'error': None, 'precompute_error': None}
             analysis_completed = False
             analysis_data = None
+            orchestrator = MultiAgentOrchestrator(debug_logger=debug_logger)
+            phase_info = detect_phase_info(fen, move_history)
+            opening_context = orchestrator._build_opening_context(move_history, move)
+            preview_policy = choose_analysis_policy(
+                question=question,
+                tensions=[],
+                phase_name=phase_info.phase_name,
+                engine_eval={},
+                move_count=len(move_history),
+            )
+            likely_opening_fast_path = orchestrator._should_use_opening_fast_path(
+                question=question,
+                phase_info=phase_info,
+                tensions=[],
+                opening_context=opening_context,
+                force_multi=True,
+            )
 
             yield f"data: {json.dumps({'type': 'thinking', 'message': '检测局面...'}, ensure_ascii=False)}\n\n"
             await asyncio.sleep(0.05)
 
-            yield f"data: {json.dumps({'type': 'thinking', 'message': '引擎评估...'}, ensure_ascii=False)}\n\n"
-            await asyncio.sleep(0.05)
+            if not likely_opening_fast_path:
+                yield f"data: {json.dumps({'type': 'thinking', 'message': '引擎评估...'}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0.05)
 
             def run_background_analysis():
                 nonlocal analysis_completed, analysis_data
@@ -1574,27 +1609,56 @@ async def analyze_deep_stream(
                             tag_info += f"（{', '.join(t.bind_pieces[:2])}）"
                         tag_summary.append(tag_info)
 
-                    analysis = engine_analyze(fen, depth=15)
+                    analysis = engine_analyze(fen, depth=12)
                     if analysis and hasattr(analysis, 'score') and analysis.score is not None:
                         cp_value = int(analysis.score * 100) if analysis.score else 0
                         engine_eval = {"cp": cp_value, "best": analysis.bestmove if hasattr(analysis, 'bestmove') else None}
                     else:
                         engine_eval = {"cp": 0, "best": None}
 
-                    tensions = detect_tensions(evidence_map, engine_eval, "中局")
+                    tensions = detect_tensions(evidence_map, engine_eval, phase_info.phase_name)
                     analysis_data = (evidence_map, tag_summary, engine_eval, tensions)
                 except Exception as e:
                     print(f"[DEBUG] 后台分析失败: {e}")
-                    result_holder['error'] = str(e)
+                    result_holder['precompute_error'] = str(e)
                 finally:
                     analysis_completed = True
 
-            analysis_thread = threading.Thread(target=run_background_analysis)
-            analysis_thread.daemon = True
-            analysis_thread.start()
+            if likely_opening_fast_path:
+                analysis_completed = True
+                analysis_data = ({"facts_rules": []}, [], {"cp": 0, "best": None}, [])
+            else:
+                analysis_thread = threading.Thread(target=run_background_analysis)
+                analysis_thread.daemon = True
+                analysis_thread.start()
 
             yield f"data: {json.dumps({'type': 'thinking', 'message': 'AI分析中...'}, ensure_ascii=False)}\n\n"
             await asyncio.sleep(0.05)
+
+            if not likely_opening_fast_path:
+                preview_dispatch = {
+                    'type': 'dispatch_info',
+                    'mode': 'precompute_preview',
+                    'reason': 'building_evidence_base',
+                    'phase': phase_info.phase_name,
+                    'move_count': len(move_history),
+                    'parallelism': preview_policy.parallelism,
+                    'selected_experts': preview_policy.selected_experts,
+                }
+                yield f"data: {json.dumps(preview_dispatch, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'orchestrator_subtitle', 'message': f'协调{phase_info.phase_name}分析：先建立证据底座'}, ensure_ascii=False)}\n\n"
+
+                preview_messages = {
+                    'tactics': '正在整理攻防、牵制与强制手线索。',
+                    'strategy': '正在整理阵型、先手和双方计划。',
+                    'engine': '正在等待轻量评估回传，用来校准优劣方向。',
+                }
+                for index, expert_name in enumerate(preview_policy.selected_experts):
+                    preview_step = -10 - index
+                    yield f"data: {json.dumps({'type': 'expert_start', 'expert': expert_name}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'expert_step_start', 'expert': expert_name, 'step_index': preview_step, 'title': '证据准备'}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'expert_step_content', 'expert': expert_name, 'step_index': preview_step, 'content': preview_messages.get(expert_name, '正在汇总局面线索。')}, ensure_ascii=False)}\n\n"
+                    yield f"data: {json.dumps({'type': 'expert_step_end', 'expert': expert_name, 'step_index': preview_step, 'duration_ms': 0}, ensure_ascii=False)}\n\n"
 
             while not analysis_completed:
                 yield f"data: {json.dumps({'type': 'thinking', 'message': '分析进行中...'}, ensure_ascii=False)}\n\n"
@@ -1610,7 +1674,6 @@ async def analyze_deep_stream(
 
             def run_agent():
                 try:
-                    orchestrator = MultiAgentOrchestrator(debug_logger=debug_logger)
                     actual_question = question
                     if move and "走" not in question:
                         actual_question = f"分析走法 {move} 的质量"
@@ -1622,11 +1685,13 @@ async def analyze_deep_stream(
                         fen=fen,
                         question=actual_question,
                         move=move,
+                        move_history=move_history,
                         evidence_map=evidence_map,
                         tag_summary="\n".join(tag_summary),
+                        move_count=estimated_move_count,
                         engine_eval=engine_eval,
                         on_thinking=on_thinking if show_thinking else None,
-                        force_multi=True,  # 多Agent模式
+                        force_multi=False,
                     )
                     result_holder['result'] = result
                 except Exception as e:
@@ -1636,6 +1701,7 @@ async def analyze_deep_stream(
 
             agent_thread = threading.Thread(target=run_agent, daemon=True)
             agent_thread.start()
+            last_agent_heartbeat = time.time()
 
             while True:
                 try:
@@ -1685,6 +1751,12 @@ async def analyze_deep_stream(
                         except (json.JSONDecodeError, TypeError):
                             msg = event["message"]
                         yield f"data: {json.dumps({'type': 'orchestrator_subtitle', 'message': msg}, ensure_ascii=False)}\n\n"
+                    elif event["type"] == "dispatch_info":
+                        try:
+                            dispatch_data = json.loads(event["message"])
+                        except (json.JSONDecodeError, TypeError):
+                            dispatch_data = {"message": event["message"]}
+                        yield f"data: {json.dumps({'type': 'dispatch_info', **dispatch_data}, ensure_ascii=False)}\n\n"
                     elif event["type"] == "synthesis_chunk":
                         # on_synthesis_event 会 json.dumps(payload)，需要解码还原
                         try:
@@ -1696,24 +1768,28 @@ async def analyze_deep_stream(
                     elif event["type"] == "synthesis":
                         yield f"data: {json.dumps({'type': 'result', 'explanation': event['message'], 'confidence': 'high', 'source': 'multi_agent'}, ensure_ascii=False)}\n\n"
                     elif event["type"] in ("tactics_thinking", "strategy_thinking", "engine_thinking",
+                                          "tactics_reasoning", "strategy_reasoning", "engine_reasoning",
                                           "tactics_chunk", "strategy_chunk", "engine_chunk",
                                           "tactics_tool", "strategy_tool", "engine_tool",
                                           "tactics_tool_result", "strategy_tool_result", "engine_tool_result"):
                         parts = event["type"].split("_", 1)
                         if len(parts) == 2:
                             expert_name, sub_type = parts
-                            if sub_type == "thinking":
-                                yield f"data: {json.dumps({'type': f'expert_{expert_name}_thinking', 'message': event['message']}, ensure_ascii=False)}\n\n"
+                            if sub_type in ("thinking", "reasoning"):
+                                yield f"data: {json.dumps({'type': f'expert_{expert_name}_thinking', 'expert': expert_name, 'message': event['message']}, ensure_ascii=False)}\n\n"
                             elif sub_type == "chunk":
-                                yield f"data: {json.dumps({'type': f'expert_{expert_name}_chunk', 'message': event['message']}, ensure_ascii=False)}\n\n"
+                                yield f"data: {json.dumps({'type': f'expert_{expert_name}_chunk', 'expert': expert_name, 'message': event['message']}, ensure_ascii=False)}\n\n"
                             elif sub_type == "tool":
-                                yield f"data: {json.dumps({'type': f'expert_{expert_name}_tool', 'message': event['message']}, ensure_ascii=False)}\n\n"
+                                yield f"data: {json.dumps({'type': f'expert_{expert_name}_tool', 'expert': expert_name, 'message': event['message']}, ensure_ascii=False)}\n\n"
                             elif sub_type == "tool_result":
-                                yield f"data: {json.dumps({'type': f'expert_{expert_name}_tool_result', 'message': event['message']}, ensure_ascii=False)}\n\n"
+                                yield f"data: {json.dumps({'type': f'expert_{expert_name}_tool_result', 'expert': expert_name, 'message': event['message']}, ensure_ascii=False)}\n\n"
 
                     await asyncio.sleep(0.01)
 
                 except queue.Empty:
+                    if agent_thread.is_alive() and time.time() - last_agent_heartbeat >= 1.0:
+                        last_agent_heartbeat = time.time()
+                        yield f"data: {json.dumps({'type': 'thinking', 'message': '专家分析中...'}, ensure_ascii=False)}\n\n"
                     if not agent_thread.is_alive() and result_holder['result'] is None and result_holder['error'] is None:
                         pass
                     await asyncio.sleep(0.05)
@@ -1721,7 +1797,7 @@ async def analyze_deep_stream(
 
             if result_holder['error']:
                 yield f"data: {json.dumps({'type': 'error', 'message': result_holder['error']}, ensure_ascii=False)}\n\n"
-            elif result_holder['result']:
+            elif result_holder['result'] is not None:
                 yield f"data: {json.dumps({'type': 'result', 'explanation': result_holder['result'], 'confidence': 'high'}, ensure_ascii=False)}\n\n"
 
             # 发送调试日志（如果启用）

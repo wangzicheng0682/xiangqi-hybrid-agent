@@ -79,31 +79,36 @@ const EXPERT_CONFIG: Record<ExpertType, {
 // ============================================
 
 const StreamText: React.FC<{ text: string; speed?: number }> = ({ text, speed = 30 }) => {
+  const cursorRef = useRef(0);
   const [displayed, setDisplayed] = useState('');
-  const [currentIndex, setCurrentIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // text 被截短（如 reset）时回退游标
   useEffect(() => {
-    // 重置
-    setDisplayed('');
-    setCurrentIndex(0);
+    if (text.length < cursorRef.current) {
+      cursorRef.current = 0;
+      setDisplayed('');
+    }
   }, [text]);
 
   useEffect(() => {
-    if (currentIndex >= text.length) return;
+    if (!text || cursorRef.current >= text.length) return;
 
-    const timer = setTimeout(() => {
-      setDisplayed(text.slice(0, currentIndex + 1));
-      setCurrentIndex(prev => prev + 1);
-
-      // 自动滚动到底部
+    const tick = () => {
+      cursorRef.current = Math.min(text.length, cursorRef.current + 1);
+      setDisplayed(text.slice(0, cursorRef.current));
       if (containerRef.current) {
         containerRef.current.scrollTop = containerRef.current.scrollHeight;
       }
-    }, speed);
+      if (cursorRef.current < text.length) {
+        timerRef.current = setTimeout(tick, speed);
+      }
+    };
 
-    return () => clearTimeout(timer);
-  }, [text, currentIndex, speed]);
+    timerRef.current = setTimeout(tick, speed);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [text, speed]);
 
   // 高亮格式：**[粗体]**、[工具名]、(坐标)
   const highlightText = (t: string) => {
@@ -216,7 +221,6 @@ export const ExpertCard: React.FC<ExpertCardProps> = ({
   thinkingContent,
   toolCalls,
   finding,
-  steps = [],
 }) => {
   const config = EXPERT_CONFIG[type];
   const isActive = status === 'thinking';
@@ -255,43 +259,7 @@ export const ExpertCard: React.FC<ExpertCardProps> = ({
           ...(isCompleted ? { maxHeight: 80 } : {}),
         }}
       >
-        {steps.length > 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {steps.map((step) => {
-              const isCurrent = step.status === 'thinking';
-              return (
-                <div
-                  key={`${type}-${step.index}`}
-                  style={{
-                    border: `1px solid ${isCurrent ? config.accentColor : 'rgba(255,255,255,0.08)'}`,
-                    background: isCurrent ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
-                    borderRadius: 10,
-                    padding: '8px 10px',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: step.content ? 6 : 0 }}>
-                    <span style={{ color: isCurrent ? config.accentColor : '#86efac', fontWeight: 700 }}>
-                      {isCurrent ? '⟳' : '✓'}
-                    </span>
-                    <span style={{ color: 'rgba(255,255,255,0.92)', fontSize: 12, fontWeight: 600 }}>
-                      {step.title}
-                    </span>
-                    {step.durationMs ? (
-                      <span style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
-                        {(step.durationMs / 1000).toFixed(1)}s
-                      </span>
-                    ) : null}
-                  </div>
-                  {step.content ? (
-                    <div style={{ color: 'rgba(255,255,255,0.72)', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                      {step.content}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        ) : thinkingContent ? (
+        {thinkingContent ? (
           <StreamText text={thinkingContent} speed={isActive ? 25 : 0} />
         ) : (
           <div style={cardStyles.placeholder}>

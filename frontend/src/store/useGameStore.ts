@@ -46,6 +46,30 @@ interface EnginePanelState {
   error: string | null;
 }
 
+interface CheckAlertState {
+  id: number;
+  attacker: 'red' | 'black';
+  target: 'red' | 'black';
+  row: number;
+  col: number;
+  isCheckmate: boolean;
+}
+
+interface CaptureEffectState {
+  id: number;
+  row: number;
+  col: number;
+  piece: string;
+  attacker: 'red' | 'black';
+}
+
+interface InvalidMoveState {
+  id: number;
+  row: number;
+  col: number;
+  message: string;
+}
+
 interface GameState {
   board: string[][];
   fen: string;
@@ -71,6 +95,9 @@ interface GameState {
   connectionLines: { from: { row: number; col: number }; to: { row: number; col: number }; type: 'attack' | 'defense' | 'pin' }[];
   evalHistory: EvalPoint[];
   enginePanel: EnginePanelState;
+  checkAlert: CheckAlertState | null;
+  captureEffect: CaptureEffectState | null;
+  invalidMove: InvalidMoveState | null;
 
   selectPiece: (row: number, col: number) => Promise<void>;
   movePiece: (toRow: number, toCol: number) => Promise<void>;
@@ -87,6 +114,10 @@ interface GameState {
   addEvalPoint: (point: EvalPoint) => void;
   clearEvalHistory: () => void;
   refreshEngineEvaluation: (fen?: string) => Promise<void>;
+  triggerInvalidMove: (row: number, col: number, message: string) => void;
+  clearInvalidMove: () => void;
+  clearCheckAlert: () => void;
+  clearCaptureEffect: () => void;
 
   searchGames: (player?: string, event?: string) => Promise<void>;
   loadGameFromNeo4j: (gameId: number) => Promise<void>;
@@ -98,6 +129,18 @@ interface GameState {
 
 function flipBoard(board: string[][]): string[][] {
   return board.slice().reverse().map(row => row.slice().reverse());
+}
+
+function findKingPosition(board: string[][], side: 'red' | 'black') {
+  const king = side === 'red' ? 'K' : 'k';
+  for (let row = 0; row < board.length; row += 1) {
+    for (let col = 0; col < board[row].length; col += 1) {
+      if (board[row][col] === king) {
+        return { row, col };
+      }
+    }
+  }
+  return null;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -145,6 +188,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     isLoading: false,
     error: null,
   },
+  checkAlert: null,
+  captureEffect: null,
+  invalidMove: null,
 
   setHighlightedPieces: (pieces) => {
     set({ highlightedPieces: pieces });
@@ -164,6 +210,29 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   clearEvalHistory: () => {
     set({ evalHistory: [] });
+  },
+
+  triggerInvalidMove: (row, col, message) => {
+    set({
+      invalidMove: {
+        id: Date.now(),
+        row,
+        col,
+        message,
+      }
+    });
+  },
+
+  clearInvalidMove: () => {
+    set({ invalidMove: null });
+  },
+
+  clearCheckAlert: () => {
+    set({ checkAlert: null });
+  },
+
+  clearCaptureEffect: () => {
+    set({ captureEffect: null });
   },
 
   refreshEngineEvaluation: async (fenOverride?: string) => {
@@ -336,6 +405,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       const toColChar = String.fromCharCode(97 + actualToCol);
       const toRowNum = 9 - actualToRow;
       const moveStr = `${fromColChar}${fromRowNum}${toColChar}${toRowNum}`;
+      const attacker = redToMove ? 'red' : 'black';
+      const target = redToMove ? 'black' : 'red';
+      const checkedKing = res.in_check ? findKingPosition(res.board, target) : null;
 
       const newLastMove = {
         from: { row: selectedPos.row, col: selectedPos.col },
@@ -356,7 +428,23 @@ export const useGameStore = create<GameState>((set, get) => ({
         isLoading: false,
         redToMove: !redToMove,
         history: [...history, moveStr],
-        lastMove: newLastMove
+        lastMove: newLastMove,
+        captureEffect: res.captured ? {
+          id: Date.now(),
+          row: actualToRow,
+          col: actualToCol,
+          piece: res.captured,
+          attacker,
+        } : null,
+        checkAlert: res.in_check && checkedKing ? {
+          id: Date.now() + 1,
+          attacker,
+          target,
+          row: checkedKing.row,
+          col: checkedKing.col,
+          isCheckmate: res.game_over,
+        } : null,
+        invalidMove: null,
       });
 
       // 在分析模式下，如果开启了箭头，获取最佳走法
@@ -374,7 +462,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
     } catch (e: any) {
       const errorMsg = e.response?.data?.detail || '移动失败';
-      set({ isLoading: false, error: errorMsg, selectedPos: null, legalMoves: [] });
+      set({
+        isLoading: false,
+        error: errorMsg,
+        selectedPos: null,
+        legalMoves: [],
+        invalidMove: {
+          id: Date.now(),
+          row: actualToRow,
+          col: actualToCol,
+          message: errorMsg,
+        }
+      });
     }
   },
 
@@ -403,6 +502,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       const toColChar = String.fromCharCode(97 + res.to_col);
       const toRowNum = 9 - res.to_row;
       const moveStr = `${fromColChar}${fromRowNum}${toColChar}${toRowNum}`;
+      const attacker = redToMove ? 'red' : 'black';
+      const target = redToMove ? 'black' : 'red';
+      const capturedPiece = actualBoard[res.to_row][res.to_col];
+      const checkedKing = res.in_check ? findKingPosition(res.board, target) : null;
 
       const newLastMove = {
         from: { row: res.from_row, col: res.from_col },
@@ -423,7 +526,23 @@ export const useGameStore = create<GameState>((set, get) => ({
         isLoading: false,
         redToMove: !redToMove,
         history: [...get().history, moveStr],
-        lastMove: newLastMove
+        lastMove: newLastMove,
+        captureEffect: capturedPiece ? {
+          id: Date.now(),
+          row: res.to_row,
+          col: res.to_col,
+          piece: capturedPiece,
+          attacker,
+        } : null,
+        checkAlert: res.in_check && checkedKing ? {
+          id: Date.now() + 1,
+          attacker,
+          target,
+          row: checkedKing.row,
+          col: checkedKing.col,
+          isCheckmate: res.game_over,
+        } : null,
+        invalidMove: null,
       });
 
       // AI走棋后刷新引擎评估
@@ -446,6 +565,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       error: null,
       lastMove: null,
       bestMoves: null,
+      checkAlert: null,
+      captureEffect: null,
+      invalidMove: null,
       evalHistory: [],
       enginePanel: {
         ...get().enginePanel,
@@ -496,6 +618,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         selectedPos: null,
         legalMoves: [],
         lastMove: null,
+        checkAlert: null,
+        captureEffect: null,
+        invalidMove: null,
         evalHistory: [],
         enginePanel: {
           ...get().enginePanel,
@@ -555,6 +680,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         selectedPos: null,
         legalMoves: [],
         lastMove: null,
+        checkAlert: null,
+        captureEffect: null,
+        invalidMove: null,
         isLoading: false,
         replayState: {
           ...get().replayState,
@@ -623,6 +751,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         redToMove: newIndex % 2 === 0,
         history: moves.slice(0, newIndex),
         lastMove: lastMoveInfo,
+        checkAlert: null,
+        captureEffect: null,
+        invalidMove: null,
         replayState: {
           ...replayState,
           currentIndex: newIndex
@@ -643,6 +774,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       selectedPos: null,
       legalMoves: [],
       lastMove: null,
+      checkAlert: null,
+      captureEffect: null,
+      invalidMove: null,
         evalHistory: [],
         enginePanel: {
           ...get().enginePanel,
@@ -683,6 +817,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       error: null,
       lastMove: null,
       bestMoves: null,
+      checkAlert: null,
+      captureEffect: null,
+      invalidMove: null,
       evalHistory: [],
       gameMode: 'analysis',
       enginePanel: {

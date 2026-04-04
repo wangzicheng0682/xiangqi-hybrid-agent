@@ -16,6 +16,7 @@ def choose_analysis_policy(
     tensions: List[Dict],
     phase_name: str,
     engine_eval: Dict = None,
+    move_count: int = 0,
     force_full_team: bool = False,
 ) -> AnalysisPolicyDecision:
     """根据问题类型、张力数量和预算选择专家与并发度。"""
@@ -32,17 +33,23 @@ def choose_analysis_policy(
     elif any(keyword in text for keyword in TACTICAL_KEYWORDS):
         selected = ["tactics", "engine"]
         reason = "tactical_question"
+    elif phase_name == "开局" and move_count and move_count <= 4 and not tension_count:
+        selected = ["strategy"]
+        reason = "opening_low_cost_strategy_first"
     elif phase_name == "开局":
         selected = ["strategy", "engine"]
         reason = "opening_phase_prefers_plan_and_eval"
-    elif tension_count >= 3 or any(keyword in text for keyword in STRATEGIC_KEYWORDS):
-        selected = ["tactics", "strategy", "engine"]
-        reason = "high_complexity_or_strategic_question"
+    elif tension_count >= 3:
+        selected = ["tactics", "strategy"]
+        reason = "high_tension_dual_experts"
+    elif any(keyword in text for keyword in STRATEGIC_KEYWORDS):
+        selected = ["tactics", "strategy"]
+        reason = "strategic_question_dual_experts"
     else:
         selected = ["tactics", "strategy"]
         reason = "default_two_experts"
 
-    if engine_eval and engine_eval.get("best") and "engine" not in selected:
+    if engine_eval and engine_eval.get("best") and "engine" not in selected and any(keyword in text for keyword in ENGINE_KEYWORDS):
         selected.append("engine")
         reason += "+engine_eval_present"
 

@@ -1,10 +1,40 @@
 ---
 name: 项目状态
 type: state
-version: 3.65
-date: 2026-04-02
+version: 3.95
+date: 2026-04-03
 owner: AI（自动维护）
 changelog:
+  - v3.95 (2026-04-03): 修复专家悬浮卡片实时流式 — [api/main.py](api/main.py) 为所有 `expert_{name}_chunk/thinking/reasoning/tool/tool_result` SSE 事件补全缺失的 `expert` 字段，此前该字段缺失导致前端 `msg.expert` 为 undefined，所有实时 chunk 被静默丢弃；[frontend/src/App.tsx](frontend/src/App.tsx) 增加从 `msg.type` 正则提取专家类型的 fallback 双保险；[frontend/src/components/AgentCardFlip.tsx](frontend/src/components/AgentCardFlip.tsx) ExpertHoverStream 移除 `useIncrementalTypewriter` 人为延迟，直接渲染 `thinkingContent`（有什么立即显示什么），端到端模拟测试证实 tactics/strategy 各 110/173 次实时更新，首个 chunk 0.19s 到达
+  - v3.94 (2026-04-03): 协调者时间线真实时流式 — [frontend/src/App.tsx](frontend/src/App.tsx) 重写 `applyStreamMessage` 专家事件路由：`expert_start` 立即创建协调者实时步骤，`expert_{type}_chunk/thinking/reasoning` 每个 chunk 同步追加到协调者步骤内容（与卡片 thinkingContent 双写），`expert_{type}_tool` 关闭旧步骤并新建工具验证步骤，`expert_{type}_tool_result` 关闭工具步骤并新建下一轮分析步骤，`expert_result` 收尾 finalize；`expert_step_*` 后处理事件降级为标题更新而非内容来源，彻底消除"协调者步骤等后处理一口气全出"的批量问题；新增 `expertLiveStepRef`/`expertRoundRef` 跟踪每专家当前活跃步骤 ID 与轮次
+  - v3.93 (2026-04-03): 专家卡片真实逐字流式 + 全链路标记净化 — [frontend/src/components/AgentCardFlip.tsx](frontend/src/components/AgentCardFlip.tsx) 重写 `useIncrementalTypewriter` 为只进不退游标式打字机，消除"18s无输出后一次性蹦字"问题；[frontend/src/components/ExpertCard.tsx](frontend/src/components/ExpertCard.tsx) `StreamText` 同步改为增量游标机制；[core/llm/experts/base_expert.py](core/llm/experts/base_expert.py) 新增 `sanitize_display_text()` 统一清除 `[CLAIM]`/`[EVIDENCE]`/`[CONFIDENCE]`/`## N` 等原始标记；[core/llm/multi_agent_orchestrator.py](core/llm/multi_agent_orchestrator.py) 保底综合讲解调用同一净化函数；[frontend/src/App.tsx](frontend/src/App.tsx) 前端兜底二次净化 step content / findings / synthesis chunks
+  - v3.92 (2026-04-03): 深度分析展示链路收口 — [frontend/src/App.tsx](frontend/src/App.tsx) 将专家 `[STEP]` 事件汇总进协调者时间线，并把 `dispatch_info` 改写为适合演示的中文阶段提示；[frontend/src/components/AgentCardFlip.tsx](frontend/src/components/AgentCardFlip.tsx) 改为优先展示专家实时 `thinkingContent` 打字流，移除扑克牌下方的小活动框，避免前端继续显示晚到的英文/调度碎片
+  - v3.91 (2026-04-03): 推理时控制 plan 扩充为“缩减版推理系统”路线 — 更新 [docs/plans/004-inference-control-upgrade.md](docs/plans/004-inference-control-upgrade.md)，把近期讨论沉淀为正式计划：在既有验证回路/情景分解/多候选裁判基础上，新增“协议卡 + 状态变量 + 轻量 verifier + 快慢双模式”四项最小落地方向，并明确不建议在比赛窗口内重投入完整树搜索、多长文 agent 辩论和答案式 RAG
+  - v3.90 (2026-04-03): 深度分析首屏时延压缩 — [core/llm/reliable_client.py](core/llm/reliable_client.py) 改小流式读取缓冲并记录首 chunk 时延；[core/llm/experts/base_expert.py](core/llm/experts/base_expert.py) 缩短专家正文/思维 flush 阈值；[api/main.py](api/main.py) 在 agent 阶段补发心跳，避免前端长时间静默；同时将 [core/llm/experts/tactics_expert.py](core/llm/experts/tactics_expert.py)、[core/llm/experts/strategy_expert.py](core/llm/experts/strategy_expert.py)、[core/llm/experts/engine_expert.py](core/llm/experts/engine_expert.py) 默认模型切为 `glm-4-flash` 且支持环境变量覆盖，专家轮次 3→2，保留合成器使用 `glm-5`
+  - v3.89 (2026-04-03): 审批台补齐“重写当前条目”闭环 — [apps/web-gradio/reviewer.py](apps/web-gradio/reviewer.py) 在审批页新增“♻️ 基于后端证据重写当前条目”按钮与后端 API 地址输入；可对当前 scenario 条目重取真实证据并原位重写，自动回填 `thinking_steps/tags_expected/engine_best_move/evidence_snapshot`，并把等级重置为 draft 待复审；对重写队列条目则可直接回填到 scenario 资产库并标记队列状态为 rewritten
+  - v3.88 (2026-04-03): 审批台接入后端取证据生成 draft — [apps/web-gradio/reviewer.py](apps/web-gradio/reviewer.py) 的“新建局面”Tab 新增后端 API 地址输入与“从后端证据生成 draft”按钮，可直接调用 `scripts/generate_asset_draft.py` 逻辑取 `/api/position-analysis`、`/api/engine/evaluate`、`/api/tactical-tags`、`/api/board-structure` 生成并保存 scenario draft；审批页新增“后端证据摘要”面板显示 evidence_snapshot 核心信息
+  - v3.87 (2026-04-03): 跨对话资产流程固化 — 新增 [docs/guides/asset_workflow.md](docs/guides/asset_workflow.md)，明确“Copilot 本体就是资产起草者”，新对话必须先读 DNA/STATE/资产工作流指南；固化资产默认流程为“先调用后端 API 取证据，再生成 draft”，避免换对话后退回纯脑补模式
+  - v3.86 (2026-04-03): 资产起草前取证据落地 — 新增 [scripts/generate_asset_draft.py](scripts/generate_asset_draft.py)，在生成 scenario 初稿前先调用后端 `/api/position-analysis`、`/api/engine/evaluate`、`/api/tactical-tags`、`/api/board-structure` 拉取真实引擎与规则证据，再生成带 `engine_verified=true` / `tags_verified=true` / `evidence_snapshot` 的 draft，避免“纯脑补初稿”质量过差；requirements 补充 `requests`
+  - v3.85 (2026-04-03): 审批台真值提示补齐 — reviewer 增加“已验证/AI草稿，待验证”状态展示与醒目提示文案；scenario_examples 现有5条样例显式标记 `engine_verified=false` / `tags_verified=false`，避免把演示草稿误当真值；审批台启动改为自动避开被占用端口，减少旧进程导致的显示错乱
+  - v3.84 (2026-04-03): 审批台三项升级 — 棋盘渲染修复（Windows中文字体/棋子居中/九宫格斜线/楚河汉界/双圈棋子/N→馬映射）；新增否决→重写队列机制（rejected自动写入rewrite_queue.jsonl供AI下次重写）；新增「新建局面」Tab（FEN粘贴→预览棋盘→填写阶段/情景/矛盾→创建draft条目），资产类型增加"待重写队列"类别；pytest全绿
+  - v3.83 (2026-04-03): 资产审批台 + 情景示范初稿落地 — 新增 `apps/web-gradio/reviewer.py` Gradio 审批工具（棋盘渲染+思维步骤+教学讲解可编辑+三级审批写回JSONL）；新增 `data/assets/` 目录含4个JSONL资产文件；`scenario_examples.jsonl` 写入5条情景示范初稿（开局中炮/中局无根子/中局牵制/中局捉双/残局车对仕相全），每条含完整推理节奏+工具调用序列+教学讲解；pytest全绿
+  - v3.82 (2026-04-03): 资产生命周期方案设计 — 新增 `docs/plans/006-asset-lifecycle-and-eval-driven-workflow.md`，基于 DSPy/STaR/LLM-as-Judge/Context Engineering/SELF-ALIGN 五项前沿方法调研，设计"三道门审批 + 评测驱动 + 资产分级"的完整生命周期管理方案，统一四类资产 Schema（评测题/情景示范/失败案例/断言映射），明确 AI 与人的分工边界
+  - v3.81 (2026-04-03): 规划文档沉淀 — 新增 `docs/plans/004-inference-control-upgrade.md` 与 `docs/plans/005-data-and-knowledge-assets.md`，把近期两段关键规划对话正式沉淀为可执行 plan：前者聚焦“验证回路 + 情景驱动分解 + 引擎/标签裁判式多候选”的推理时控制升级，后者聚焦“失败案例库 + 情景化示范库 + 原子断言验证映射表 + 评测题集”的资产建设路线；同步更新 `docs/plans/README.md` 索引；`pytest -q` 通过
+  - v3.80 (2026-04-02): 扑克牌信息栏收缩与开局焦点纠偏 — 专家扑克牌下方信息栏收缩为单行小标题，释放右侧分析舞台空间；`analyze_position_strategy()` 在开局阶段默认忽略 `cannon_battery` 作为教学焦点，并补上“先按主线/定式完成出子顺序”的计划建议；合成器保底综合讲解移除写死的“重炮阵型 vs 子力优势”争论，改为按开局/非开局场景生成更克制的分歧解读；参考 CoT / Self-Consistency / STaR / DSPy 的方向，后续调教将从“堆术语”转向“按情景编写示范流程并迭代自举”；前端构建与 `tests/test_reliability_refactor.py` 通过
+  - v3.79 (2026-04-02): 混合知识检索与相似局面检索落地 — 新增基于 data/training/position_data.jsonl 的本地相似局面检索器，按 FEN 结构/子力/语义标签混合匹配中局与残局相似样本；`search_chess_knowledge` 升级为“语义知识 + 棋理原则 + 相似局面”混合检索，`analyze_position_strategy` 默认补充相似局面与棋理摘要，不再完全依赖模型自行想起调工具；`rag_node` 优先切到真实 `ChromaRAG`，Chroma 索引补录开局原则与开局体系知识；真实工具输出已出现相似中局参考着法，`pytest -q` 全绿
+  - v3.78 (2026-04-02): 合成器去草稿化与流式路由固化 — deep-stream 流式教学模式下协调器优先走多专家路径，避免回退到旧 single-agent 泄漏“达到最大轮数限制”；合成器不再主动要求输出 ##/[STEP:] 过程标记，并在专家输入与最终成稿两端净化步骤草稿，减少中局综合讲解被原始 trace 污染的风险；开局在 8009 上重新命中 opening_fast_path（首个内容约 0.125s，结果约 0.173s），全量测试 `pytest -q` 全绿；8010 中局 live 复测遭遇上游 429，当前已确认系统会快速显式降级而非继续输出脏稿
+  - v3.77 (2026-04-02): 中局深链路预调度前推 — 修复 FEN-only move_count 把部分无历史中局误判为 opening_fast_path 的问题，PhaseDetector 现在区分 history 与 fen 推断来源；deep-stream 在重预分析等待窗前推 preview dispatch、协调者副标题与专家“证据准备”步骤，同一盘误判中局在 8008 上已于约 0.188s 收到有效调度事件；pytest -q 全绿
+  - v3.76 (2026-04-02): 比赛素材全面重写 — 深度阅读全部源码后重写4篇比赛技术素材（作品简介/设计思路/设计重点难点/作品安装说明），所有数据均来自真实代码验证（304测试/45标签/14工具/9调度策略等），旧版备份为*_old.md；pytest全绿
+  - v3.75 (2026-04-02): 深度分析实时链路再压缩 — deep-stream 在高置信开局场景跳过重预分析，基于 FEN/历史推断 move_count 并收紧 opening 判定，避免无历史中局误判开局；专家链路改为真实流式 chunk/推理转发、关闭冗长 thinking 默认值、轮次 3→2，并给 Evidence 灵动岛补上专家实时步骤，首个有效事件已压到约 0.125s；前端构建通过，pytest -q 全绿
+  - v3.74 (2026-04-02): 开局快答演出层与协调者布局修正 — opening_fast_path 不再直接暴露“快答模式”口吻，而是补齐战略/引擎轻量步骤、工具轨迹与协调者综合步骤，让开局也像是快速分析得出；同时拉高右侧协调者内容区避免底部大片空白，Evidence 灵动岛回调到更合理尺寸并新增调度脉冲空态；前端构建通过，pytest -q 全绿
+  - v3.73 (2026-04-02): 分析模式体验强化 — 前端分析区改为“棋盘 / Evidence Map 灵动岛 / 右侧分析栏”三栏舞台，补出棋盘与右栏之间的独立展示位；Evidence 岛实时展示调度与工具调用（中文工具名），专家 hover 面板改为持续滚动的实时思维流，分析动画大幅提速并清理高开销发光动画以改善帧率；前端构建通过，pytest -q 全绿
+  - v3.72 (2026-04-02): 开局快答调度优化 — deep-stream 新增 history 透传，协调器在开局前几步命中开局书/开局原则时直接走 opening_fast_path，跳过强制三专家重链路；新增 dispatch_info SSE 事件与前端调度可视化，保留多专家主链用于复杂局面；前端构建通过，pytest -q 全绿，并完成 force_multi 场景下的真实快答回放验证
+  - v3.71 (2026-04-02): 深度分析全链路修复 — 修复 force_multi 未强制三专家/预分析错误污染 SSE/引擎池复用死进程/专家把 reasoning_content 当正式输出导致 tool_calls 与英文思维泄漏/search_chess_knowledge 工具签名不兼容/合成空结果导致无 result 事件；新增专家成稿验收与重写修复、合成器保底综合讲解，真实调用 /api/analyze/deep-stream 已恢复三专家+result+debug_log，pytest 门禁通过
+  - v3.70 (2026-04-02): 对局反馈层完善 — 棋盘新增将军横幅+被将方王位脉冲提示/非法走法红色抖动与浮层提示/吃子爆散闪击特效，并在 store 中接入 move 与 ai-move 的 captured/in_check/game_over 状态，前端构建通过+pytest门禁通过
+  - v3.69 (2026-04-02): 棋盘完成三期精修 — 在深墨棋谱盘基线上补充入场动效/河界流光/悬停光晕/棋子悬停与按压反馈/整体交互节奏继续克制化，前端构建通过+pytest门禁通过
+  - v3.68 (2026-04-02): 棋盘重做二期完成 — ChessBoard改为“深墨棋谱盘”方向/补回清晰9x10棋盘格与九宫结构/河界取消胶囊化改为薄雾横带+压印“楚河智境”/棋子统一为传统象牙棋具式圆子/交互高亮改为克制教学态/前端构建通过+300测试全绿
+  - v3.67 (2026-04-02): 棋盘风格纠偏 — 去除Y2K金属球与强发光半成品风格/棋盘收敛为深墨漆面+细金线+弱化河界带/棋子改为温润哑光材质而非银红金属球/保持“楚河智境”文案/前端构建通过+300测试全绿
+  - v3.66 (2026-04-02): 棋盘UI重做一期 — ChessBoard重绘为Aurora Lacquer液态漆面风格/河界文案改为“楚河智境”/靛蓝漆面底板+琥珀金线+能量河界/新增星位标记与釉面棋子材质/上一步与合法点提示改为轻量呼吸环/前端构建通过+300测试全绿
   - v3.65 (2026-04-02): 重构识别为纯YOLO管道 — 新增vision/yolo_recognizer.py(YoloDirectRecognizer)/YOLO检测board类自动定位棋盘/棋子坐标→(col,row)映射/FEN生成/后端/api/recognize改为YOLO本地推理(不再调LLM)/300测试全绿
   - v3.64 (2026-04-02): 三大Bug修复 — 引擎栏全模式可见(replay除外)+走子后自动刷新评估/GLM-5 Extended Thinking content空响应兜底(reasoning_content回退)/LLM并发限制2→4+熔断阈值5→12+工具超时30→45s/300测试全绿
   - v3.63 (2026-04-02): 棋盘视觉识别接入 — VisionAnalyzer(GLM-4V-Flash)集成/POST /api/recognize图片上传端点/Apple风格识别弹窗(扫描动画+置信度+一键应用)/前端识别按钮完整联通/RecognitionModal组件/loadFromRecognition状态方法/300测试全绿
@@ -43,12 +73,484 @@ changelog:
 
 > 本文档记录当前开发进度，架构详情请阅读 [DNA.md](DNA.md)
 
-**版本**: v3.65
-**最后更新**: 2026-04-02
+**版本**: v3.95
+**最后更新**: 2026-04-03
 
 ---
 
 ## 📋 文档更新记录
+
+### 2026-04-03 ✅ 完成：修复专家悬浮卡片实时流式显示 + SSE expert 字段补全（v3.95）
+
+**根因**：后端 SSE 生成器发送 `expert_{name}_chunk`/`_thinking`/`_reasoning`/`_tool`/`_tool_result` 事件时，**缺少 `expert` 字段**。前端 App.tsx 的 `applyStreamMessage` 依赖 `msg.expert` 来路由事件到对应专家的 store，缺失该字段导致所有实时 chunk 被静默丢弃，`thinkingContent` 永远为空。当 `expert_result` 到达（它包含 `expert` 字段）时，`finding` 被一次性设置，悬浮卡片突然填满。
+
+**端到端模拟测试结果（修复后）**：
+- tactics: 110 次实时更新, 首个 0.19s, 持续 22.78s, 中位时间到达比 46%
+- strategy: 173 次实时更新, 首个 0.20s, 持续 32.97s, 中位时间到达比 45%
+- 协调者步骤: 同步双写 283 次更新，完全实时
+
+**变更**：
+- [api/main.py](api/main.py)：SSE 生成器为所有 `expert_{name}_*` 事件添加 `'expert': expert_name` 字段
+- [frontend/src/App.tsx](frontend/src/App.tsx)：增加从 `msg.type` 正则提取专家类型的 fallback（`/^expert_(tactics|strategy|engine)_/`），双保险确保路由不丢
+- [frontend/src/components/AgentCardFlip.tsx](frontend/src/components/AgentCardFlip.tsx)：ExpertHoverStream 移除 `useIncrementalTypewriter` 人为延迟，改为直接渲染 `thinkingContent`（有什么显示什么），自动滚动到底部
+
+### 2026-04-03 ✅ 完成：协调者时间线真实时流式（v3.94）
+
+**目标**：彻底解决"协调者步骤隔好多秒然后一下子出来好多个step"的问题——根因是 `_emit_structured_steps` 后处理在专家完整响应完成后才批量发送步骤事件。
+
+**变更**：
+- [frontend/src/App.tsx](frontend/src/App.tsx)：重写 `applyStreamMessage` 中的专家事件路由架构
+  - 新增 `expertLiveStepRef` 和 `expertRoundRef` ref，为每个专家维护协调者时间线上的"当前活跃步骤 ID"和轮次计数器
+  - `expert_start` → 立即在协调者时间线创建 "XX专家 · 分析中" 步骤
+  - `expert_{type}_chunk/thinking/reasoning` → 每个实时 chunk 同步追加到卡片 `thinkingContent` **和** 协调者步骤内容（双写），实现逐字实时
+  - `expert_{type}_tool` → finalize 旧步骤，新建 "XX专家 · 工具名" 步骤，填补工具调用等待期的协调者空白
+  - `expert_{type}_tool_result` → 追加工具摘要到协调者步骤，关闭工具步骤，新建下一轮分析步骤
+  - `expert_result` → finalize 该专家的最后一个活跃步骤
+  - `expert_step_*` 后处理事件降级为标题更新/内容补充，不再是协调者步骤的主要数据来源
+  - 每次 `triggerDeepAnalysis` 重置所有 ref 状态
+
+### 2026-04-03 ✅ 完成：专家卡片真实逐字流式 + 全链路标记净化（v3.93）
+
+**目标**：消除"18s无输出后一次性蹦字"的阻塞感，和协调者内容里的 `## N`、`[CLAIM]` 等原始标记泄露。
+
+**变更**：
+- [frontend/src/components/AgentCardFlip.tsx](frontend/src/components/AgentCardFlip.tsx)：重写 `useIncrementalTypewriter` 为只进不退的游标式打字机——游标只追赶 text.length，不因新 chunk 到达而回退重播；专家完成后也展示 thinkingContent 而非跳切到 finding
+- [frontend/src/components/ExpertCard.tsx](frontend/src/components/ExpertCard.tsx)：`StreamText` 同步改为增量游标机制，去掉每次 text 变化就重置 currentIndex 的旧逻辑
+- [core/llm/experts/base_expert.py](core/llm/experts/base_expert.py)：新增 `sanitize_display_text()` 统一清除 `[CLAIM]`/`[EVIDENCE]`/`[CONFIDENCE]`/`## N 标题`/`[STEP:]` 等原始标记；`split_step_content_chunks` 和 `_extract_finding` 调用同一净化函数
+- [core/llm/multi_agent_orchestrator.py](core/llm/multi_agent_orchestrator.py)：`_build_fallback_synthesis` 的 `short()` 和 evidence 生成改为调用 `sanitize_display_text`
+- [frontend/src/App.tsx](frontend/src/App.tsx)：前端增加兜底 `sanitizeDisplayText` 二次净化 step content / findings / synthesis_chunk / result.explanation
+
+### 2026-04-03 ✅ 完成：深度分析展示链路收口（v3.92）
+
+**目标**：把 deep-stream 前端从“能流”改成“能演示”，让协调者和专家卡片都按用户视角展示真正有用的实时过程。
+
+**变更**：
+- [frontend/src/App.tsx](frontend/src/App.tsx)：专家 `[STEP]` 开始/内容/结束事件不再留在卡片底部小块中，而是统一汇总到协调者时间线；`dispatch_info` 不再直接露出英文/调度味文案，改成面向演示的中文阶段提示
+- [frontend/src/components/AgentCardFlip.tsx](frontend/src/components/AgentCardFlip.tsx)：专家 hover 面板优先显示真实实时 `thinkingContent` 打字流；删除扑克牌下方小活动框，减少碎片化视觉噪音
+
+### 2026-04-03 ✅ 完成：推理时控制 plan 扩充为“缩减版推理系统”路线（v3.91）
+
+**目标**：把近期关于协议卡、状态变量、verifier 与快慢双模式的讨论沉淀进正式 plan，避免后续继续停留在抽象讨论层。
+
+**变更**：
+- [docs/plans/004-inference-control-upgrade.md](docs/plans/004-inference-control-upgrade.md)：补充“协议卡驱动的推理路由”“状态变量化”“轻量 verifier”“快慢双模式”等四项新方案，增加最小落地清单，并明确近期不建议投入完整树搜索、多长文 agent 辩论与答案式 RAG
+
+### 2026-04-03 ✅ 完成：深度分析首屏时延压缩（v3.90）
+
+**目标**：解决 deep-stream“不是没流，而是正文太晚才出来”的演示卡顿问题。
+
+**变更**：
+- [core/llm/reliable_client.py](core/llm/reliable_client.py)：把 GLM 流式读取改为更小粒度，减少 requests 攒包导致的首段正文延迟，并记录首个 content/reasoning chunk 时延
+- [core/llm/experts/base_expert.py](core/llm/experts/base_expert.py)：专家正文与思维 flush 规则改为“小片段 + 时间阈值”并行触发，避免明明已有返回却继续攒包
+- [api/main.py](api/main.py)：agent 阶段队列为空时每秒补发一次“专家分析中...”心跳，减少前端长时间静默
+- [core/llm/experts/tactics_expert.py](core/llm/experts/tactics_expert.py)、[core/llm/experts/strategy_expert.py](core/llm/experts/strategy_expert.py)、[core/llm/experts/engine_expert.py](core/llm/experts/engine_expert.py)：专家默认模型切为 `glm-4-flash`，支持 `EXPERT_LLM_MODEL` / `TACTICS_EXPERT_MODEL` / `STRATEGY_EXPERT_MODEL` / `ENGINE_EXPERT_MODEL` 覆盖；专家最大轮次 3→2；合成器继续保留 `glm-5`
+
+### 2026-04-03 ✅ 完成：审批台补齐重写闭环（v3.89）
+
+**目标**：让打回或存疑条目不再停在“记录问题”，而是能直接在审批台内重取证据并重写。
+
+**变更**：
+- [apps/web-gradio/reviewer.py](apps/web-gradio/reviewer.py)：审批页新增“重写使用的后端 API 地址”与“♻️ 基于后端证据重写当前条目”按钮；scenario 条目可原位重写并重置为 draft 待复审；rewrite_queue 条目可一键回填到 scenario 库并标记 `status=rewritten`
+
+### 2026-04-03 ✅ 完成：审批台接入后端取证据生成 draft（v3.88）
+
+**目标**：把“先取证据，再起草”从独立脚本推进到审批台主流程里，减少手动切换。
+
+**变更**：
+- [apps/web-gradio/reviewer.py](apps/web-gradio/reviewer.py)：新建局面 Tab 新增后端 API 地址输入、生成标签/最佳着法展示、`⚡ 从后端证据生成 draft` 按钮；审批页新增“后端证据摘要”面板，显示 evidence_snapshot 中的引擎、标签、结构摘要
+
+### 2026-04-03 ✅ 完成：跨对话资产流程固化（v3.87）
+
+**目标**：确保新开 Copilot 对话也能沿用同一套资产工作流，不退回“纯脑补初稿”。
+
+**变更**：
+- [docs/guides/asset_workflow.md](docs/guides/asset_workflow.md)：新增资产工作流指南，明确 Copilot 本体就是资产起草者；新对话必须先读 DNA / STATE / 本指南；资产默认流程固定为“先调后端取证据，再起草 draft”
+
+### 2026-04-03 ✅ 完成：起草前取证据（v3.86）
+
+**目标**：避免资产初稿完全靠 AI 脑补，起草时就使用后端真实引擎与规则信号。
+
+**变更**：
+- [scripts/generate_asset_draft.py](scripts/generate_asset_draft.py)：新增资产草稿生成脚本，输入 FEN/phase/scenario 后依次请求 `/api/position-analysis`、`/api/engine/evaluate`、`/api/tactical-tags`、`/api/board-structure`，自动生成带 `evidence_snapshot` 的 scenario draft
+- [requirements.txt](requirements.txt)：显式补充 `requests>=2.31.0`
+
+### 2026-04-03 ✅ 完成：审批台真值提示补齐（v3.85）
+
+**目标**：解决“草稿像真值”的误导问题，并避免旧端口占用导致你看到旧版审批台。
+
+**变更**：
+- [apps/web-gradio/reviewer.py](apps/web-gradio/reviewer.py)：元信息区新增“引擎数据/标签数据 = 已验证 or AI草稿，待验证”；审批页顶部新增醒目警告；启动时不再写死 7861，自动向后寻找空闲端口
+- [data/assets/scenario_examples.jsonl](data/assets/scenario_examples.jsonl)：现有 5 条示范样例显式写入 `engine_verified=false` 与 `tags_verified=false`
+
+### 2026-04-03 ✅ 完成：审批台三项升级（v3.84）
+
+**目标**：修复棋盘渲染质量、补全审批闭环（打回→重写）、支持人工导入新局面。
+
+**变更**：
+- `core/render/board_renderer.py`：完全重写——Windows 平台自动加载 SimHei/微软雅黑字体、棋子 textbbox 精确居中、双圈传统棋子样式、九宫格斜线、河界中间列断开、楚河漢界文字居中渲染、新增 N/n→馬/马映射
+- `apps/web-gradio/reviewer.py`：审批台升级为 Tabs 布局——
+  - 「📋 审批」Tab：否决自动写入 `rewrite_queue.jsonl`（含原文/审核备注/原始ID），元信息增显审核备注
+  - 「➕ 新建局面」Tab：FEN 输入→预览验证→选阶段/情景名/局面判断/主要矛盾→创建 draft 条目到 scenario_examples.jsonl
+  - 资产类型下拉增加"待重写队列 (rewrite)"
+- `data/assets/rewrite_queue.jsonl`：新增重写队列文件
+
+### 2026-04-03 ✅ 完成：资产审批台 + 情景示范初稿落地（v3.83）
+
+**目标**：落地资产管理的实际工具和第一批示范数据。让审批流程从计划变成可用的产品。
+
+**变更**：
+- `data/assets/` 目录：新增 `scenario_examples.jsonl`（5条初稿）、`eval_set.jsonl`、`failure_cases.jsonl`、`assertion_map.jsonl`（空，待填充）
+- `apps/web-gradio/reviewer.py`：Gradio 审批工具，包含棋盘FEN渲染、思维步骤展示、教学讲解可编辑、三级审批（gold/silver/rejected）写回JSONL、否决自动转入失败案例库
+- 5 条情景示范初稿覆盖 5 种不同推理节奏：
+  1. `opening_center_cannon`：开局中炮，查定式→看引擎→出子顺序
+  2. `midgame_unprotected_piece`：中局无根子，验证无根→查对手反击→引擎确认
+  3. `midgame_pin`：中局牵制，确认牵制关系→被钉子受攻次数→加攻
+  4. `midgame_double_attack`：中局捉双，发现双攻位→simulate验证→引擎确认
+  5. `endgame_basic`：残局车对仕相全，数子力→查残局定式→判断胜负
+
+**启动方式**：
+```bash
+python apps/web-gradio/reviewer.py
+# 浏览器打开 http://localhost:7861
+```
+
+**验证**：
+- 5 条 JSONL 数据加载、棋盘渲染、存取回写均通过验证
+- 全量测试通过：`pytest -q`
+
+### 2026-04-03 ✅ 完成：资产生命周期方案设计（v3.82）
+
+**目标**：回答"AI 生成的资产能可靠吗"这个核心问题，基于前沿方法调研设计可执行的审批检阅订正流程。
+
+**前沿调研**：
+- **DSPy/MIPRO**（Stanford 2023-2024）：prompt 视为可编译程序，自动选择的 few-shot 比人工挑选好 5-46%；启示 → 情景模板应模块化可组合
+- **STaR**（Zelikman 2022）：少量正确推理示范 + 自举迭代 → 可比 30x 大模型；启示 → "错的带正确信息重写"就是我们的核心工作流
+- **LLM-as-Judge**（Zheng, NeurIPS 2023）：强模型评判与人类偏好 >80% 一致；启示 → 用 LLM 评"说得好不好"，用规则/引擎评"说得对不对"
+- **Context Engineering**（Karpathy/DAIR.AI 2025）：从 prompt engineering 到 context engineering，核心是分层上下文+可观测性+行为迭代
+- **SELF-ALIGN**（Sun, NeurIPS 2023）：16 条原则 + 5 个示范 > 大量未验证样本；启示 → 知识卡少而硬，先做 20 条严格验证的
+
+**新增 Plan**：
+- `docs/plans/006-asset-lifecycle-and-eval-driven-workflow.md`：
+  - 统一四类资产 Schema（eval_item / scenario_example / failure_case / assertion_verification_map）
+  - "三道门"审批制：硬核自动验证 → LLM-Judge 软评分 → 人工终审
+  - 资产分级：gold / silver / draft / rejected
+  - 评测驱动闭环：生成 → 验证 → 定级 → 入库 → 回归 → 订正
+  - AI 与人的明确分工边界
+
+**验证**：
+- 全量测试通过：`pytest -q`
+
+### 2026-04-03 ✅ 完成：规划文档沉淀（v3.81）
+
+**目标**：把近期两段关键规划性讨论从聊天结论沉淀成仓库内可持续维护的 Plan 文档，避免方向只停留在对话中。
+
+**新增 Plan**：
+- `docs/plans/004-inference-control-upgrade.md`：沉淀“推理时控制升级”路线，明确下一阶段以工具校验回路、情景驱动分解、引擎/标签裁判式多候选为主线，而非直接引入重型研究框架
+- `docs/plans/005-data-and-knowledge-assets.md`：沉淀“数据与知识资产建设”路线，明确优先建设失败案例库、情景化示范库、原子断言验证映射表和评测题集
+- `docs/plans/README.md`：补充两份新计划的目录索引，保证后续协作时可发现、可引用
+
+**验证**：
+- 全量测试通过：`pytest -q`
+
+### 2026-04-02 ✅ 完成：扑克牌信息栏收缩与开局焦点纠偏（v3.80）
+
+**目标**：直接解决分析舞台里两个会立刻掉价的问题：扑克牌下方栏位过于占空间，以及系统在开局场景反复把“重炮阵型”之类弱焦点结构抬成主叙事。
+
+**关键问题**：
+- 扑克牌落地后的下方信息卡高度过大，持续挤占左侧纵向空间，视觉上比专家牌面本身还吵
+- `cannon_battery` 是宽松的位置结构标签，但在开局阶段常常只是炮的自然排布；若直接把它抬成教学重点，会偏离“当前该聚焦什么”
+- 合成器保底文案里硬编码了“重炮阵型 vs 直接子力优势”的争论，即使当前局面根本不是这个矛盾，也会把用户带偏
+
+**变更**：
+- `frontend/src/components/AgentCardFlip.tsx`：专家牌下方信息栏改为单行小标题，只保留当前步骤标题/副标题，不再展示额外内容块
+- `core/llm/agent_tools.py`：新增按阶段过滤焦点标签的逻辑，开局阶段默认忽略 `cannon_battery` 作为主教学焦点；`analyze_position_strategy()` 对开局补充“优先按主线/定式完成出子顺序”的建议
+- `core/llm/multi_agent_orchestrator.py`：保底综合讲解改为按开局/非开局场景生成克制的分歧解读，不再写死“重炮阵型 vs 子力优势”
+- `tests/test_reliability_refactor.py`：新增“开局忽略重炮焦点”和“保底讲解不再硬编码重炮叙事”的回归测试
+
+**研究结论（用于后续调教）**：
+- `Chain-of-Thought`：少量高质量示范即可显著提升复杂推理，说明我们应该写“情景-流程-结论”式示范，而不是继续堆空泛术语
+- `Self-Consistency`：同题多路径采样后取一致结论，适合后续做“多条教学解释候选→一致性筛选”
+- `STaR`：用少量带思维过程的示范 + 模型自生成正确推理自举，适合把已有优质分析样本沉淀成 scenario curriculum
+- `DSPy`：把 prompt 视作可编译、可优化的流程图，而不是手写长字符串；后续更适合把“开局新手/老手、中局优势/劣势、残局简化/守和”等情景模块化编排
+
+**验证**：
+- 前端构建通过：`cd frontend && npm run build`
+- 定向回归通过：`pytest -q tests/test_reliability_refactor.py`
+
+### 2026-04-02 ✅ 完成：混合知识检索与相似局面检索落地（v3.79）
+
+**目标**：正面提升深度分析的知识厚度与局面先验，补掉“相似局面检索缺位、棋理库过薄、RAG接入不深”的质量根因。
+
+**关键问题**：
+- 多专家主链路虽然暴露了 `search_chess_knowledge`，但主质量仍过度依赖模型自己决定是否调用，导致知识接入深度不稳定
+- 旧 `rag_node` 仍默认使用 `MockRAG`，和主工程的真实 ChromaRAG 路线脱节
+- 仓库里确实有 `data/training/position_data.jsonl` 这类带 `fen + semantic_tags` 的训练样本，但此前没有任何主工具把它用作相似局面检索
+- 现有 Chroma 主要索引张力原则，开局原则与开局体系知识没有系统并入语义库
+
+**变更**：
+- `core/rag/position_similarity.py`：新增本地相似局面检索器，基于训练样本的 FEN 结构、子力配置与语义标签做混合相似度排序，支持按阶段快速召回
+- `core/llm/agent_tools.py`：`search_chess_knowledge()` 升级为混合检索，返回“语义知识结果 + 棋理原则 + 相似局面”；`analyze_position_strategy()` 默认补充相似局面与棋理摘要，让战略专家不再完全依赖额外工具调用才拿到知识证据
+- `core/rag/chroma_rag.py`：Chroma 集合初始化改为按类型补种数据，不仅索引张力原则，也索引 `opening_knowledge.py` 里的开局原则与开局体系
+- `core/agent/nodes/rag_node.py`：优先使用 `ChromaRAG`，仅在异常时回退 `MockRAG`
+- `tests/test_rag.py`、`tests/test_agent.py`：新增相似局面检索、带 FEN 的混合知识检索、RAG 节点回归测试
+
+**验证**：
+- 定向回归通过：`pytest -q tests/test_rag.py tests/test_agent.py`
+- 真实工具调用验证：`search_chess_knowledge(fen=..., query='中局结构与计划')` 已返回语义知识、原则补充与 3 个相似中局样本，包含参考着法与样本数
+- 全量测试通过：`pytest -q`
+
+### 2026-04-02 ✅ 完成：合成器去草稿化与流式路由固化（v3.78）
+
+**目标**：继续收口开局/中局深链路中最后一批明显掉价的问题，重点修复 streaming teaching 模式误回退旧单链路、以及中局综合讲解把 `##` / `[STEP:]` 草稿结构直接暴露给用户的问题。
+
+**关键问题**：
+- deep-stream 虽然已有 preview dispatch，但协调器在部分 streaming 场景仍可能回退旧 `XiangqiCoachAgent` 单链路，用户会直接看到“达到最大轮数限制”
+- 合成器系统提示词主动要求输出 `## [数字]` 与 `[STEP: ...]`，同时又把专家原始 `details` 大段注入提示，导致最终 `【共识分析】` 等章节容易混入中间步骤草稿，且合成上下文被不必要拉长
+
+**变更**：
+- `core/llm/multi_agent_orchestrator.py`：`analyze()` 在存在 `on_thinking` 的 streaming teaching 场景下优先走 `analyze_multi()`，阻断 deep-stream 回退旧 single-agent 路径
+- `core/llm/multi_agent_orchestrator.py`：合成器提示词改为“只输出六个最终章节”，不再主动要求输出 `##` / `[STEP:]` 过程标记
+- `core/llm/multi_agent_orchestrator.py`：新增专家详情净化与最终成稿净化，清除 `[STEP:]`、`## ...`、节标题回声等草稿噪声，并把传统 `details` 压成短摘要，减少合成器上下文膨胀
+- `tests/test_reliability_refactor.py`：新增“专家详情去步骤草稿”和“最终成稿净化”回归测试
+
+**验证**：
+- 目标回归通过：`pytest -q tests/test_reliability_refactor.py`
+- 全量测试通过：`pytest -q`
+- 开局 live 回放（8009）重新命中 `opening_fast_path`，首个有效内容约 `0.125s`，最终结果约 `0.173s`
+- 中局 live 回放（8010）本轮遭遇上游 `429`，系统约 `4.307s` 内显式返回失败说明而非继续输出带草稿污染的错误综合文案；该问题属于外部限流，后续仍需在可用额度下继续复测中局最终讲解质量与总时延
+
+### 2026-04-02 ✅ 完成：中局深链路预调度前推（v3.77）
+
+**目标**：继续压缩深度分析中局链路的“空等待”，并修复无历史局面仍会被误导到 opening fast path 的剩余误判。
+
+**关键问题**：
+- 仅靠 FEN 尾部 move_count 推断时，部分明显已发展子的中局仍会被判成“开局”，错误触发 opening fast path
+- 非开局 deep-stream 在重预分析完成前只有泛化 `thinking` 心跳，前端 0.5s~数秒窗口内缺少真正有价值的调度/步骤事件
+
+**变更**：
+- `core/llm/thinking_templates.py`：`PhaseDetector.detect()` 新增 `move_count_source`，区分 history 给出的显式着数与 FEN 推断着数；对 FEN-only 场景使用更严格的 opening 判定（要求更少已发展大子）
+- `core/llm/multi_agent_orchestrator.py`、`api/main.py`：阶段检测现在显式传递着数来源，不再把 FEN 推断值伪装成显式 history
+- `api/main.py`：deep-stream 在等待重预分析时先推送 `dispatch_info(mode=precompute_preview)`、协调者副标题与专家“证据准备”步骤，让中局链路在正式专家启动前就有真实可见内容
+- `tests/test_reliability_refactor.py`：新增针对误判中局 FEN 的回归测试，锁定“FEN-only 场景不应误判开局”
+
+**验证**：
+- 实测误判中局 FEN 在 `8008` 上不再触发 `opening_fast_path`
+- 同一局面约 `0.188s` 即收到 `dispatch_info`、`orchestrator_subtitle` 与两位专家的预备步骤
+- 全量测试通过：`pytest -q`
+
+### 2026-04-02 ✅ 完成：比赛素材全面重写（v3.76）
+
+**目标**：深入阅读全部源码后，重写 `docs/contest-materials/` 下的四篇比赛技术素材，为队友提供绝对精细、数据来源真实的原材料。
+
+**方法**：
+- 完整阅读后端全部核心模块（rules引擎、tactical_detector、tension_detector、agent_tools、multi_agent_orchestrator、claim、analysis_policy、reliable_client、engine pool、knowledge_retriever）和前端全部关键组件（LiquidGlassApp、AgentCardFlip、ChessBoard、EvidenceMapIsland、5个GLSL着色器）
+- 运行 `pytest --co -q` 验证精确数据：304项测试/21个文件
+- 所有技术数据均来自真实源码而非猜测
+
+**重写文档**：
+- `作品简介.md`：项目定位、6大功能特色、系统架构、关键指标、6项技术创新、应用价值
+- `设计思路.md`：问题分析、技术选型、4层架构详述、10个核心模块代码级拆解、测试体系、创新总结
+- `设计重点难点.md`：7个技术难题（零幻觉/递归陷阱/多专家编排/RAG融合/可靠性/WebGL渲染/SSE流式）深度分析
+- `作品安装说明.md`：环境要求、5步快速安装、启动流程、验证方法、模块启动时序图、配置说明、FAQ
+
+**备份**：旧版四篇文档已重命名为 `*_old.md` 保留。
+
+**验证**：
+- 测试通过：`pytest -q` → 304 passed
+
+### 2026-04-02 ✅ 完成：深度分析实时链路再压缩（v3.75）
+
+**目标**：解决“灵动岛像摆设、hover 不够真流式、首包过慢、无历史局面误走开局快答、深链路太啰嗦”的整条分析链路问题，让系统更接近可教学演示态。
+
+**关键问题**：
+- `deep-stream` 先做战术/引擎重预分析，再真正启动专家链路，导致首个有价值事件出现过晚
+- 前端若没传完整 history，旧逻辑会把很多中局局面误当成“开局”，错误触发 opening fast path
+- 专家事件此前更像“结果播报”，不是实时流；hover 与 Evidence 岛在无工具调用时仍容易显得阻塞或静态
+- 专家默认 extended thinking 过长，造成时延和车轱辘话
+
+**变更**：
+- `api/main.py`：新增 FEN/history 的 `move_count` 估算；deep-stream 先做 phase/opening 快判，高置信开局直接跳过重预分析；同时转发 `expert_*_reasoning` 事件并取消 deep-stream 的默认强制全队重链路
+- `core/llm/thinking_templates.py`、`core/llm/multi_agent_orchestrator.py`：收紧 opening 判定，补上 FEN move-count 推断与无历史保护，避免把中局误导到开局快答；并为专家补发即时 prelude 步骤
+- `core/llm/reliable_client.py`、`core/llm/experts/base_expert.py`：专家调用改走真实流式传输，推理/正文 chunk 双路转发；关闭默认 extended thinking，轮次从 3 降到 2，正文按小块切分，减少阻塞式大段输出
+- `core/llm/analysis_policy.py`：压缩非必要专家预算，减少深链路里冗余引擎专家开销
+- `frontend/src/App.tsx`、`frontend/src/components/EvidenceMapIsland.tsx`：前端接入专家 reasoning 事件；灵动岛新增“实时动向”区，直接显示专家当前步骤/副标题，不再只等工具返回
+- `tests/test_reliability_refactor.py`：新增“无历史中局不应误判开局”和“协调器可从 FEN 推断 move_count”的回归测试
+
+**验证**：
+- 实测高置信开局 deep-stream：首个有效事件约 0.125s，结果约 0.185s
+- 前端构建通过：`cd frontend && npm run build`
+- 全量测试通过：`pytest -q`
+
+### 2026-04-02 ✅ 完成：开局快答演出层与协调者布局修正（v3.74）
+
+**目标**：解决“开局快答像直接背诵、灵动岛过小、协调者内容框过短导致下半区空白”的体验断裂，同时主动补掉分析模式里几个会削弱演示说服力的空态问题。
+
+**关键问题**：
+- opening fast path 虽然快，但前端只看到协调者直接给答案，缺少“专家已经快速分析过”的表演层，观感像直出背稿
+- 协调者无步骤时正文容器被固定 `maxHeight` 截断，右栏下部容易出现明显空白区
+- 灵动岛在上次缩小后存在感不足，且在没有工具调用时几乎退化成静态空盒
+
+**变更**：
+- `core/llm/multi_agent_orchestrator.py`：为 `opening_fast_path` 补齐战略/引擎两位轻量专家的启动、步骤、工具调用、结果与协调者综合步骤；同时把最终口吻从“命中快答模式”改回自然分析表达
+- `frontend/src/components/ThinkingStream.tsx`：移除正文区固定高度上限，让协调者内容真正吃满右栏可用高度，避免底部大片空白
+- `frontend/src/components/EvidenceMapIsland.tsx`、`frontend/src/App.tsx`：把灵动岛回调到更合理尺寸，并新增“识别/棋理/评估/综合”调度脉冲，使没有工具结果时也保持分析进行中的节奏感
+- `tests/test_reliability_refactor.py`：补充 opening fast path 的专家事件回归校验，确保开局快答仍不触发真实重链路，但前端能收到完整轻量演出事件
+
+**验证**：
+- 前端构建通过：`cd frontend && npm run build`
+- 测试通过：`pytest -q`
+
+### 2026-04-02 ✅ 完成：分析模式体验强化（v3.73）
+
+**目标**：把分析模式从“能跑”提升到“适合录演示视频”，重点解决首屏文字出现慢、专家 hover 时缺少真实流式思考、棋盘与右栏之间缺少卖点展示位，以及动画帧率不稳的问题。
+
+**关键体验问题**：
+- 点击“深度分析”后，右侧真正出现有效内容过慢，首屏反馈缺少即时说服力
+- 专家卡片 hover 面板虽然能显示内容，但并不够像“正在实时思考”，缺少持续滚动与打字节奏
+- 棋盘与右侧分析栏之间的独立空间尚未被正式产品化，无法承载 Evidence Map / 工具灵动岛卖点
+- Agent 卡片与协调者球存在高成本持续发光动画，不利于高帧率录屏
+
+**变更**：
+- `frontend/src/App.tsx`：分析模式主舞台改为四列网格，其中棋盘与右栏之间单独划出 Evidence 岛列；同时补齐专家工具结果回写，工具名在前端映射为中文短标签
+- `frontend/src/components/EvidenceMapIsland.tsx`：新增独立 Evidence Map 灵动岛，实时展示当前调度与最近工具活动，风格收敛为简洁苹果风玻璃卡片
+- `frontend/src/components/AgentCardFlip.tsx`：将思维流可见时间点从原先的长串行动画末尾提前到 `cardsLanding` 阶段；缩短整段入场时序；hover 面板无步骤时改为增量打字流；移除高开销 card aura / orb hue-rotate 发光动画，降低掉帧风险
+- `frontend/src/store/useAgentStore.ts`：新增 `updateExpertToolResult()`，让工具返回结果可写回最新工具记录，供 Evidence 岛与专家面板消费
+
+**验证**：
+- 前端构建通过：`cd frontend && npm run build`
+- 测试通过：`pytest -q`
+
+### 2026-04-02 ✅ 完成：开局快答调度优化（v3.72）
+
+**目标**：解决“开局刚走一两步也走重型深度分析链路”的性价比问题，让系统在简单、定式化的早期开局里更快、更稳、更可解释。
+
+**核心问题**：
+- deep 分析接口此前只拿到 `fen` 和可选 `move`，缺少完整着法历史，开局书与开局原则无法进入主调度入口
+- `force_multi=True` 会把 deep-stream 强行推入重型多专家链路，即使只是第一步中炮、飞相、起马这类高模板化局面
+- 前端只能看到专家/合成流，缺少“为什么走这条调度路径”的可视化信息
+
+**变更**：
+- `api/main.py`：`/api/analyze/deep-stream` 新增 `history` 参数，向协调器透传完整着法历史，并新增 `dispatch_info` SSE 事件透出调度决策
+- `core/llm/analysis_policy.py`：补充 `move_count` 维度，让非强制场景下的超早期开局优先走低成本战略专家路径
+- `core/llm/multi_agent_orchestrator.py`：新增 `opening_fast_path`，在开局前几步命中开局书或低信息量窗口时，直接用开局书 + 原则库 + 轻量引擎评估生成快答，绕过强制三专家链路；同时输出结构化调度信息
+- `frontend/src/services/api.ts`、`frontend/src/App.tsx`：前端传递历史着法，并展示 `dispatch_info` 调度信息，让用户能看到当前是“开局快答”还是“多专家调度”
+- `tests/test_reliability_refactor.py`：新增开局单专家调度测试与 `force_multi` 下仍命中开局快答的回归测试
+
+**验证**：
+- 前端构建通过：`cd frontend && npm run build`
+- 测试通过：`pytest -q`
+- 真实回放验证：直接调用协调器，在 `force_multi=True`、`move_history=['h2e2']` 的场景下稳定返回“中炮开局”快答，且 Span 标记 `decision.opening_fast_path=true`
+
+### 2026-04-02 ✅ 完成：深度分析全链路修复（v3.71）
+
+**目标**：对真实 `GET /api/analyze/deep-stream` 做一次完整实跑，找出深度分析链路中影响比赛演示与答辩稳定性的根因，并完成自修复与回归验证。
+
+**真实问题定位**：
+- `force_multi=True` 只能强制多 Agent 模式，不能保证 tactics / strategy / engine 三专家全量出场，导致开局局面经常只跑两个专家
+- 预分析线程失败会污染主结果 `result_holder['error']`，即使主链路大体成功，SSE 末尾仍直接吐 `error`
+- 引擎池会复用已死亡的 Pikafish 进程，导致 `engine_alternatives` 偶发返回“引擎不可用”或 `Engine process not running`
+- 专家层把 `reasoning_content` 当正式正文回退，导致 tool_calls 参数、英文思维、重复废话直接进入 `expert_result`
+- `search_chess_knowledge()` 与统一工具调度器不兼容，因多传 `fen` 直接报参数错误
+- 合成器在空输出时返回空串，SSE 收尾又用真值判断，最终只剩 `debug_log`，没有 `result`
+
+**变更**：
+- `api/main.py`：分离 `precompute_error` 与主链路错误；SSE 收尾改为显式判断 `result is not None`
+- `core/llm/multi_agent_orchestrator.py`：`force_multi` 透传为 `force_full_team`；为合成器增加空结果校验与结构化保底讲解
+- `core/engine/pool.py`：增加死进程检测、自动重建与重试
+- `core/llm/agent_tools.py`：`engine_deep_analysis()` 统一走 `EnginePool`；`search_chess_knowledge()` 兼容统一工具调度器的 `fen` 参数
+- `core/llm/experts/base_expert.py`：禁止 `reasoning_content` 充当正式成稿；新增专家输出结构验收与无工具重写修复流程
+- `core/llm/experts/tactics_expert.py`、`strategy_expert.py`、`engine_expert.py`：为三专家补充必需章节约束
+
+**真实验证**：
+- 使用 `tmp_deep_capture_8003.py` 对 `http://127.0.0.1:8003/api/analyze/deep-stream` 做多轮真实 SSE 回放
+- 最终验证结果：
+  - 三专家完整出场
+  - tactics / strategy / engine 均能输出正式章节化成稿
+  - SSE 末尾稳定返回 `result` 与 `debug_log`
+  - 捕获文件落盘：`logs/deep_analysis_capture_8003.json`
+
+**当前已知残余风险**：
+- 当前 `result` 仍可能走“保底综合讲解”路径，而非理想的高质量原生合成文本；链路已恢复可演示，但综合讲解质量仍值得继续优化
+
+**验证**：
+- 实时 API 回放通过：`python .\tmp_deep_capture_8003.py`
+- 测试通过：`pytest -q`
+
+### 2026-04-02 ✅ 完成：对局反馈层完善（v3.70）
+
+**目标**：让棋盘在真实对弈过程中不只是“能走”，而是能及时表达风险、结果和操作错误，补齐将军、非法落点和吃子反馈。
+
+**变更**：
+- `frontend/src/store/useGameStore.ts`：新增 `checkAlert`、`captureEffect`、`invalidMove` 三类瞬时反馈状态，并消费 `/api/move` 与 `/api/ai-move` 返回的 `captured` / `in_check` / `game_over`
+- `frontend/src/services/api.ts`：补齐 `AIMoveResponse` 的 `in_check` 与 `game_over` 类型定义
+- `frontend/src/components/ChessBoard.tsx`：新增将军横幅、被将方王位脉冲环、非法走法抖动与红色提示、吃子爆散/闪击特效
+- `frontend/src/index.css`：新增非法走法抖动、将军脉冲、吃子扩散与火花动画关键帧
+
+**验证**：
+- 前端构建通过：`cd frontend && npm run build`
+- 测试通过：`pytest -q`
+
+### 2026-04-02 ✅ 完成：棋盘三期精修（v3.69）
+
+**目标**：在“深墨棋谱盘”结构不变的前提下，把棋盘从“已可用”推进到“完成度更高的教学主舞台”，重点补足动效节奏、材质呼吸感与操作反馈。
+
+**变更**：
+- `frontend/src/components/ChessBoard.tsx`：为棋盘外框加入更克制的入场动画，避免内容层突然出现
+- 河界新增轻微流光扫动，维持静态秩序的同时提供极弱的时间感
+- 新增格点悬停光晕与棋子悬停/按压反馈，让落子前定位更明确、操作更有回弹感
+- 所有动效都保持短程、低幅、低饱和，不再回到展示化或 Y2K 式夸张表现
+- `frontend/src/index.css`：补充棋盘 hover halo 动画关键帧，统一交互呼吸节奏
+
+**验证**：
+- 前端构建通过：`cd frontend && npm run build`
+- 测试通过：`pytest -q`
+
+### 2026-04-02 ✅ 完成：棋盘重做二期（v3.68）
+
+**目标**：把棋盘从“被 UI 化过头的展示组件”改回“清晰、稳重、可教学的规则平面”。
+
+**变更**：
+- `frontend/src/components/ChessBoard.tsx` 重做为“深墨棋谱盘”
+- 重新建立清晰的 9x10 棋盘格、边框、九宫线和星位标记
+- 河界取消胶囊形态，改为薄雾横带，并保留压印式“楚河智境”文案
+- 棋子统一改为传统象牙棋具式圆子，红黑通过字色区分，而非材质区分
+- 外框、阴影、发光、合法点与状态圈整体降噪，改成更克制的教学态表现
+
+**验证**：
+- 前端构建通过：`npm run build`
+- 测试通过：300 passed in 19.54s
+
+### 2026-04-02 ✅ 完成：棋盘风格纠偏（v3.67）
+
+**问题**：上一版棋盘出现明显的 Y2K / 金属球 / 展示道具感，和项目整体的高级教学系统气质不一致。
+
+**修正**：
+- 去掉银红金属球棋子和过强高光，改为温润哑光棋子
+- 去掉过重的胶囊河界与强发光，改为更薄的河界雾带
+- 棋盘底板收敛为深墨漆面，线条保持细金属线但降低炫技感
+- 外框与状态高亮整体降噪，避免像 Y2K 概念稿
+- 保留“楚河智境”文案，但调整字重、字距和亮度，更克制
+
+**验证**：
+- 前端构建通过：`npm run build`
+- 测试通过：300 passed
+
+### 2026-04-02 ✅ 完成：棋盘 UI 重做一期（v3.66）
+
+**目标**：让棋盘与当前 liquid-glass / 蓝青流体 / 高端卡片式界面统一，不改布局，只重做内容层。
+
+**变更**：
+- `frontend/src/components/ChessBoard.tsx`：旧木纹铜盘风格 → Aurora Lacquer 液态漆面棋盘
+- 河界主文案改为“楚河智境”，并做成河道能量带中的压印式标题
+- 棋盘底板重绘：靛蓝漆面渐变、中心冷光、轻纹理噪声、双层金属线框
+- 新增星位标记，保留传统象棋识别性但整体视觉更现代
+- 棋子改为釉面徽章材质：红方酒红珐琅 / 黑方石墨冷釉，选中时轻微抬升
+- 上一步提示、战术高亮、合法点提示全部切换为更轻的环形呼吸效果
+- `frontend/src/index.css`：新增 `boardPulseRing` 与 `boardBreath` 动画
+
+**验证**：
+- 前端构建通过：`npm run build`
+- 测试通过：300 passed in 16.16s
 
 ### 2026-04-02 ✅ 完成：重构识别为纯 YOLO 管道（v3.65）
 

@@ -20,6 +20,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from core.rules.tactical_detector import TacticalDetector
 from core.rules.xiangqi_rules import XiangqiRulesEngine
 from core.llm.move_candidate_service import MoveCandidateService
+from core.rag.position_similarity import get_position_retriever
 
 
 @dataclass
@@ -913,10 +914,9 @@ class AgentTools:
         try:
             # 尝试导入引擎
             try:
-                from core.engine import PikafishEngine
-                engine = PikafishEngine()
-
-                result = engine.analyze(fen, depth=depth)
+                from core.engine.pool import EnginePool
+                pool = EnginePool.get_pool()
+                result = pool.analyze(fen, depth=depth)
                 # EngineResult 是 dataclass，用属性访问而非字典
                 eval_cp = int(result.score * 100) if result.score else 0  # score是浮点，转为cp
                 best_move = result.bestmove if result.bestmove else ""
@@ -1079,19 +1079,21 @@ class AgentTools:
             if "king_safety_critical" in detected_tags:
                 king_safety["red" if is_red_turn else "black"] = "有隐患"
 
+            focus_tags = self._focus_tags_for_phase(detected_tags, phase)
+
             # 提取关键特征
             key_features = []
-            if "controls_open_file" in detected_tags:
+            if "controls_open_file" in focus_tags:
                 key_features.append("控制开放线")
-            if "has_active_pieces" in detected_tags:
+            if "has_active_pieces" in focus_tags:
                 key_features.append("子力活跃")
-            if "piece_coordination" in detected_tags:
+            if "piece_coordination" in focus_tags:
                 key_features.append("子力协同")
-            if "is_attack_unprotected" in detected_tags:
+            if "is_attack_unprotected" in focus_tags:
                 key_features.append("存在攻击无根子")
-            if "is_pinned" in detected_tags:
+            if "is_pinned" in focus_tags:
                 key_features.append("存在牵制")
-            if "cannon_battery" in detected_tags:
+            if phase != "开局" and "cannon_battery" in focus_tags:
                 key_features.append("重炮阵型")
 
             if not key_features:
@@ -1099,17 +1101,29 @@ class AgentTools:
 
             # 生成建议计划
             suggested_plans = []
-            if is_red_turn:
-                if "has_initiative" in detected_tags:
+            if phase == "开局":
+                suggested_plans.append("优先按主流定式完成出子顺序，不要脱谱乱走")
+                suggested_plans.append("先确认当前是否仍在熟悉主线，再决定是否转入个人变化")
+            elif is_red_turn:
+                if "has_initiative" in focus_tags:
                     suggested_plans.append("红方应保持主动，寻找进攻机会")
-                if "is_attack_unprotected" in detected_tags:
+                if "is_attack_unprotected" in focus_tags:
                     suggested_plans.append("红方可以捉对方无根子")
             else:
-                if "has_initiative" in detected_tags:
+                if "has_initiative" in focus_tags:
                     suggested_plans.append("黑方应保持主动，寻找进攻机会")
 
             if not suggested_plans:
                 suggested_plans.append("稳步发展，等待时机")
+
+            semantic_query = self._build_semantic_query_tags(focus_tags, phase)
+            similar_positions = self._retrieve_similar_positions(fen, semantic_query, top_k=3)
+            knowledge_bundle = self._collect_strategy_knowledge(focus_tags, phase)
+
+            if similar_positions:
+                top_plan = similar_positions[0].get("best_move")
+                if top_plan:
+                    suggested_plans.append(f"可参考相似局面的高频应对：{top_plan}")
 
             return ToolResult(
                 success=True,
@@ -1119,9 +1133,17 @@ class AgentTools:
                     "king_safety": king_safety,
                     "key_features": key_features,
                     "suggested_plans": suggested_plans,
-                    "detected_tags": detected_tags
+                    "detected_tags": detected_tags,
+                    "focus_tags": focus_tags,
+                    "knowledge_principles": knowledge_bundle["principles"],
+                    "tension_type": knowledge_bundle["tension_type"],
+                    "similar_positions": similar_positions,
                 },
-                message=f"战略分析: {phase}，{initiative}握有主动权",
+                message=(
+                    f"战略分析: {phase}，{initiative}握有主动权；"
+                    f"匹配原则{len(knowledge_bundle['principles'])}条；"
+                    f"相似局面{len(similar_positions)}例"
+                ),
                 thinking_hint=f"综合分析局面战略特征"
             )
 
@@ -1327,11 +1349,12 @@ class AgentTools:
                 thinking_hint="检索棋理原则时出错"
             )
 
-    def search_chess_knowledge(self, query: str, top_k: int = 5) -> ToolResult:
+    def search_chess_knowledge(self, fen: str = None, query: str = "", top_k: int = 5) -> ToolResult:
         """
         语义检索象棋知识库（棋理原则 + 经典棋谱开局）
 
         Args:
+            fen: 当前局面FEN（兼容统一工具调度器，实际不使用）
             query: 自然语言查询（如"中炮开局"、"马后炮杀法"、"车马冷着配合"）
             top_k: 返回数量
 
@@ -1339,14 +1362,50 @@ class AgentTools:
             ToolResult: 包含检索结果
         """
         try:
+            if not query:
+                return ToolResult(
+                    success=False,
+                    data={},
+                    message="知识库检索失败: 缺少 query 参数",
+                    thinking_hint="知识检索需要查询语句"
+                )
+
             from core.rag.chroma_rag import ChromaRAG
             rag = ChromaRAG()
-            results = rag.retrieve(query, top_k=top_k)
+            detected_tags = []
+            phase = ""
+            expanded_query = query
+            similar_positions = []
+            principles_data = []
+
+            if fen:
+                static_result = self.detector.detect_static(fen)
+                detected_tags = [t.tag.name for t in static_result.tags if t.detected]
+                if "phase_opening" in detected_tags:
+                    phase = "opening"
+                elif "phase_endgame" in detected_tags:
+                    phase = "endgame"
+                else:
+                    phase = "middlegame"
+
+                focus_tags = self._focus_tags_for_phase(detected_tags, self._phase_to_cn(phase))
+
+                semantic_query = self._build_semantic_query_tags(focus_tags, self._phase_to_cn(phase))
+                similar_positions = self._retrieve_similar_positions(fen, semantic_query, top_k=min(3, top_k))
+                knowledge_bundle = self._collect_strategy_knowledge(focus_tags, self._phase_to_cn(phase))
+                principles_data = knowledge_bundle["principles"]
+
+                if phase:
+                    expanded_query = f"{query} {phase} {' '.join(focus_tags[:6])}".strip()
+
+            phase_results = rag.retrieve_by_phase(expanded_query, phase, top_k=top_k) if phase else []
+            general_results = rag.retrieve(expanded_query, top_k=top_k)
+            results = self._merge_rag_results(phase_results + general_results, top_k=top_k)
 
             if not results:
                 return ToolResult(
                     success=True,
-                    data={"results": [], "count": 0},
+                    data={"results": [], "count": 0, "similar_positions": similar_positions, "principles": principles_data},
                     message="未检索到相关知识",
                     thinking_hint="知识库中无匹配内容"
                 )
@@ -1363,15 +1422,33 @@ class AgentTools:
                     f"{i}. [{r.book_name}] {r.content[:150]}（相关度: {r.relevance:.2f}）"
                 )
 
+            if principles_data:
+                results_text.append("原则补充：")
+                for idx, principle in enumerate(principles_data[:3], 1):
+                    results_text.append(f"P{idx}. {principle['content']}")
+
+            if similar_positions:
+                results_text.append("相似局面：")
+                for idx, position in enumerate(similar_positions, 1):
+                    summary = f"S{idx}. 相似度{position['similarity']:.2f}，阶段={position['phase']}"
+                    if position.get("best_move"):
+                        summary += f"，参考着法={position['best_move']}"
+                    if position.get("total_games"):
+                        summary += f"，样本数={position['total_games']}"
+                    results_text.append(summary)
+
             return ToolResult(
                 success=True,
                 data={
                     "results": results_data,
                     "count": len(results_data),
                     "query": query,
+                    "phase": phase,
+                    "principles": principles_data,
+                    "similar_positions": similar_positions,
                 },
                 message="\n".join(results_text),
-                thinking_hint=f"检索到{len(results_data)}条相关知识"
+                thinking_hint=f"检索到{len(results_data)}条知识，补充{len(similar_positions)}个相似局面"
             )
 
         except Exception as e:
@@ -1384,6 +1461,130 @@ class AgentTools:
     # =========================================================================
     # 辅助方法
     # =========================================================================
+
+    def _merge_rag_results(self, results: List[Any], top_k: int) -> List[Any]:
+        merged = []
+        seen = set()
+        for item in results:
+            key = (item.book_name, item.content)
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+            if len(merged) >= top_k:
+                break
+        return merged
+
+    def _phase_to_cn(self, phase: str) -> str:
+        mapping = {"opening": "开局", "middlegame": "中局", "endgame": "残局"}
+        return mapping.get(phase, phase or "中局")
+
+    def _focus_tags_for_phase(self, detected_tags: List[str], phase: str) -> List[str]:
+        if phase in {"开局", "布局"}:
+            return [tag for tag in detected_tags if tag != "cannon_battery"]
+        return detected_tags
+
+    def _build_semantic_query_tags(self, detected_tags: List[str], phase: str) -> Dict[str, float]:
+        phase_key = phase
+        if phase in {"开局", "布局"}:
+            phase_key = "opening"
+        elif phase in {"残局", "收官"}:
+            phase_key = "endgame"
+        elif phase in {"中局", "中盘"}:
+            phase_key = "middlegame"
+
+        semantic = {
+            "opening": 0.0,
+            "middlegame": 0.0,
+            "endgame": 0.0,
+        }
+        if phase_key in semantic:
+            semantic[phase_key] = 0.9
+
+        tag_map = {
+            "controls_open_file": "open_file",
+            "is_pinned": "pinned_piece",
+            "has_active_pieces": "active_rook",
+            "move_improves_position": "improving_move",
+            "critical_position": "critical_position",
+            "passed_pawn": "passed_pawn",
+        }
+        for tag in detected_tags:
+            mapped = tag_map.get(tag)
+            if mapped:
+                semantic[mapped] = 0.9
+
+        tactical_tags = [tag for tag in detected_tags if tag.startswith("is_")]
+        if len(tactical_tags) <= 1:
+            semantic["quiet_position"] = 0.7
+
+        return semantic
+
+    def _infer_tension_type(self, detected_tags: List[str], phase: str) -> Optional[str]:
+        tag_set = set(detected_tags)
+        if "is_check" in tag_set or "king_safety_critical" in tag_set:
+            return "crisis_with_resources"
+        if "is_attack_unprotected" in tag_set or "has_initiative" in tag_set:
+            return "material_vs_initiative"
+        if "is_pinned" in tag_set or "piece_coordination" in tag_set:
+            return "hidden_imbalance"
+        if phase in {"开局", "布局"}:
+            return "phase_mismatch"
+        if "has_active_pieces" not in tag_set:
+            return "sleeping_piece"
+        return None
+
+    def _collect_strategy_knowledge(self, detected_tags: List[str], phase: str) -> Dict[str, Any]:
+        from core.llm.knowledge_retriever import ChessKnowledgeBase
+
+        kb = ChessKnowledgeBase()
+        tension_type = self._infer_tension_type(detected_tags, phase)
+        principles = []
+        seen = set()
+
+        if tension_type:
+            for principle in kb.query_for_tension(tension_type, phase):
+                if principle.content in seen:
+                    continue
+                principles.append(principle.to_dict())
+                seen.add(principle.content)
+                if len(principles) >= 3:
+                    break
+
+        for principle in kb.query_by_tags(detected_tags, phase):
+            if principle.content in seen:
+                continue
+            principles.append(principle.to_dict())
+            seen.add(principle.content)
+            if len(principles) >= 5:
+                break
+
+        if len(principles) < 3:
+            for principle in kb.query_general_principles(3):
+                if principle.content in seen:
+                    continue
+                principles.append(principle.to_dict())
+                seen.add(principle.content)
+                if len(principles) >= 5:
+                    break
+
+        return {"tension_type": tension_type or "general", "principles": principles}
+
+    def _retrieve_similar_positions(self, fen: str, semantic_query: Dict[str, float], top_k: int = 3) -> List[Dict[str, Any]]:
+        retriever = get_position_retriever()
+        results = retriever.retrieve(fen, semantic_tags=semantic_query, top_k=top_k)
+        return [
+            {
+                "fen": item.fen,
+                "similarity": item.similarity,
+                "phase": item.phase,
+                "best_move": item.best_move,
+                "score": item.score,
+                "total_games": item.total_games,
+                "tags": item.tags,
+            }
+            for item in results
+        ]
 
     def _parse_piece_identifier(self, board: List[List[str]], piece: str) -> Optional[Tuple[int, int]]:
         """解析棋子标识符，返回位置

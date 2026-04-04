@@ -22,6 +22,9 @@ plans/
 ├── 001-three-layer-prompt.md   # 三层分离Prompt框架
 ├── 002-reliability-architecture-refactor.md  # 比赛级可靠性架构重构方案
 ├── 003-competition-grade-roadmap.md  # 从当前系统到比赛答辩级作品的长期路线图
+├── 004-inference-control-upgrade.md  # 推理时控制升级方案
+├── 005-data-and-knowledge-assets.md  # 数据与知识资产建设方案
+├── 006-asset-lifecycle-and-eval-driven-workflow.md  # 资产生命周期与评测驱动工作流
 └── frontend/                  # 前端相关Plan
     ├── README.md               # 前端Plan规范
     ├── 001-agent-poker-panel.md

@@ -40,36 +40,15 @@ const ANIMATION_STYLES = `
 @keyframes liquid-shimmer { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 @keyframes orb-aura-pulse { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:0.9;transform:scale(1.12)} }
 @keyframes orb-breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
-@keyframes orb-body-rotate {
-  from{filter:hue-rotate(0deg) drop-shadow(0 0 20px rgba(167,139,250,0.6))}
-  to{filter:hue-rotate(360deg) drop-shadow(0 0 20px rgba(167,139,250,0.6))}
-}
 @keyframes orb-inner-cw  { from{transform:rotate(0deg)}  to{transform:rotate(360deg)}  }
 @keyframes orb-inner-ccw { from{transform:rotate(0deg)}  to{transform:rotate(-360deg)} }
-
-@keyframes card-aura-tactics {
-  0%   { box-shadow: 0 0 8px 2px rgba(255,64,96,0.60),  0 0 18px 5px rgba(255,144,32,0.40), 0 0 35px 10px rgba(255,200,200,0.22), 0 0 55px 18px rgba(255,64,96,0.12);  }
-  33%  { box-shadow: 0 0 10px 3px rgba(255,144,32,0.75), 0 0 24px 7px rgba(255,221,0,0.45),  0 0 45px 14px rgba(255,180,180,0.28), 0 0 70px 22px rgba(255,144,32,0.15); }
-  66%  { box-shadow: 0 0 9px 2px rgba(255,221,0,0.65),   0 0 20px 6px rgba(255,64,96,0.42),  0 0 40px 12px rgba(255,200,200,0.25), 0 0 62px 20px rgba(255,64,96,0.13); }
-  100% { box-shadow: 0 0 8px 2px rgba(255,64,96,0.60),  0 0 18px 5px rgba(255,144,32,0.40), 0 0 35px 10px rgba(255,200,200,0.22), 0 0 55px 18px rgba(255,64,96,0.12);  }
-}
-@keyframes card-aura-strategy {
-  0%   { box-shadow: 0 0 8px 2px rgba(160,144,255,0.60), 0 0 18px 5px rgba(200,216,255,0.40), 0 0 35px 10px rgba(200,180,255,0.22), 0 0 55px 18px rgba(160,144,255,0.12); }
-  33%  { box-shadow: 0 0 10px 3px rgba(200,216,255,0.70), 0 0 24px 7px rgba(232,200,255,0.45), 0 0 45px 14px rgba(180,160,255,0.28), 0 0 70px 22px rgba(200,216,255,0.15); }
-  66%  { box-shadow: 0 0 9px 2px rgba(232,200,255,0.65),  0 0 20px 6px rgba(160,144,255,0.42), 0 0 40px 12px rgba(200,180,255,0.25), 0 0 62px 20px rgba(160,144,255,0.13); }
-  100% { box-shadow: 0 0 8px 2px rgba(160,144,255,0.60), 0 0 18px 5px rgba(200,216,255,0.40), 0 0 35px 10px rgba(200,180,255,0.22), 0 0 55px 18px rgba(160,144,255,0.12); }
-}
-@keyframes card-aura-engine {
-  0%   { box-shadow: 0 0 8px 2px rgba(64,176,255,0.60),  0 0 18px 5px rgba(64,224,192,0.40), 0 0 35px 10px rgba(100,180,255,0.22), 0 0 55px 18px rgba(64,176,255,0.12);  }
-  33%  { box-shadow: 0 0 10px 3px rgba(64,224,192,0.70), 0 0 24px 7px rgba(80,96,255,0.45),  0 0 45px 14px rgba(80,200,255,0.28), 0 0 70px 22px rgba(64,224,192,0.15); }
-  66%  { box-shadow: 0 0 9px 2px rgba(80,96,255,0.65),   0 0 20px 6px rgba(64,176,255,0.42), 0 0 40px 12px rgba(100,180,255,0.25), 0 0 62px 20px rgba(64,176,255,0.13); }
-  100% { box-shadow: 0 0 8px 2px rgba(64,176,255,0.60),  0 0 18px 5px rgba(64,224,192,0.40), 0 0 35px 10px rgba(100,180,255,0.22), 0 0 55px 18px rgba(64,176,255,0.12);  }
-}
 
 @keyframes border-spin {
   from { transform: translate(-50%,-50%) rotate(0deg);   }
   to   { transform: translate(-50%,-50%) rotate(360deg); }
 }
+
+@keyframes stream-caret { 0%, 48% { opacity: 1 } 52%, 100% { opacity: 0 } }
 `;
 
 // ============================================================
@@ -82,87 +61,20 @@ const getCenter = (el: HTMLElement | null): Offset => {
   return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
 };
 
-const EXPERT_LABELS: Record<ExpertType, string> = {
-  tactics: '战术专家',
-  strategy: '战略专家',
-  engine: '引擎专家',
-};
-
 const ExpertHoverStream: React.FC<{ expert: ExpertType; color: string }> = ({ expert, color }) => {
   const expertState = useAgentStore((state) => state.experts[expert]);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isThinking = expertState.status === 'thinking';
-  const steps = expertState.steps;
+  // 直接显示 thinkingContent，不做任何打字机延迟
+  const rawText = expertState.thinkingContent || expertState.finding || '';
+  const displayText = rawText || (isThinking ? '正在组织分析路径...' : '');
 
+  // 内容更新时自动滚到底部
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [steps, expertState.thinkingContent]);
-
-  // 有步骤时：渲染真正的实时步骤流（跟随后端SSE增量更新）
-  if (steps.length > 0) {
-    return (
-      <div style={{ position: 'relative', minHeight: 160, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-        <div
-          ref={scrollRef}
-          style={{
-            maxHeight: 260,
-            overflowY: 'auto',
-            padding: '10px 12px 18px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 8,
-            maskImage: 'linear-gradient(to bottom, transparent 0, black 12px, black calc(100% - 28px), transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 12px, black calc(100% - 28px), transparent 100%)',
-          }}
-        >
-          {steps.map((step) => {
-            const isActive = step.status === 'thinking';
-            return (
-              <div key={step.index} style={{ borderLeft: `2px solid ${isActive ? color : 'rgba(255,255,255,0.15)'}`, paddingLeft: 10, transition: 'border-color 0.3s' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                  <span style={{ fontSize: 10, color: isActive ? color : 'rgba(134,239,172,0.9)', fontWeight: 700 }}>
-                    {isActive ? '⟳' : '✓'}
-                  </span>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)', fontWeight: 600 }}>
-                    {step.title}
-                  </span>
-                  {step.durationMs ? (
-                    <span style={{ marginLeft: 'auto', fontSize: 10, color: 'rgba(255,255,255,0.3)' }}>
-                      {(step.durationMs / 1000).toFixed(1)}s
-                    </span>
-                  ) : null}
-                </div>
-                {step.content ? (
-                  <div style={{
-                    fontSize: 11,
-                    color: 'rgba(255,255,255,0.68)',
-                    lineHeight: 1.65,
-                    whiteSpace: 'pre-wrap',
-                    fontFamily: '"Noto Serif SC", serif',
-                  }}>
-                    {step.content}
-                    {isActive && (
-                      <motion.span
-                        animate={{ opacity: [1, 0] }}
-                        transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                        style={{ display: 'inline-block', width: 1.5, height: 11, background: color, marginLeft: 1, verticalAlign: 'middle' }}
-                      />
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-        <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 36, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(30,25,35,0) 0%, rgba(30,25,35,0.78) 65%, rgba(30,25,35,0.94) 100%)' }} />
-      </div>
-    );
-  }
-
-  // 无步骤时：显示 thinkingContent 或 finding 的增量流
-  const text = isThinking ? (expertState.thinkingContent || '正在组织分析路径...') : (expertState.finding || '');
+  }, [displayText]);
 
   return (
     <div style={{ position: 'relative', minHeight: 160, borderRadius: 12, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
@@ -181,81 +93,16 @@ const ExpertHoverStream: React.FC<{ expert: ExpertType; color: string }> = ({ ex
           WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 16px, black calc(100% - 28px), transparent 100%)',
         }}
       >
-        {text}
+        {displayText}
         {isThinking && (
           <motion.span
             animate={{ opacity: [1, 0] }}
-            transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-            style={{ display: 'inline-block', width: 1.5, height: 12, background: color, marginLeft: 1, verticalAlign: 'middle' }}
+            transition={{ duration: 0.6, repeat: Infinity, ease: 'linear' }}
+            style={{ display: 'inline-block', width: 1.5, height: 12, background: color, marginLeft: 1, verticalAlign: 'middle', animation: 'stream-caret 0.9s step-end infinite' }}
           />
         )}
       </div>
       <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 46, pointerEvents: 'none', background: 'linear-gradient(180deg, rgba(30,25,35,0) 0%, rgba(30,25,35,0.78) 65%, rgba(30,25,35,0.94) 100%)' }} />
-    </div>
-  );
-};
-
-const ExpertActivityPanel: React.FC<{ expert: ExpertType }> = ({ expert }) => {
-  const expertState = useAgentStore((state) => state.experts[expert]);
-  const visibleSteps = expertState.steps.slice(-3);
-  const activeStep = [...visibleSteps].reverse().find((step) => step.status === 'thinking');
-
-  return (
-    <div
-      style={{
-        width: 164,
-        minHeight: 72,
-        borderRadius: 12,
-        border: `1px solid rgba(255,255,255,0.08)`,
-        background: 'linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%)',
-        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08)',
-        padding: '8px 10px',
-      }}
-    >
-      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', marginBottom: 6, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-        {EXPERT_LABELS[expert]}
-      </div>
-
-      {visibleSteps.length === 0 ? (
-        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.32)', lineHeight: 1.5 }}>
-          {expertState.status === 'thinking'
-            ? (expertState.thinkingContent
-              ? <span style={{ color: 'rgba(255,255,255,0.55)' }}>{expertState.thinkingContent.slice(-60)}</span>
-              : '建立分析路径...')
-            : expertState.status === 'completed' && expertState.finding
-              ? <span style={{ color: 'rgba(255,255,255,0.55)' }}>{expertState.finding.slice(0, 50)}</span>
-              : '等待任务...'}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {visibleSteps.map((step) => {
-            const isActive = step.status === 'thinking';
-            return (
-              <div key={`${expert}-${step.index}`}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ color: isActive ? '#fbbf24' : '#86efac', fontWeight: 700, fontSize: 11 }}>
-                    {isActive ? '⟳' : '✓'}
-                  </span>
-                  <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.82)', lineHeight: 1.35 }}>
-                    {step.title}
-                  </span>
-                </div>
-                {isActive && step.content ? (
-                  <div style={{ marginTop: 3, paddingLeft: 16, fontSize: 10, color: 'rgba(255,255,255,0.52)', lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>
-                    {step.content}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {!activeStep && expertState.subtitle ? (
-        <div style={{ marginTop: 6, fontSize: 10, color: 'rgba(255,255,255,0.38)', lineHeight: 1.4 }}>
-          {expertState.subtitle}
-        </div>
-      ) : null}
     </div>
   );
 };
@@ -272,10 +119,10 @@ export const ExpertGlassPanelFlip: React.FC<{ expert: ExpertType; cardRect: DOMR
   } as const;
   const exp = d[expert];
   const expertState = useAgentStore((state) => state.experts[expert]);
-  const hasSteps = expertState.steps.length > 0;
+  const hasLiveContent = Boolean(expertState.thinkingContent.trim() || expertState.finding.trim());
   const hoverLabel = expertState.status === 'completed'
-    ? (hasSteps ? '推理过程' : '最终结论')
-    : (hasSteps ? '实时推理' : '实时思考');
+    ? (hasLiveContent ? '最终结论' : '分析结果')
+    : (hasLiveContent ? '实时思考' : '等待输出');
   const statusLabel = expertState.status === 'completed' ? '已收束' : '流式更新';
   const content = (
     <motion.div
@@ -413,9 +260,9 @@ const CardVisual: React.FC<{ type: ExpertType; isHovered?: boolean }> = ({ type,
   const name  = type === 'tactics' ? '战术专家' : type === 'strategy' ? '战略专家' : '引擎专家';
 
   const energy = {
-    tactics:  { a:'#ff4060', b:'#ff9020', c:'#ffdd00', rgb:'255,64,96',    auraAnim:'card-aura-tactics'  },
-    strategy: { a:'#c8d8ff', b:'#a090ff', c:'#e8c8ff', rgb:'160,144,255',  auraAnim:'card-aura-strategy' },
-    engine:   { a:'#40b0ff', b:'#5060ff', c:'#40e0c0', rgb:'64,160,255',   auraAnim:'card-aura-engine'   },
+    tactics:  { a:'#ff4060', b:'#ff9020', c:'#ffdd00', rgb:'255,64,96' },
+    strategy: { a:'#c8d8ff', b:'#a090ff', c:'#e8c8ff', rgb:'160,144,255' },
+    engine:   { a:'#40b0ff', b:'#5060ff', c:'#40e0c0', rgb:'64,160,255' },
   }[type];
 
   // 浮雕 textShadow 生成器
@@ -439,9 +286,10 @@ const CardVisual: React.FC<{ type: ExpertType; isHovered?: boolean }> = ({ type,
       height: '100%',
       borderRadius: 16,
       position: 'relative',
-      animation: `${energy.auraAnim} 2.4s ease-in-out infinite`,
       transition: 'filter 0.3s ease',
       filter: isHovered ? 'brightness(1.15)' : 'brightness(1)',
+      willChange: 'transform, filter',
+      transform: 'translateZ(0)',
     }}>
 
       {/* iOS 26 液态玻璃：彩虹边缘折射光 */}
@@ -595,7 +443,7 @@ const OrbVisual: React.FC<{ size: number }> = ({ size }) => {
   return (
     <div style={{ width: size, height: size, borderRadius: '50%', position: 'relative' }}>
       <div style={{ position: 'absolute', inset: -12 * s, borderRadius: '50%', background: 'radial-gradient(circle, rgba(167,139,250,0.35) 0%, transparent 70%)', filter: `blur(${9 * s}px)`, animation: 'orb-aura-pulse 2.5s ease-in-out infinite', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'conic-gradient(from 0deg, #60a5fa, #a78bfa, #f472b6, #fbbf24, #60a5fa)', boxShadow: `inset ${-5 * s}px ${-5 * s}px ${14 * s}px rgba(0,0,0,0.3), inset ${5 * s}px ${5 * s}px ${14 * s}px rgba(255,255,255,0.15)`, filter: `drop-shadow(0 0 ${12 * s}px rgba(167,139,250,0.65)) drop-shadow(0 0 ${24 * s}px rgba(96,165,250,0.4))`, animation: 'orb-breathe 2.5s ease-in-out infinite, orb-body-rotate 8s linear infinite', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: 'conic-gradient(from 0deg, #60a5fa, #a78bfa, #f472b6, #fbbf24, #60a5fa)', boxShadow: `inset ${-5 * s}px ${-5 * s}px ${14 * s}px rgba(0,0,0,0.3), inset ${5 * s}px ${5 * s}px ${14 * s}px rgba(255,255,255,0.15)`, filter: `drop-shadow(0 0 ${10 * s}px rgba(167,139,250,0.48)) drop-shadow(0 0 ${18 * s}px rgba(96,165,250,0.26))`, animation: 'orb-breathe 2.5s ease-in-out infinite', pointerEvents: 'none', willChange: 'transform' }} />
       <div style={{ position: 'absolute', inset: 5 * s, borderRadius: '50%', background: 'conic-gradient(from 180deg, transparent 30%, rgba(255,255,255,0.28) 50%, transparent 70%)', animation: 'orb-inner-cw 4s linear infinite', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', inset: 10 * s, borderRadius: '50%', background: 'conic-gradient(from 0deg, transparent 40%, rgba(167,139,250,0.38) 55%, transparent 70%)', animation: 'orb-inner-ccw 6s linear infinite', pointerEvents: 'none' }} />
       <div style={{ position: 'absolute', inset: 16 * s, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.3) 50%, transparent 70%)', pointerEvents: 'none' }} />
@@ -623,6 +471,7 @@ const SplitLayout: React.FC<{
   // 动画阶段：orbMoving 之后才开始动画
   const isActive = phase === 'orbMoving' || phase === 'cardsLanding' || phase === 'cardsLanded' || phase === 'streaming';
   const isSettled = phase === 'cardsLanded' || phase === 'streaming';
+  const showThinkingPane = phase === 'cardsLanding' || isSettled;
 
   // 只有在 isActive 且 offsetsReady 时才动画到终点
   const shouldAnimate = isActive && offsetsReady;
@@ -638,7 +487,7 @@ const SplitLayout: React.FC<{
           <div style={{ width: '40%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 0 8px 2px' }}>
             <div ref={cardsFinalRef} style={{ display: 'flex', flexDirection: 'column', gap: CARD_GAP, justifyContent: 'center', alignItems: 'center' }}>
               {EXPERT_TYPES.map((type, i) => (
-                <div key={type} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <div key={type} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <motion.div
                     data-card={isSettled ? type : undefined}
                     data-final-card={type}
@@ -662,7 +511,6 @@ const SplitLayout: React.FC<{
                   >
                     <CardVisual type={type} isHovered={hovered === type} />
                   </motion.div>
-                  {isSettled ? <ExpertActivityPanel expert={type} /> : null}
                 </div>
               ))}
             </div>
@@ -706,11 +554,11 @@ const SplitLayout: React.FC<{
 
             <motion.div
               initial={false}
-              animate={{ opacity: isSettled ? 1 : 0 }}
-              transition={{ duration: 0.3 }}
+              animate={{ opacity: showThinkingPane ? 1 : 0 }}
+              transition={{ duration: 0.24 }}
               style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', paddingLeft: 2, paddingRight: 2, minHeight: 0 }}
             >
-              {isSettled && <ThinkingStream />}
+                {showThinkingPane && <ThinkingStream />}
             </motion.div>
           </div>
     </motion.div>
@@ -802,17 +650,17 @@ export const AgentCardFlip: React.FC = () => {
 
       // 启动 timer 链
       const timers: ReturnType<typeof setTimeout>[] = [];
-      timers.push(setTimeout(() => setPhase('stacking'), 100));
-      timers.push(setTimeout(() => setPhase('flipped'), 600));
-      timers.push(setTimeout(() => setPhase('morphing'), 700));
-      timers.push(setTimeout(() => setPhase('orbMoving'), 1100));
-      timers.push(setTimeout(() => setPhase('cardsLanding'), 1500));
-      timers.push(setTimeout(() => setPhase('cardsLanded'), 2100));
-      timers.push(setTimeout(() => setPhase('streaming'), 2600));
+      timers.push(setTimeout(() => setPhase('stacking'), 60));
+      timers.push(setTimeout(() => setPhase('flipped'), 240));
+      timers.push(setTimeout(() => setPhase('morphing'), 320));
+      timers.push(setTimeout(() => setPhase('orbMoving'), 520));
+      timers.push(setTimeout(() => setPhase('cardsLanding'), 720));
+      timers.push(setTimeout(() => setPhase('cardsLanded'), 930));
+      timers.push(setTimeout(() => setPhase('streaming'), 1080));
 
       // 同步到 store
       const phases: FlipPhase[] = ['idle', 'stacking', 'flipped', 'morphing', 'orbMoving', 'cardsLanding', 'cardsLanded', 'streaming'];
-      [100, 600, 700, 1100, 1500, 2100, 2600].forEach((delay, i) => {
+      [60, 240, 320, 520, 720, 930, 1080].forEach((delay, i) => {
         timers.push(setTimeout(() => {
           useAgentStore.getState().setPhase(phases[i + 1] as unknown as import('../store/useAgentStore').AgentAnimationPhase);
         }, delay));
@@ -824,7 +672,7 @@ export const AgentCardFlip: React.FC = () => {
   }, [isPanelActive]);
 
   const handleHoverStart = (type: ExpertType) => {
-    if (phase === 'idle' || phase === 'cardsLanded' || phase === 'streaming') {
+    if (phase === 'idle' || phase === 'cardsLanding' || phase === 'cardsLanded' || phase === 'streaming') {
       setHovered(type);
       const el = document.querySelector(`[data-card="${type}"]`);
       if (el) setCardRect(el.getBoundingClientRect());
@@ -860,7 +708,7 @@ export const AgentCardFlip: React.FC = () => {
         />
       </div>
 
-      {hovered && cardRect && (phase === 'idle' || phase === 'cardsLanded' || phase === 'streaming') && (
+      {hovered && cardRect && (phase === 'idle' || phase === 'cardsLanding' || phase === 'cardsLanded' || phase === 'streaming') && (
         <ExpertGlassPanelFlip expert={hovered} cardRect={cardRect} />
       )}
     </>

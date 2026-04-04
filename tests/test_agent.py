@@ -104,6 +104,19 @@ class TestRAGNode:
         
         assert "rag_results" in result
 
+    def test_rag_node_returns_list(self):
+        from core.agent.nodes.rag_node import rag_node
+        from core.agent.state import create_initial_state
+
+        state = create_initial_state(
+            fen="2bak1bn1/4a4/2n3c2/p1p1p1p1p/9/1N7/P2rP1P1P/CR2B1N2/4A4/2BAK4 b - - 14 14"
+        )
+        state["engine_result"] = {"bestmove": "d3d6", "score": -0.02}
+
+        result = rag_node(state)
+
+        assert isinstance(result.get("rag_results", []), list)
+
 
 class TestVisionNode:
     """测试视觉分析节点"""

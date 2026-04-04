@@ -100,6 +100,24 @@ TOOL_META = {
 STEP_PATTERN = re.compile(r"^\[STEP:\s*(.+?)\s*\]$")
 _SECTION_RE = re.compile(r"^【(.+?)】")
 
+# 清除 LLM 遗留的原始标记，避免前端置入内部协议
+_CLAIM_RE = re.compile(r"\[(?:CLAIM|EVIDENCE|CONFIDENCE)\]\s*")
+_MD_HEADING_RE = re.compile(r"^##\s*\d+\s+.*$", re.MULTILINE)
+
+
+def sanitize_display_text(text: str) -> str:
+    """移除不应暴露给前端的内部标记。"""
+    if not text:
+        return text
+    text = _CLAIM_RE.sub("", text)
+    text = _MD_HEADING_RE.sub("", text)
+    text = re.sub(r"\[STEP:[^\]]*\]", "", text)
+    # 清理孤立的 ##； 或 ## 空行残留
+    text = re.sub(r"^##\s*[;;；]?\s*$", "", text, flags=re.MULTILINE)
+    # 压缩多余空行
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
 
 def parse_step_blocks(content: str) -> List[Dict[str, str]]:
     """从带 [STEP: ...] 或 【节标题】 标记的文本中拆出步骤块。"""
@@ -139,6 +157,39 @@ def parse_step_blocks(content: str) -> List[Dict[str, str]]:
     return steps if saw_marker else []
 
 
+def split_step_content_chunks(content: str, limit: int = 72) -> List[str]:
+    """将长步骤内容切成多个较短片段，方便前端渐进渲染。"""
+    if not content:
+        return []
+    content = sanitize_display_text(content)
+
+    chunks: List[str] = []
+    for paragraph in [item.strip() for item in content.split("\n") if item.strip()]:
+        current = ""
+        sentence = ""
+        for char in paragraph:
+            sentence += char
+            if char in "，。！？；：":
+                if len(current) + len(sentence) > limit and current:
+                    chunks.append(current)
+                    current = sentence
+                else:
+                    current += sentence
+                sentence = ""
+
+        if sentence:
+            if len(current) + len(sentence) > limit and current:
+                chunks.append(current)
+                current = sentence
+            else:
+                current += sentence
+
+        if current:
+            chunks.append(current)
+
+    return chunks or [content]
+
+
 @dataclass
 class ToolCall:
     id: str
@@ -176,7 +227,8 @@ class ExpertConfig:
     system_prompt: str  # 专家System Prompt
     tools: List[Dict]  # 该专家可用的工具Schema
     tool_names: List[str]  # 该专家可用的工具名列表
-    max_rounds: int = 3  # 最大Agent循环轮次
+    required_sections: List[str] = field(default_factory=list)  # 成稿必须包含的章节
+    max_rounds: int = 2  # 最大Agent循环轮次
     max_tokens: int = 1024  # 最大输出token（提升以支持深度分析）
 
 
@@ -350,6 +402,9 @@ class BaseExpert:
         messages: List[Dict],
         tools: List[Dict] = None,
         agent_type: str = "expert",
+        thinking_enabled: bool = False,
+        on_content_chunk: Optional[Callable[[str], None]] = None,
+        on_reasoning_chunk: Optional[Callable[[str], None]] = None,
     ) -> Dict:
         """调用LLM API（非流式），自动记录 OTEL Span"""
         if not self.api_key:
@@ -378,24 +433,21 @@ class BaseExpert:
 
             start_time = time.time()
             try:
-                response = self.llm_client.complete(
+                response = self.llm_client.stream_complete(
                     messages=messages,
                     tools=tools,
                     temperature=0.7,
                     max_tokens=2048,
-                    thinking_enabled=True,
+                    thinking_enabled=thinking_enabled,
+                    on_chunk=on_content_chunk,
+                    on_reasoning_chunk=on_reasoning_chunk,
                 )
                 duration_ms = int((time.time() - start_time) * 1000)
                 span.set_attribute(SpanAttributes.LLM_DURATION_MS, duration_ms)
 
                 if response.success:
-                    # GLM-5 Extended Thinking: content 可能为空，实际内容在 reasoning_content
-                    effective_content = response.content
-                    if not effective_content and response.reasoning_content and not response.tool_calls:
-                        effective_content = response.reasoning_content
-
                     api_result = {
-                        "content": effective_content,
+                        "content": response.content,
                         "reasoning_content": response.reasoning_content,
                         "tool_calls": response.tool_calls,
                         "finish_reason": response.finish_reason,
@@ -457,6 +509,52 @@ class BaseExpert:
                 span.set_attribute(SpanAttributes.ERROR_MESSAGE, str(e))
                 return error_result
 
+    def _is_valid_expert_output(self, content: str, config: ExpertConfig) -> bool:
+        """检查专家输出是否为可展示的正式成稿。"""
+        if not content or not content.strip():
+            return False
+
+        normalized = content.strip()
+        forbidden_markers = [
+            "tool_calls参数",
+            "需要保持原语言不变",
+            '"arguments":',
+            '"name":',
+        ]
+        if any(marker in normalized for marker in forbidden_markers):
+            return False
+
+        if config.required_sections:
+            return all(section in normalized for section in config.required_sections)
+
+        return True
+
+    def _repair_expert_output(
+        self,
+        messages: List[Dict],
+        invalid_content: str,
+        config: ExpertConfig,
+    ) -> Dict:
+        """当专家只输出思维碎片或缺少章节时，要求其重写为正式成稿。"""
+        repair_messages = list(messages)
+        repair_messages.append({"role": "assistant", "content": invalid_content or ""})
+        repair_messages.append({
+            "role": "user",
+            "content": (
+                "你上一条回复不是可展示的正式分析成稿。"
+                "现在禁止继续思维发散、禁止输出英文思维、禁止输出 tool_calls 或参数 JSON、禁止复述工具调用。"
+                "请仅基于上文已有工具结果，直接重写为面向用户展示的最终分析，并严格包含这些章节："
+                f"{', '.join(config.required_sections)}。"
+                "不要新增工具调用，不要解释你如何思考。"
+            ),
+        })
+        return self._call_api(
+            repair_messages,
+            tools=None,
+            agent_type=f"{config.name}_repair",
+            thinking_enabled=False,
+        )
+
     def _emit_structured_steps(
         self,
         expert_name: str,
@@ -486,18 +584,19 @@ class BaseExpert:
             )
 
             if body:
-                on_thinking(
-                    "expert_step_content",
-                    json.dumps(
-                        {
-                            "expert": expert_name,
-                            "step_index": step_index,
-                            "title": title,
-                            "content": body,
-                        },
-                        ensure_ascii=False,
-                    ),
-                )
+                for body_chunk in split_step_content_chunks(body):
+                    on_thinking(
+                        "expert_step_content",
+                        json.dumps(
+                            {
+                                "expert": expert_name,
+                                "step_index": step_index,
+                                "title": title,
+                                "content": body_chunk,
+                            },
+                            ensure_ascii=False,
+                        ),
+                    )
 
             on_thinking(
                 "expert_step_end",
@@ -532,14 +631,88 @@ class BaseExpert:
             {"role": "user", "content": user_content},
         ]
 
+        default_rounds = {
+            "tactics": 2,
+            "strategy": 2,
+            "engine": 2,
+        }.get(config.name, config.max_rounds)
+        effective_max_rounds = min(
+            config.max_rounds,
+            int(
+                os.getenv(
+                    f"{config.name.upper()}_EXPERT_MAX_ROUNDS",
+                    os.getenv("EXPERT_MAX_ROUNDS", str(default_rounds)),
+                )
+            ),
+        )
+
         tool_calls_log = []
         tool_failures: List[str] = []
 
-        for round_num in range(config.max_rounds):
+        for round_num in range(effective_max_rounds):
             if on_thinking:
                 on_thinking(f"{config.name}_thinking", f"[{config.display_name}] 第{round_num + 1}轮分析...")
 
-            response = self._call_api(messages, tools=config.tools)
+            streamed_content = False
+            content_buffer = ""
+            reasoning_buffer = ""
+            last_content_flush_at = time.time()
+            last_reasoning_flush_at = time.time()
+
+            def flush_content(force: bool = False) -> None:
+                nonlocal content_buffer, last_content_flush_at
+                if not content_buffer:
+                    return
+                if (
+                    force
+                    or len(content_buffer) >= 8
+                    or content_buffer.endswith(("。", "！", "？", "\n", "；", ":", "："))
+                    or (time.time() - last_content_flush_at) >= 0.2
+                ):
+                    if on_thinking:
+                        on_thinking(f"{config.name}_chunk", content_buffer)
+                    content_buffer = ""
+                    last_content_flush_at = time.time()
+
+            def flush_reasoning(force: bool = False) -> None:
+                nonlocal reasoning_buffer, last_reasoning_flush_at
+                if not reasoning_buffer:
+                    return
+                if (
+                    force
+                    or len(reasoning_buffer) >= 8
+                    or reasoning_buffer.endswith(("。", "！", "？", "\n", "；", ":", "："))
+                    or (time.time() - last_reasoning_flush_at) >= 0.2
+                ):
+                    if on_thinking:
+                        on_thinking(f"{config.name}_thinking", reasoning_buffer)
+                    reasoning_buffer = ""
+                    last_reasoning_flush_at = time.time()
+
+            def handle_content_chunk(chunk: str) -> None:
+                nonlocal streamed_content, content_buffer
+                if not chunk:
+                    return
+                streamed_content = True
+                content_buffer += chunk
+                flush_content()
+
+            def handle_reasoning_chunk(chunk: str) -> None:
+                nonlocal reasoning_buffer
+                if not chunk:
+                    return
+                reasoning_buffer += chunk
+                flush_reasoning()
+
+            response = self._call_api(
+                messages,
+                tools=config.tools,
+                agent_type=config.name,
+                on_content_chunk=handle_content_chunk,
+                on_reasoning_chunk=handle_reasoning_chunk,
+            )
+            flush_content(force=True)
+            flush_reasoning(force=True)
 
             if response["finish_reason"] == "error":
                 return ExpertResult(
@@ -567,7 +740,7 @@ class BaseExpert:
 
             if on_thinking and content:
                 emitted = self._emit_structured_steps(config.name, content, on_thinking)
-                if not emitted:
+                if not emitted and not streamed_content:
                     on_thinking(f"{config.name}_chunk", content)
 
             # 工具调用循环
@@ -682,6 +855,13 @@ class BaseExpert:
                 messages[-1]["tool_calls"] = assistant_tool_calls
             else:
                 # 无工具调用，分析完成
+                if not self._is_valid_expert_output(content, config):
+                    repaired_response = self._repair_expert_output(messages, content, config)
+                    repaired_content = repaired_response.get("content", "")
+                    if repaired_response.get("finish_reason") == "error" or not self._is_valid_expert_output(repaired_content, config):
+                        tool_failures.append("invalid_expert_output")
+                        continue
+                    content = repaired_content
                 finding = self._extract_finding(content, config.name)
                 # 元叙事：专家结束时推摘要 headline
                 if on_thinking:
@@ -741,21 +921,43 @@ class BaseExpert:
         final_reasoning = final_response.get("reasoning_content", "")
         if on_thinking and final_reasoning:
             on_thinking(f"{config.name}_reasoning", final_reasoning)
-        final_finding = self._extract_finding(final_response["content"], config.name)
+        final_content = final_response["content"]
+        if not self._is_valid_expert_output(final_content, config):
+            repaired_response = self._repair_expert_output(messages, final_content, config)
+            repaired_content = repaired_response.get("content", "")
+            if repaired_response.get("finish_reason") != "error" and self._is_valid_expert_output(repaired_content, config):
+                final_content = repaired_content
+            else:
+                return ExpertResult(
+                    expert_name=config.name,
+                    finding="分析失败",
+                    details=final_content or "专家未生成合格成稿",
+                    tool_calls=tool_calls_log,
+                    success=False,
+                    error="专家未生成合格成稿",
+                    status=AnalysisStatus.FAILED,
+                    failure_type=ExpertFailureType.INVALID_OUTPUT,
+                    confidence="low",
+                    missing_evidence=["expert_final_output"],
+                    retry_count=final_response.get("retry_count", 0),
+                    degraded=True,
+                    degradation_level=DegradationLevel.PARTIAL_EXPERTS,
+                )
+        final_finding = self._extract_finding(final_content, config.name)
         # 元叙事：专家结束时推摘要 headline
         if on_thinking:
             on_thinking("headline", f"{config.display_name}：{final_finding[:25]}…")
         # 记录专家结果到debug_logger
         if self.debug_logger:
-            self.debug_logger.log_expert_result(config.name, final_finding, final_response["content"], success=True)
+            self.debug_logger.log_expert_result(config.name, final_finding, final_content, success=True)
         final_degraded = bool(tool_failures) or final_response.get("degraded", False)
         # Phase 2: 构建证据链并解析 Claim
         ev_chain_final = _build_evidence_chain(tool_calls_log)
-        claims_final = parse_claims(final_response["content"], ev_chain_final)
+        claims_final = parse_claims(final_content, ev_chain_final)
         return ExpertResult(
             expert_name=config.name,
             finding=final_finding,
-            details=final_response["content"],
+            details=final_content,
             tool_calls=tool_calls_log,
             success=True,
             status=AnalysisStatus.DEGRADED if final_degraded else AnalysisStatus.SUCCESS,
@@ -839,6 +1041,7 @@ class BaseExpert:
         """从分析内容中提取核心发现（一句话摘要）"""
         if not content:
             return "无分析内容"
+        content = sanitize_display_text(content)
         content = STEP_PATTERN.sub("", content)
         content = _SECTION_RE.sub("", content)
         content = re.sub(r"\s+", " ", content).strip()

@@ -66,11 +66,11 @@ class PhaseDetector:
 
     # 检测阈值（可配置）
     OPENING_MAX_MOVES = 15
-    OPENING_MIN_PIECES = 26
+    OPENING_MIN_PIECES = 30
     ENDGAME_MAX_PIECES = 14
 
     @classmethod
-    def detect(cls, fen: str, move_count: int = 0) -> PhaseInfo:
+    def detect(cls, fen: str, move_count: int = 0, move_count_source: str = "explicit") -> PhaseInfo:
         """
         检测局面阶段
 
@@ -82,14 +82,49 @@ class PhaseDetector:
             PhaseInfo: 阶段信息
         """
         total_pieces = cls._count_pieces(fen)
+        has_explicit_move_count = move_count_source in {"explicit", "history"}
+        inferred_move_count = move_count if move_count > 0 else cls._extract_move_count_from_fen(fen)
+        effective_move_count = inferred_move_count if inferred_move_count > 0 else move_count
+        developed_major_pieces = cls._count_developed_major_pieces(fen)
 
         # 开局判断
-        if move_count <= cls.OPENING_MAX_MOVES and total_pieces >= cls.OPENING_MIN_PIECES:
+        if (
+            has_explicit_move_count
+            and effective_move_count > 0
+            and effective_move_count <= cls.OPENING_MAX_MOVES
+            and total_pieces >= cls.OPENING_MIN_PIECES
+            and developed_major_pieces <= 6
+        ):
             return PhaseInfo(
                 phase=GamePhase.OPENING,
                 phase_name="开局",
-                move_count=move_count,
-                total_pieces=total_pieces
+                move_count=effective_move_count,
+                total_pieces=total_pieces,
+                confidence=0.95,
+            )
+
+        if (
+            not has_explicit_move_count
+            and effective_move_count > 0
+            and effective_move_count <= 8
+            and total_pieces >= 31
+            and developed_major_pieces <= 4
+        ):
+            return PhaseInfo(
+                phase=GamePhase.OPENING,
+                phase_name="开局",
+                move_count=effective_move_count,
+                total_pieces=total_pieces,
+                confidence=0.68,
+            )
+
+        if not has_explicit_move_count and effective_move_count == 0 and total_pieces >= 31 and developed_major_pieces <= 4:
+            return PhaseInfo(
+                phase=GamePhase.OPENING,
+                phase_name="开局",
+                move_count=0,
+                total_pieces=total_pieces,
+                confidence=0.58,
             )
 
         # 残局判断
@@ -97,16 +132,18 @@ class PhaseDetector:
             return PhaseInfo(
                 phase=GamePhase.ENDGAME,
                 phase_name="残局",
-                move_count=move_count,
-                total_pieces=total_pieces
+                move_count=effective_move_count,
+                total_pieces=total_pieces,
+                confidence=0.96,
             )
 
         # 中局
         return PhaseInfo(
             phase=GamePhase.MIDDLEGAME,
             phase_name="中局",
-            move_count=move_count,
-            total_pieces=total_pieces
+            move_count=effective_move_count,
+            total_pieces=total_pieces,
+            confidence=0.82 if effective_move_count > 0 else 0.72,
         )
 
     @classmethod
@@ -120,6 +157,37 @@ class PhaseDetector:
             if char.isalpha():
                 count += 1
         return count
+
+    @classmethod
+    def _extract_move_count_from_fen(cls, fen: str) -> int:
+        parts = fen.split()
+        if len(parts) >= 6:
+            try:
+                return max(0, int(parts[5]))
+            except ValueError:
+                return 0
+        return 0
+
+    @classmethod
+    def _count_developed_major_pieces(cls, fen: str) -> int:
+        board_part = fen.split()[0]
+        rows = board_part.split('/')
+        initial_positions = {
+            (9, 0): 'R', (9, 1): 'N', (7, 1): 'C', (7, 7): 'C', (9, 7): 'N', (9, 8): 'R',
+            (0, 0): 'r', (0, 1): 'n', (2, 1): 'c', (2, 7): 'c', (0, 7): 'n', (0, 8): 'r',
+        }
+
+        developed = 0
+        for row_idx, row in enumerate(rows):
+            col_idx = 0
+            for char in row:
+                if char.isdigit():
+                    col_idx += int(char)
+                    continue
+                if char in {'R', 'N', 'C', 'r', 'n', 'c'} and initial_positions.get((row_idx, col_idx)) != char:
+                    developed += 1
+                col_idx += 1
+        return developed
 
 
 class OpeningAnalyzer:

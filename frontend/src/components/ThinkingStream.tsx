@@ -145,13 +145,10 @@ const ExpertProgressOverview: React.FC = () => {
             const state = experts[type];
             const isCompleted = state.status === 'completed';
             const isThinking = state.status === 'thinking';
-            const currentStep = state.steps.length > 0
-              ? state.steps[state.steps.length - 1]
-              : null;
             const statusText = isCompleted
               ? '已完成'
               : isThinking
-                ? (currentStep ? currentStep.title : (state.subtitle || '分析中...'))
+                ? (state.subtitle || '分析中...')
                 : '等待中';
 
             return (
@@ -250,7 +247,7 @@ export const ThinkingStream: React.FC = () => {
 
   if (visibleSteps.length > 0) {
     return (
-      <div ref={contentRef} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', overflowY: 'auto', maxHeight: 400 }}>
+      <div ref={contentRef} style={{ display: 'flex', flexDirection: 'column', gap: 10, width: '100%', overflowY: 'auto', minHeight: 0, height: '100%', paddingRight: 2 }}>
         {visibleSteps.map((step) => (
           <StepItem
             key={step.index}
@@ -311,9 +308,10 @@ export const ThinkingStream: React.FC = () => {
         <div
           ref={contentRef}
           style={{
-            maxHeight: 300,
+            position: 'absolute',
+            inset: '0 0 0 0',
             overflowY: 'auto',
-            padding: '14px 14px 22px 24px',
+            padding: '14px 14px 58px 24px',
             maskImage: 'linear-gradient(to bottom, transparent 0, black 18px, black calc(100% - 32px), transparent 100%)',
             WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 18px, black calc(100% - 32px), transparent 100%)',
           }}

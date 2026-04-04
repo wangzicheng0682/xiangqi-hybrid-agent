@@ -30,24 +30,53 @@ class EnginePool:
 
     def get_engine(self):
         """获取引擎实例（线程安全，延迟初始化）"""
-        if self._engine is None:
+        if self._engine is None or not self._is_engine_alive(self._engine):
             with self._engine_lock:
+                if self._engine is not None and not self._is_engine_alive(self._engine):
+                    try:
+                        self._engine.stop()
+                    except Exception:
+                        pass
+                    self._engine = None
                 if self._engine is None:
                     from core.engine.pikafish_engine import PikafishEngine
                     self._engine = PikafishEngine()
         return self._engine
 
+    def _is_engine_alive(self, engine) -> bool:
+        process = getattr(engine, "_process", None)
+        if process is None:
+            return False
+        try:
+            return process.poll() is None
+        except Exception:
+            return False
+
     def analyze(self, fen: str, depth: int = 20):
         """线程安全的分析接口，自动串行化并发请求"""
-        engine = self.get_engine()
         with self._analyze_lock:
-            return engine.analyze(fen, depth=depth)
+            for attempt in range(2):
+                engine = self.get_engine()
+                try:
+                    return engine.analyze(fen, depth=depth)
+                except RuntimeError as exc:
+                    if "Engine process not running" not in str(exc) or attempt == 1:
+                        raise
+                    self.release()
+            raise RuntimeError("Engine process not running")
 
     def analyze_multipv(self, fen: str, depth: int = 18, num_pv: int = 3):
         """线程安全的多候选走法分析"""
-        engine = self.get_engine()
         with self._analyze_lock:
-            return engine.analyze_multipv(fen, depth=depth, num_pv=num_pv)
+            for attempt in range(2):
+                engine = self.get_engine()
+                try:
+                    return engine.analyze_multipv(fen, depth=depth, num_pv=num_pv)
+                except RuntimeError as exc:
+                    if "Engine process not running" not in str(exc) or attempt == 1:
+                        raise
+                    self.release()
+            raise RuntimeError("Engine process not running")
 
     def release(self):
         """释放引擎实例（仅在服务关闭时调用）"""

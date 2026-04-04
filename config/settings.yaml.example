@@ -83,6 +83,11 @@ agent:
   # DEEPSEEK_API_KEY: your_key_here
   # OPENAI_API_KEY: your_key_here
   # ANTHROPIC_API_KEY: your_key_here
+  # ALIYUN_API_KEY: your_key_here
+  # EXPERT_LLM_MODEL: glm-4-flash
+  # TACTICS_EXPERT_MODEL: glm-4-flash
+  # STRATEGY_EXPERT_MODEL: glm-4-flash
+  # ENGINE_EXPERT_MODEL: glm-4-flash
 
   # Agent behavior
   max_iterations: 10

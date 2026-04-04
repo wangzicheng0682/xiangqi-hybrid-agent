@@ -1,0 +1,26 @@
+Calling API...
+[0.20s] [thinking] {"type": "thinking", "message": "启动分析..."}
+[0.20s] [thinking] {"type": "thinking", "message": "检测局面..."}
+[0.28s] [thinking] {"type": "thinking", "message": "引擎评估..."}
+[0.34s] [thinking] {"type": "thinking", "message": "AI分析中..."}
+[0.43s] [dispatch_info] {"type": "dispatch_info", "mode": "precompute_preview", "reason": "building_evidence_base", "phase": "中局", "move_count": 0, "parallelism": 2, "selected_experts": ["tactics", "strategy"]}
+[0.43s] [orchestrator_subtitle] {"type": "orchestrator_subtitle", "message": "协调中局分析：先建立证据底座"}
+[0.43s] [thinking] {"type": "thinking", "message": "分析进行中..."}
+[1.02s] [thinking] {"type": "thinking", "message": "分析进行中..."}
+[1.52s] [dispatch_info] {"type": "dispatch_info", "mode": "multi_agent", "reason": "strategic_question_dual_experts", "selected_experts": ["tactics", "strategy"], "parallelism": 2, "phase": "中局", "move_count": 0}
+[1.78s] [expert_tactics_thinking] {"type": "expert_tactics_thinking", "message": "[战术专家] 第1轮分析..."}
+[2.00s] [expert_strategy_thinking] {"type": "expert_strategy_thinking", "message": "[战略专家] 第1轮分析..."}
+[5.68s] [expert_result] strategy: ''
+[5.78s] [expert_result] tactics: ''
+
+============================================================
+FINAL RESULT (5.78s)
+============================================================
+【系统状态】本次分析失败
+【失败原因】API错误: 429；API错误: 429；policy:strategic_question_dual_experts
+【说明】当前没有足够证据支持可靠讲解，系统选择显式失败而不是伪造结论。
+============================================================
+
+Total events: 30
+Event type breakdown: {'thinking': 6, 'dispatch_info': 2, 'orchestrator_subtitle': 1, 'expert_start': 4, 'expert_step_start': 4, 'expert_step_content': 4, 'expert_step_end': 4, 'expert_tactics_thinking': 1, 'expert_strategy_thinking': 1, 'expert_result': 2, 'result': 1}
+First seen timestamps: {'thinking': 0.19959592819213867, 'dispatch_info': 0.42933154106140137, 'orchestrator_subtitle': 0.42933154106140137, 'expert_start': 0.42992281913757324, 'expert_step_start': 0.42992281913757324, 'expert_step_content': 0.42992281913757324, 'expert_step_end': 0.42992281913757324, 'expert_tactics_thinking': 1.782346487045288, 'expert_strategy_thinking': 2.002326726913452, 'expert_result': 5.677456378936768, 'result': 5.784087181091309}

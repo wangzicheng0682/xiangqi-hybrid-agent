@@ -4,6 +4,7 @@
 像裁判一样审视每一步棋。
 """
 
+import os
 from typing import Dict, List, Callable, Optional
 from core.llm.experts.base_expert import (
     BaseExpert, ExpertConfig, ExpertResult, CHESS_RULES_BLOCK,
@@ -242,6 +243,9 @@ TACTICS_TOOLS = [
 class TacticsExpert(BaseExpert):
     """战术专家"""
 
+    DEFAULT_MODEL = os.getenv("TACTICS_EXPERT_MODEL", os.getenv("EXPERT_LLM_MODEL", "glm-4-flash"))
+    DEFAULT_BASE_URL = os.getenv("TACTICS_EXPERT_BASE_URL", os.getenv("EXPERT_LLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/"))
+
     CONFIG = ExpertConfig(
         name="tactics",
         display_name="战术专家",
@@ -255,9 +259,24 @@ class TacticsExpert(BaseExpert):
             "analyze_move", "get_forcing_sequence",
             "simulate_move",
         ],
+        required_sections=["【战术发现】", "【对手处境】", "【详细分析】", "【结论可信度】"],
         max_rounds=3,
         max_tokens=1024,
     )
+
+    def __init__(
+        self,
+        api_key: str = None,
+        model: str = None,
+        base_url: str = None,
+        debug_logger=None,
+    ):
+        super().__init__(
+            api_key=api_key,
+            model=model or self.DEFAULT_MODEL,
+            base_url=base_url or self.DEFAULT_BASE_URL,
+            debug_logger=debug_logger,
+        )
 
     def analyze(
         self,

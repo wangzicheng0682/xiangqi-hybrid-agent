@@ -78,6 +78,10 @@ export interface AgentStore {
     type: ExpertType,
     toolCall: ToolCall
   ) => void;
+  updateExpertToolResult: (
+    type: ExpertType,
+    result: string
+  ) => void;
 
   // 步骤相关
   addExpertStep: (type: ExpertType, title: string, stepIndex: number) => void;
@@ -196,6 +200,31 @@ export const useAgentStore = create<AgentStore>((set) => ({
       },
     })),
 
+  updateExpertToolResult: (type, result) =>
+    set((state) => {
+      const toolCalls = state.experts[type].toolCalls;
+      if (!toolCalls.length) {
+        return state;
+      }
+
+      const nextToolCalls = [...toolCalls];
+      const lastIndex = nextToolCalls.length - 1;
+      nextToolCalls[lastIndex] = {
+        ...nextToolCalls[lastIndex],
+        result,
+      };
+
+      return {
+        experts: {
+          ...state.experts,
+          [type]: {
+            ...state.experts[type],
+            toolCalls: nextToolCalls,
+          },
+        },
+      };
+    }),
+
   addExpertStep: (type, title, stepIndex) =>
     set((state) => {
       const existing = state.experts[type].steps.find((step) => step.index === stepIndex);
@@ -217,7 +246,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
                 content: '',
                 status: 'thinking' as const,
               },
-            ].sort((a, b) => a.index - b.index),
+            ],
           },
         },
       };
@@ -291,7 +320,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
               content: '',
               status: 'thinking' as const,
             },
-          ].sort((a, b) => a.index - b.index),
+          ],
         },
       };
     }),

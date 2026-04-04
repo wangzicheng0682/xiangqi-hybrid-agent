@@ -4,6 +4,7 @@
 像教练一样把控方向。
 """
 
+import os
 from typing import Dict, List, Callable, Optional
 from core.llm.experts.base_expert import (
     BaseExpert, ExpertConfig, ExpertResult, CHESS_RULES_BLOCK,
@@ -240,6 +241,9 @@ STRATEGY_TOOLS = [
 class StrategyExpert(BaseExpert):
     """战略专家"""
 
+    DEFAULT_MODEL = os.getenv("STRATEGY_EXPERT_MODEL", os.getenv("EXPERT_LLM_MODEL", "glm-4-flash"))
+    DEFAULT_BASE_URL = os.getenv("STRATEGY_EXPERT_BASE_URL", os.getenv("EXPERT_LLM_BASE_URL", "https://open.bigmodel.cn/api/paas/v4/"))
+
     CONFIG = ExpertConfig(
         name="strategy",
         display_name="战略专家",
@@ -253,9 +257,24 @@ class StrategyExpert(BaseExpert):
             "simulate_move", "query_chess_principles",
             "search_chess_knowledge",
         ],
+        required_sections=["【战略评估】", "【双方计划】", "【详细分析】", "【战略建议】", "【结论可信度】"],
         max_rounds=3,
         max_tokens=1024,
     )
+
+    def __init__(
+        self,
+        api_key: str = None,
+        model: str = None,
+        base_url: str = None,
+        debug_logger=None,
+    ):
+        super().__init__(
+            api_key=api_key,
+            model=model or self.DEFAULT_MODEL,
+            base_url=base_url or self.DEFAULT_BASE_URL,
+            debug_logger=debug_logger,
+        )
 
     def analyze(
         self,

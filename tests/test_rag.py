@@ -12,6 +12,7 @@ RAG 系统测试 — ChromaRAG 索引与检索
 import pytest
 from core.rag.chroma_rag import ChromaRAG, _get_collection, index_game_openings
 from core.engine.base import RAGResult
+from core.rag.position_similarity import get_position_retriever
 
 
 class TestChromaRAGBasic:
@@ -107,6 +108,34 @@ class TestSearchChessKnowledgeTool:
         assert result.success
         # message 应包含编号和来源
         assert "1." in result.message
+
+    def test_tool_with_fen_returns_similar_positions(self):
+        """带FEN时应补充相似局面结果"""
+        from core.llm.agent_tools import AgentTools
+
+        tools = AgentTools()
+        result = tools.search_chess_knowledge(
+            fen="2bak1bn1/4a4/2n3c2/p1p1p1p1p/9/1N7/P2rP1P1P/CR2B1N2/4A4/2BAK4 b - - 14 14",
+            query="中局结构与计划",
+            top_k=3,
+        )
+
+        assert result.success
+        assert "similar_positions" in result.data
+        assert len(result.data["similar_positions"]) > 0
+
+
+class TestLocalPositionRetriever:
+    def test_retriever_returns_ranked_positions(self):
+        retriever = get_position_retriever()
+        results = retriever.retrieve(
+            "2bak1bn1/4a4/2n3c2/p1p1p1p1p/9/1N7/P2rP1P1P/CR2B1N2/4A4/2BAK4 b - - 14 14",
+            semantic_tags={"middlegame": 0.9, "open_file": 0.8},
+            top_k=2,
+        )
+
+        assert len(results) > 0
+        assert results[0].similarity >= 0.0
 
 
 class TestGameOpeningIndex:
