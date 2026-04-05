@@ -44,16 +44,37 @@ const EXPERT_STEP_OFFSET: Record<ExpertType, number> = {
   engine: 3000,
 };
 
+/** 专家思考阶段标题 — chunk流入时自动轮换 */
+const EXPERT_THINKING_PHASES: Record<ExpertType, string[]> = {
+  tactics: [
+    '扫描战术威胁',
+    '检测强制序列',
+    '分析子力交换',
+    '评估战术组合',
+    '验证战术结论',
+    '深入分析变化',
+  ],
+  strategy: [
+    '评估局面形势',
+    '分析阵型结构',
+    '检测位置弱点',
+    '审视子力协调',
+    '整理战略建议',
+    '综合评判局面',
+  ],
+  engine: [
+    '启动深度算路',
+    '计算候选变化',
+    '评估最佳着法',
+    '验证引擎判断',
+  ],
+};
+
+/** chunk驱动步骤生成间隔(ms) */
+const STEP_INTERVAL_MS = 4000;
+
 function getExpertStepId(expert: ExpertType, stepIndex: number) {
   return EXPERT_STEP_OFFSET[expert] + stepIndex;
-}
-
-function toExpertStepTitle(expert: ExpertType, title?: string) {
-  const expertName = EXPERT_NAME_MAP[expert];
-  if (!title) {
-    return `${expertName}正在分析`;
-  }
-  return `${expertName} · ${title}`;
 }
 
 /**
@@ -218,6 +239,21 @@ export default function App() {
     strategy: 0,
     engine: 0,
   });
+  // 追踪每个专家上次创建步骤的时间 (ms)
+  const expertLastStepTimeRef = useRef<Record<ExpertType, number>>({
+    tactics: 0,
+    strategy: 0,
+    engine: 0,
+  });
+  // 追踪每个专家当前思考阶段索引
+  const expertPhaseIndexRef = useRef<Record<ExpertType, number>>({
+    tactics: 0,
+    strategy: 0,
+    engine: 0,
+  });
+  // 综合阶段过渡步骤时间跟踪
+  const synthesisStepTimeRef = useRef<number>(0);
+  const synthesisPhaseRef = useRef<number>(0);
 
   const applyStreamMessage = useCallback((msg: AnalysisStreamMessage) => {
     const store = useAgentStore.getState();
@@ -236,13 +272,16 @@ export default function App() {
           status: 'thinking' as ExpertStatus,
           subtitle: `${EXPERT_NAME_MAP[expertType]}已接手`,
         });
-        // 为该专家创建第一个实时步骤
+        // 创建初始标题步骤，并启动chunk驱动计时
+        const phases = EXPERT_THINKING_PHASES[expertType];
+        expertPhaseIndexRef.current[expertType] = 0;
         const round = expertRoundRef.current[expertType];
         const stepId = getExpertStepId(expertType, round);
         expertLiveStepRef.current[expertType] = stepId;
-        store.addOrchestratorStep(`${EXPERT_NAME_MAP[expertType]} · 分析中`, stepId);
+        store.addOrchestratorStep(`${EXPERT_NAME_MAP[expertType]} · ${phases[0]}`, stepId);
+        expertLastStepTimeRef.current[expertType] = Date.now();
       } else if (msg.type === 'expert_result') {
-        // 完成：关闭当前实时步骤
+        // 关闭当前活跃步骤
         const liveStep = expertLiveStepRef.current[expertType];
         if (liveStep !== null) {
           store.finalizeOrchestratorStep(liveStep);
@@ -253,39 +292,67 @@ export default function App() {
           finding: sanitizeDisplayText(msg.finding || msg.summary || msg.message || ''),
           subtitle: msg.summary || msg.title || '',
         });
+        // 检查是否所有启动过的专家都已完成 → 创建综合过渡步骤
+        const allStarted = Object.values(expertLastStepTimeRef.current).some((t) => t > 0);
+        const allDone = allStarted && (['tactics', 'strategy', 'engine'] as ExpertType[]).every(
+          (e) => expertLastStepTimeRef.current[e] === 0 || expertLiveStepRef.current[e] === null
+        );
+        if (allDone) {
+          store.addOrchestratorStep('协调者正在综合各路见解', 8000);
+          synthesisStepTimeRef.current = Date.now();
+        }
       } else if (msg.type === 'expert_step_start' || msg.type === 'expert_step_content' || msg.type === 'expert_step_end') {
-        // 后处理步骤事件 → 忽略，因为实时 chunk 已经展示了内容
-        // 但用标题更新协调者步骤名
+        // 后处理步骤事件 → 用标题更新副标题
         if (msg.type === 'expert_step_start' && msg.title) {
-          const liveStep = expertLiveStepRef.current[expertType];
-          if (liveStep !== null) {
-            // 关闭旧步骤，创建以新标题命名的步骤
-            store.finalizeOrchestratorStep(liveStep);
-            expertRoundRef.current[expertType] += 1;
-            const newStepId = getExpertStepId(expertType, expertRoundRef.current[expertType]);
-            expertLiveStepRef.current[expertType] = newStepId;
-            store.addOrchestratorStep(toExpertStepTitle(expertType, msg.title), newStepId);
-            // 如果有 content，追加进去
-            if (msg.content) {
-              store.appendOrchestratorStepContent(newStepId, sanitizeDisplayText(msg.content));
+          store.updateExpert(expertType, { subtitle: msg.title });
+          // expert_step_start 也驱动时间步骤（弥补chunk停止后的空白期）
+          const now = Date.now();
+          const lastStepTime = expertLastStepTimeRef.current[expertType];
+          if (lastStepTime > 0 && (now - lastStepTime) >= STEP_INTERVAL_MS) {
+            const liveStep = expertLiveStepRef.current[expertType];
+            if (liveStep !== null) {
+              store.finalizeOrchestratorStep(liveStep);
             }
+            expertRoundRef.current[expertType] += 1;
+            const nextStepId = getExpertStepId(expertType, expertRoundRef.current[expertType]);
+            expertLiveStepRef.current[expertType] = nextStepId;
+            store.addOrchestratorStep(
+              `${EXPERT_NAME_MAP[expertType]} · ${msg.title}`,
+              nextStepId,
+            );
+            expertLastStepTimeRef.current[expertType] = now;
           }
-        } else if (msg.type === 'expert_step_content') {
-          const liveStep = expertLiveStepRef.current[expertType];
-          if (liveStep !== null) {
-            store.appendOrchestratorStepContent(liveStep, sanitizeDisplayText(msg.content || msg.message || ''));
-          }
-        } else if (msg.type === 'expert_step_end') {
-          // finalize 由 expert_result 统一处理，这里不额外 finalize
         }
       } else if (msg.type === `expert_${expertType}_thinking` || msg.type === `expert_${expertType}_chunk` || msg.type === `expert_${expertType}_reasoning`) {
+        // 实时 chunk → 更新专家 thinkingContent（悬浮卡片）
         store.updateExpert(expertType, { status: 'thinking' as ExpertStatus });
         const chunk = msg.message || '';
         store.appendExpertThinking(expertType, chunk);
-        // 同时推入协调者时间线的实时步骤
-        const liveStep = expertLiveStepRef.current[expertType];
-        if (liveStep !== null && chunk) {
-          store.appendOrchestratorStepContent(liveStep, sanitizeDisplayText(chunk));
+
+        // === chunk驱动步骤生成器 ===
+        // 每隔 STEP_INTERVAL_MS 自动 finalize 当前步骤并创建下一个思考阶段步骤
+        const now = Date.now();
+        const lastStepTime = expertLastStepTimeRef.current[expertType];
+        if (lastStepTime > 0 && (now - lastStepTime) >= STEP_INTERVAL_MS) {
+          // finalize 当前活跃步骤
+          const liveStep = expertLiveStepRef.current[expertType];
+          if (liveStep !== null) {
+            store.finalizeOrchestratorStep(liveStep);
+          }
+          // 推进到下一个思考阶段
+          const phases = EXPERT_THINKING_PHASES[expertType];
+          const phaseIdx = expertPhaseIndexRef.current[expertType];
+          const nextPhaseIdx = (phaseIdx + 1) % phases.length;
+          expertPhaseIndexRef.current[expertType] = nextPhaseIdx;
+          // 创建新步骤
+          expertRoundRef.current[expertType] += 1;
+          const nextStepId = getExpertStepId(expertType, expertRoundRef.current[expertType]);
+          expertLiveStepRef.current[expertType] = nextStepId;
+          store.addOrchestratorStep(
+            `${EXPERT_NAME_MAP[expertType]} · ${phases[nextPhaseIdx]}`,
+            nextStepId,
+          );
+          expertLastStepTimeRef.current[expertType] = now;
         }
       } else if (msg.type === `expert_${expertType}_tool`) {
         store.addExpertToolCall(expertType, {
@@ -294,7 +361,7 @@ export default function App() {
           params: '',
           result: '',
         });
-        // 工具调用时：关闭旧步骤，新建一个"工具验证"步骤
+        // 关闭旧步骤，新建工具标题步骤
         const liveStep = expertLiveStepRef.current[expertType];
         if (liveStep !== null) {
           store.finalizeOrchestratorStep(liveStep);
@@ -308,12 +375,9 @@ export default function App() {
         );
       } else if (msg.type === `expert_${expertType}_tool_result`) {
         store.updateExpertToolResult(expertType, msg.message || '工具已返回');
-        // 工具结果追加到当前步骤
+        // 关闭工具步骤，新建下一轮分析步骤
         const liveStep = expertLiveStepRef.current[expertType];
         if (liveStep !== null) {
-          const preview = (msg.message || '').slice(0, 120);
-          store.appendOrchestratorStepContent(liveStep, preview ? `${preview}\n` : '');
-          // 关闭工具步骤，新建下一轮分析步骤
           store.finalizeOrchestratorStep(liveStep);
           expertRoundRef.current[expertType] += 1;
           const nextStepId = getExpertStepId(expertType, expertRoundRef.current[expertType]);
@@ -324,22 +388,46 @@ export default function App() {
     }
 
     if (msg.type === 'synthesis_step_start') {
+      // 关闭综合等待过渡步骤（可能是 8000, 8001, 8002...）
+      if (synthesisStepTimeRef.current > 0) {
+        const phase = synthesisPhaseRef.current;
+        store.finalizeOrchestratorStep(8000 + phase);
+        for (let i = 0; i <= phase; i++) {
+          store.finalizeOrchestratorStep(8000 + i);
+        }
+        synthesisStepTimeRef.current = 0;
+      }
       store.updateOrchestratorSubtitle(msg.title || '协调者正在综合各路观点');
       store.addOrchestratorStep(msg.title || '综合分析', 9000 + (msg.step_index ?? 0));
     } else if (msg.type === 'synthesis_step_content') {
-      store.appendOrchestratorStepContent(9000 + (msg.step_index ?? 0), sanitizeDisplayText(msg.content || msg.message || ''));
+      // 综合步骤也只保留标题，不追加内容
     } else if (msg.type === 'synthesis_step_end') {
       store.finalizeOrchestratorStep(9000 + (msg.step_index ?? 0), msg.duration_ms);
     } else if (msg.type === 'orchestrator_subtitle') {
       store.updateOrchestratorSubtitle(msg.message || '');
     } else if (msg.type === 'dispatch_info') {
       store.updateOrchestratorSubtitle(toDispatchSubtitle(msg));
+      // 调度信息也作为一个步骤出现
+      store.addOrchestratorStep(toDispatchSubtitle(msg), 100);
+      store.finalizeOrchestratorStep(100);
     } else if (msg.type === 'synthesis_chunk') {
       if (msg.message) {
         if (!store.orchestrator.subtitle) {
           store.updateOrchestratorSubtitle('综合讲解生成中');
         }
         store.appendOrchestratorContent(sanitizeDisplayText(msg.message));
+        // synthesis_chunk 驱动过渡步骤: 在synthesis_step_start之前为空白期填充步骤
+        const SYNTHESIS_TRANSITIONS = ['整合专家观点', '梳理分析要点', '生成教学讲解'];
+        const now = Date.now();
+        const lastT = synthesisStepTimeRef.current;
+        if (lastT > 0 && (now - lastT) >= STEP_INTERVAL_MS) {
+          const phase = synthesisPhaseRef.current;
+          const nextPhase = (phase + 1) % SYNTHESIS_TRANSITIONS.length;
+          synthesisPhaseRef.current = nextPhase;
+          store.finalizeOrchestratorStep(8000 + phase);
+          store.addOrchestratorStep(SYNTHESIS_TRANSITIONS[nextPhase], 8000 + nextPhase + 1);
+          synthesisStepTimeRef.current = now;
+        }
       }
     } else if (msg.type === 'thinking' || msg.type === 'thinking_chunk') {
       if (msg.message) {
@@ -347,6 +435,18 @@ export default function App() {
         const progressHints = ['启动分析', '检测局面', '引擎评估', 'AI分析中', '分析进行中', '专家分析中'];
         if (progressHints.some((hint) => progressMessage.includes(hint))) {
           store.updateOrchestratorSubtitle(progressMessage);
+        }
+        // 综合等待期: 通过 thinking 心跳驱动过渡步骤
+        const WAITING_PHASES = ['汇总证据链', '比对专家分歧', '构建讲解框架', '准备综合分析'];
+        const now = Date.now();
+        const lastT = synthesisStepTimeRef.current;
+        if (lastT > 0 && (now - lastT) >= STEP_INTERVAL_MS) {
+          const phase = synthesisPhaseRef.current;
+          const nextPhase = (phase + 1) % WAITING_PHASES.length;
+          synthesisPhaseRef.current = nextPhase;
+          store.finalizeOrchestratorStep(8000 + phase);
+          store.addOrchestratorStep(WAITING_PHASES[nextPhase], 8000 + nextPhase + 1);
+          synthesisStepTimeRef.current = now;
         }
       }
     }
@@ -371,6 +471,10 @@ export default function App() {
     // 重置专家轮次跟踪
     expertLiveStepRef.current = { tactics: null, strategy: null, engine: null };
     expertRoundRef.current = { tactics: 0, strategy: 0, engine: 0 };
+    expertLastStepTimeRef.current = { tactics: 0, strategy: 0, engine: 0 };
+    expertPhaseIndexRef.current = { tactics: 0, strategy: 0, engine: 0 };
+    synthesisStepTimeRef.current = 0;
+    synthesisPhaseRef.current = 0;
     setPanelActive(true);
     setAnalyzing(true);
     setBoardCollapsed(true);
@@ -428,7 +532,7 @@ export default function App() {
     <>
       {/* z=0: WebGL 背景层 */}
       <LiquidGlassApp
-        bgImage="/bg.jpg"
+        bgImage="/O.webp"
         leftGlassRect={leftGlassRect}
         rightSidebarRect={rightSidebarRect}
         onDeepAnalysis={triggerDeepAnalysis}

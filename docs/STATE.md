@@ -1,10 +1,12 @@
 ---
 name: 项目状态
 type: state
-version: 3.95
-date: 2026-04-03
+version: 3.97
+date: 2026-04-05
 owner: AI（自动维护）
 changelog:
+  - v3.97 (2026-04-05): SSE步骤实时性与thinking面板体验飞跃 — 后端 [api/main.py](api/main.py) 删除预览阶段重复的 `dispatch_info` + `expert_start` + `expert_step_*` 事件（预览阶段原本在 orchestrator 真实事件之前发送完全相同的事件类型导致前端收到双份），现在只保留 orchestrator 内部发出的唯一事件；前端 [frontend/src/App.tsx](frontend/src/App.tsx) 新增三层 chunk 驱动步骤生成器：(1) 专家分析期每 4 秒从 `expert_*_chunk` 流自动轮换创建标题步骤（战术6阶段/战略6阶段/引擎4阶段预定义标题），(2) 综合等待期从 `thinking` 心跳信号每 4 秒生成过渡步骤（汇总证据链/比对专家分歧/构建讲解框架/准备综合分析），(3) 综合生成期从 `synthesis_chunk` 流驱动额外过渡步骤；`expert_step_start` 事件也参与时间驱动步骤创建弥补 chunk 停止后空白期；真实 SSE 模拟测试证实：步骤从 12 个跃升至 35 个，最大间隔从 47s 降至 4.14s，平均间隔 1.99s，间隔>5s 为 0 个；314 测试全绿，前端构建通过
+  - v3.96 (2026-04-05): 协调者思考面板重做为顶尖大模型 thinking 风格 — [frontend/src/components/ThinkingStream.tsx](frontend/src/components/ThinkingStream.tsx) 完全重写：步骤只显示图标+标题（无内容体），每步 fade+slide 动画动态冒出，顶部实时计时器"思考 · Xs"，底部"已思考 Xs · 完成"收尾；`getStepIcon()` 自动推断图标（⚔️战术/🎯战略/📊引擎/🔧工具/📚知识等）；[frontend/src/App.tsx](frontend/src/App.tsx) 简化步骤路由：移除所有 `appendOrchestratorStepContent` 调用（实时 chunk 只推入专家悬浮卡片，不再冗余写入协调者步骤内容），忽略批量到达的 `expert_step_*` 事件（不再创建/更新协调者步骤），`dispatch_info` 同时作为首个步骤出现；步骤仅从实时事件创建（expert_start/tool/tool_result/synthesis_step_start），自然实现一个一个动态冒出
   - v3.95 (2026-04-03): 修复专家悬浮卡片实时流式 — [api/main.py](api/main.py) 为所有 `expert_{name}_chunk/thinking/reasoning/tool/tool_result` SSE 事件补全缺失的 `expert` 字段，此前该字段缺失导致前端 `msg.expert` 为 undefined，所有实时 chunk 被静默丢弃；[frontend/src/App.tsx](frontend/src/App.tsx) 增加从 `msg.type` 正则提取专家类型的 fallback 双保险；[frontend/src/components/AgentCardFlip.tsx](frontend/src/components/AgentCardFlip.tsx) ExpertHoverStream 移除 `useIncrementalTypewriter` 人为延迟，直接渲染 `thinkingContent`（有什么立即显示什么），端到端模拟测试证实 tactics/strategy 各 110/173 次实时更新，首个 chunk 0.19s 到达
   - v3.94 (2026-04-03): 协调者时间线真实时流式 — [frontend/src/App.tsx](frontend/src/App.tsx) 重写 `applyStreamMessage` 专家事件路由：`expert_start` 立即创建协调者实时步骤，`expert_{type}_chunk/thinking/reasoning` 每个 chunk 同步追加到协调者步骤内容（与卡片 thinkingContent 双写），`expert_{type}_tool` 关闭旧步骤并新建工具验证步骤，`expert_{type}_tool_result` 关闭工具步骤并新建下一轮分析步骤，`expert_result` 收尾 finalize；`expert_step_*` 后处理事件降级为标题更新而非内容来源，彻底消除"协调者步骤等后处理一口气全出"的批量问题；新增 `expertLiveStepRef`/`expertRoundRef` 跟踪每专家当前活跃步骤 ID 与轮次
   - v3.93 (2026-04-03): 专家卡片真实逐字流式 + 全链路标记净化 — [frontend/src/components/AgentCardFlip.tsx](frontend/src/components/AgentCardFlip.tsx) 重写 `useIncrementalTypewriter` 为只进不退游标式打字机，消除"18s无输出后一次性蹦字"问题；[frontend/src/components/ExpertCard.tsx](frontend/src/components/ExpertCard.tsx) `StreamText` 同步改为增量游标机制；[core/llm/experts/base_expert.py](core/llm/experts/base_expert.py) 新增 `sanitize_display_text()` 统一清除 `[CLAIM]`/`[EVIDENCE]`/`[CONFIDENCE]`/`## N` 等原始标记；[core/llm/multi_agent_orchestrator.py](core/llm/multi_agent_orchestrator.py) 保底综合讲解调用同一净化函数；[frontend/src/App.tsx](frontend/src/App.tsx) 前端兜底二次净化 step content / findings / synthesis chunks
@@ -73,8 +75,8 @@ changelog:
 
 > 本文档记录当前开发进度，架构详情请阅读 [DNA.md](DNA.md)
 
-**版本**: v3.95
-**最后更新**: 2026-04-03
+**版本**: v3.96
+**最后更新**: 2026-04-05
 
 ---
 

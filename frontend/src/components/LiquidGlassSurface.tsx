@@ -181,7 +181,7 @@ export const LiquidGlassSurface: React.FC<LiquidGlassSurfaceProps> = ({
       bgTextureReadyRef.current = true;
       bgTextureRatioRef.current = image.naturalWidth / image.naturalHeight;
     };
-    image.src = '/bg.jpg';
+    image.src = '/O.webp';
 
     return () => {
       if (bgTextureRef.current && !externalBgTexture) {

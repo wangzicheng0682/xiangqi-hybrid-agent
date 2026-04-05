@@ -128,7 +128,7 @@ export interface LiquidGlassAppProps {
 }
 
 const LiquidGlassApp = ({
-  bgImage = '/bg.jpg',
+  bgImage = '/O.webp',
   leftGlassRect,
   rightSidebarRect,
   onDeepAnalysis,

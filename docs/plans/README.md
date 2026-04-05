@@ -25,6 +25,8 @@ plans/
 ├── 004-inference-control-upgrade.md  # 推理时控制升级方案
 ├── 005-data-and-knowledge-assets.md  # 数据与知识资产建设方案
 ├── 006-asset-lifecycle-and-eval-driven-workflow.md  # 资产生命周期与评测驱动工作流
+├── 007-sse-realtime-thinking-steps.md  # SSE步骤实时性与thinking面板体验优化
+├── 008-right-stage-and-evidence-court-redesign.md  # 右侧分析舞台与证据裁决台重设计
 └── frontend/                  # 前端相关Plan
     ├── README.md               # 前端Plan规范
     ├── 001-agent-poker-panel.md

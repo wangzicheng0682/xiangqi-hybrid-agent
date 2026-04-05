@@ -1636,29 +1636,8 @@ async def analyze_deep_stream(
             await asyncio.sleep(0.05)
 
             if not likely_opening_fast_path:
-                preview_dispatch = {
-                    'type': 'dispatch_info',
-                    'mode': 'precompute_preview',
-                    'reason': 'building_evidence_base',
-                    'phase': phase_info.phase_name,
-                    'move_count': len(move_history),
-                    'parallelism': preview_policy.parallelism,
-                    'selected_experts': preview_policy.selected_experts,
-                }
-                yield f"data: {json.dumps(preview_dispatch, ensure_ascii=False)}\n\n"
                 yield f"data: {json.dumps({'type': 'orchestrator_subtitle', 'message': f'协调{phase_info.phase_name}分析：先建立证据底座'}, ensure_ascii=False)}\n\n"
-
-                preview_messages = {
-                    'tactics': '正在整理攻防、牵制与强制手线索。',
-                    'strategy': '正在整理阵型、先手和双方计划。',
-                    'engine': '正在等待轻量评估回传，用来校准优劣方向。',
-                }
-                for index, expert_name in enumerate(preview_policy.selected_experts):
-                    preview_step = -10 - index
-                    yield f"data: {json.dumps({'type': 'expert_start', 'expert': expert_name}, ensure_ascii=False)}\n\n"
-                    yield f"data: {json.dumps({'type': 'expert_step_start', 'expert': expert_name, 'step_index': preview_step, 'title': '证据准备'}, ensure_ascii=False)}\n\n"
-                    yield f"data: {json.dumps({'type': 'expert_step_content', 'expert': expert_name, 'step_index': preview_step, 'content': preview_messages.get(expert_name, '正在汇总局面线索。')}, ensure_ascii=False)}\n\n"
-                    yield f"data: {json.dumps({'type': 'expert_step_end', 'expert': expert_name, 'step_index': preview_step, 'duration_ms': 0}, ensure_ascii=False)}\n\n"
+                yield f"data: {json.dumps({'type': 'thinking', 'message': '证据底座构建中...'}, ensure_ascii=False)}\n\n"
 
             while not analysis_completed:
                 yield f"data: {json.dumps({'type': 'thinking', 'message': '分析进行中...'}, ensure_ascii=False)}\n\n"
